@@ -196,6 +196,34 @@ mod sealed {
         reason = "a sealing supertrait is public, so that it may bound a public trait, and unnameable, so that no other crate implements it"
     )]
     pub trait Readable {}
+
+    /// Seals [`Net`](crate::nets::cut::Net): only the crate's structures
+    /// have their cuts eliminated, by the steps this trait takes.
+    #[expect(
+        unnameable_types,
+        reason = "a sealing supertrait is public, so that it may bound a public trait, and unnameable, so that no other crate implements it"
+    )]
+    pub trait Net: Sized {
+        /// Returns the cut links, each from its end in a cut formula's
+        /// tree.
+        fn cut_links(&self) -> &[(crate::nets::VertexId, crate::nets::VertexId)];
+
+        /// Decides whether the structure is a proof net.
+        fn check(
+            &self,
+            stop: &mut dyn FnMut(crate::limits::Progress) -> bool,
+        ) -> Result<(), crate::nets::NetError>;
+
+        /// Reduces the cut link `cut` of a proof net and returns the
+        /// structure made, unchecked, and the step, within the bound of
+        /// `options` on vertices and `limits.memory_bytes`.
+        fn reduce(
+            &self,
+            cut: (crate::nets::VertexId, crate::nets::VertexId),
+            options: &crate::proofs::cut::Options,
+            limits: &crate::Limits,
+        ) -> Result<(Self, crate::nets::cut::Step), crate::Error>;
+    }
 }
 pub mod proofs;
 pub mod search;

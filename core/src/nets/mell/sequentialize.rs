@@ -12,7 +12,8 @@
 //! the doors are such conclusions from the start, their `?` rules lying
 //! below the promotion. With Mix allowed, a sub-net in several parts is
 //! proved part by part. Two literals alone are an axiom, a `!` vertex alone
-//! the promotion of its box's contents. Otherwise some `⊗` conclusion is
+//! the promotion of its box's contents. Otherwise some `⊗` conclusion or
+//! cut link (a `⊗` without a conclusion, whose rule is the cut) is
 //! splitting, which the bridge of its premise edge in the plain graph
 //! says, as in the multiplicative case: the depth's graph is a
 //! multiplicative structure in which a `?` vertex or a door is a `⅋` of
@@ -50,6 +51,9 @@ enum Step {
     Mix,
     /// Apply this `⊗` to the last two sub-nets proved.
     Tensor(OccId),
+    /// Cut on this occurrence of a cut formula's tree the last two
+    /// sub-nets proved, which hold it and its dual.
+    Cut(OccId),
     /// Apply this promotion to the last sub-net proved.
     Bang(OccId),
     /// Apply these rules to the last sub-net proved, the last first.
@@ -108,7 +112,8 @@ impl MellStructure {
                 ..Progress::new(Phase::Net, stage, stages)
             })
         };
-        let roots = (0..self.forest.roots().len() as u32).collect();
+        let mut roots: Vec<u32> = (0..self.forest.roots().len() as u32).collect();
+        roots.extend(self.graph.cuts_in(NONE));
         let Some(root) = run.sequentialize(roots, &mut stop) else {
             return Err(STOPPED.into());
         };
@@ -192,6 +197,11 @@ impl Sequentialization<'_> {
                     let left = self.premise();
                     self.push(Node::Tensor(Member::from(t), left, right))
                 }
+                Step::Cut(a) => {
+                    let right = self.premise();
+                    let left = self.premise();
+                    self.push(Node::Cut(Member::from(a), left, right))
+                }
                 Step::Bang(b) => {
                     let premise = self.premise();
                     self.push(Node::Bang(Member::from(b), premise))
@@ -234,12 +244,17 @@ impl Sequentialization<'_> {
         let net = self.net;
         let graph = &net.graph;
         let n = graph.vertex_offset();
+        let first_cut = graph.first_cut();
         let mut rules = Vec::new();
         // A conclusion opened without a premise in its place is marked
         // `NONE` and dropped at the end, so that each costs constant time.
         let mut i = 0;
         while i < gamma.len() {
             let c = gamma[i];
+            if c >= first_cut {
+                i += 1;
+                continue;
+            }
             if c >= n {
                 gamma[i] = NONE;
                 i += 1;
@@ -309,7 +324,7 @@ impl Sequentialization<'_> {
             }
         } else if gamma
             .iter()
-            .all(|&c| net.forest.is_literal(net.occurrence[c as usize]))
+            .all(|&c| c < n && net.forest.is_literal(net.occurrence[c as usize]))
         {
             debug_assert!(
                 gamma.len() == 2 && net.partner[gamma[0] as usize] == gamma[1],
@@ -319,37 +334,61 @@ impl Sequentialization<'_> {
             let axiom = self.push(Node::Ax(x.min(y), x.max(y)));
             self.proved.push(axiom);
         } else if let [bang] = gamma[..]
+            && bang < n
             && net.kind(bang) == Kind::Bang
         {
             self.scratch.delete(bang);
             let premise = net.premises(VertexId::new(bang)).next().unwrap().get();
             let mut contents = vec![premise];
             contents.extend(graph.doors_in(bang));
+            contents.extend(graph.cuts_in(bang));
             self.steps.push(Step::Bang(net.occurrence[bang as usize]));
             self.steps.push(Step::Prove(contents));
         } else {
-            // The splitting ⊗ conclusion with the smallest id: one whose
-            // premise edge is a bridge.
-            let t = gamma
+            // The splitting ⊗ conclusion with the smallest id, one whose
+            // premise edge is a bridge, or else the splitting cut vertex
+            // with the smallest id, whose edge to its end in a cut
+            // formula's tree is a bridge.
+            let tensor = gamma
                 .iter()
                 .copied()
-                .filter(|&c| net.kind(c) == Kind::Tensor)
+                .filter(|&c| c < n && net.kind(c) == Kind::Tensor)
                 .filter(|&c| {
                     let l = net.premises(VertexId::new(c)).next().unwrap().get();
                     self.scratch.is_bridge(c, l)
                 })
-                .min()
-                .expect("a connected proof net that is no link and no box has a splitting ⊗");
-            let mut premises = net.premises(VertexId::new(t));
-            let (l, r) = (
-                premises.next().unwrap().get(),
-                premises.next().unwrap().get(),
-            );
-            self.scratch.delete(t);
+                .min();
+            let cut = || {
+                gamma
+                    .iter()
+                    .copied()
+                    .filter(|&c| c >= first_cut)
+                    .filter(|&c| self.scratch.is_bridge(c, graph.cut_ends(c).0))
+                    .min()
+            };
+            let (split, l, r) = match tensor {
+                Some(t) => {
+                    let mut premises = net.premises(VertexId::new(t));
+                    let (l, r) = (
+                        premises.next().unwrap().get(),
+                        premises.next().unwrap().get(),
+                    );
+                    (t, l, r)
+                }
+                None => {
+                    let c = cut().expect(
+                        "a connected proof net that is no link and no box has a splitting ⊗ or \
+                         cut link",
+                    );
+                    let (a, d) = graph.cut_ends(c);
+                    (c, a, d)
+                }
+            };
+            self.scratch.delete(split);
             graph.search(&mut self.scratch, [l]);
             let (mut left, mut right) = (vec![l], vec![r]);
             for &c in &gamma {
-                if c == t {
+                if c == split {
                     continue;
                 }
                 if self.scratch.reached(c) {
@@ -358,7 +397,12 @@ impl Sequentialization<'_> {
                     right.push(c);
                 }
             }
-            self.steps.push(Step::Tensor(net.occurrence[t as usize]));
+            let occurrence = net.occurrence[l as usize];
+            self.steps.push(if split < n {
+                Step::Tensor(net.occurrence[split as usize])
+            } else {
+                Step::Cut(occurrence)
+            });
             self.steps.push(Step::Prove(right));
             self.steps.push(Step::Prove(left));
         }

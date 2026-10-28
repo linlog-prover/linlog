@@ -90,7 +90,9 @@ impl ProofStructure {
     /// [`is_correct`](Self::is_correct) without Mix, whatever the
     /// structure's criterion. It holds working memory linear in the
     /// structure, takes time linear in it for the cycle and for each
-    /// implication, and asks `stop` once per implication.
+    /// implication, and asks `stop` once per implication. A structure with
+    /// cut links has no essential net here: its verdict is that of
+    /// [`is_correct`](Self::is_correct) without Mix.
     ///
     /// # Errors
     ///
@@ -109,6 +111,11 @@ impl ProofStructure {
         let reading = self
             .reading()
             .map_err(|shape| NetError::NotIntuitionistic { shape })?;
+        if !self.is_cut_free() {
+            let mut plain = self.clone();
+            plain.criterion.mix = false;
+            return plain.is_correct(stop);
+        }
         let n = forest.len();
         // Every vertex has at most two successors: an input `⅋` its two
         // premises, any other vertex one.

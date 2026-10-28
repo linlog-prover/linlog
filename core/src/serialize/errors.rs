@@ -289,6 +289,12 @@ impl Serialize for NetError {
                 "kind" => "in_box"; "door" => &door.get(); "error" => error.as_ref()),
             Self::NotMell { fragment, mode } => entries!(s;
                 "kind" => "not_mell"; "fragment" => fragment; "mode" => mode),
+            Self::NoCut { vertex } => {
+                entries!(s; "kind" => "no_cut"; "vertex" => &vertex.map(VertexId::get))
+            }
+            Self::Reduction { error } => {
+                entries!(s; "kind" => "reduction"; "error" => error.as_ref())
+            }
             Self::Refused { refusal } => entries!(s; "kind" => "refused"; "refusal" => refusal),
         }
     }
@@ -306,6 +312,8 @@ impl Serialize for crate::nets::Placement {
             Nesting => "nesting",
             Link => "link",
             Weakening => "weakening",
+            Cut => "cut",
+            Uncut => "uncut",
         })
     }
 }

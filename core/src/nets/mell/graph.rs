@@ -7,16 +7,21 @@
 //! doors, and the correctness criterion's tests on it.
 //!
 //! The vertices are the structure's, each at the depth of its innermost
-//! box, and one *door vertex* for each `?` vertex and each box inside its
+//! box, one *door vertex* for each `?` vertex and each box inside its
 //! own that a wire of it enters: inside that box the door stands for the
-//! `?` vertex. A box's `!` vertex lies at the depth around the box and
+//! `?` vertex, and after the doors one *cut vertex* per cut link, a `⊗`
+//! without a conclusion whose premises are the link's two ends, so that
+//! the graph stays simple where a wire of a `?` end enters the box of the
+//! `!` end. A box's `!` vertex lies at the depth around the box and
 //! takes the box's place there, so a wire entering the box ends at it.
 //! The edges, each between two vertices of one depth: a `⊗` or `⅋` to its
 //! premises; a `?` vertex or a door to each copy at its depth, to each
 //! weakening literal there and to the `!` vertex of each box a wire
-//! enters (once, however many wires do); and the links. Slot 0 of every
-//! vertex is its *parent edge*, to the vertex below it at its depth, or
-//! `NONE` for a conclusion of its depth (a root, a box's premise, a door).
+//! enters (once, however many wires do); a cut vertex to its two ends; and
+//! the links. Slot 0 of every vertex is its *parent edge*, to the vertex
+//! below it at its depth (a cut link's end to its cut vertex), or `NONE`
+//! for a conclusion of its depth (a root, a box's premise, a door, a cut
+//! vertex).
 //!
 //! The colouring is the one of the multiplicative graph, with `?` vertices
 //! and doors switched like a `⅋` of any arity: their wires share a colour
@@ -50,6 +55,9 @@ pub(super) struct Graph {
     n: u32,
     /// Per door, the `?` vertex it stands for.
     door_of: Box<[u32]>,
+    /// Per cut vertex, which follow the doors, its two ends, the one in a
+    /// cut formula's tree first.
+    cut_of: Box<[(u32, u32)]>,
     /// The depths in the order the criterion checks them, outside every
     /// box first, then each box by its `!` vertex, with the vertices and
     /// the edges a switching keeps there.
@@ -206,7 +214,22 @@ impl Graph {
         for &(x, y) in s.links() {
             b.extra.push((x.get(), y.get()));
         }
-        let total = n + b.doors.len();
+        // A vertex per cut link after the doors, below its two ends.
+        let first_cut = n as u64 + b.doors.len() as u64;
+        if first_cut + s.cuts.len() as u64 > MOST {
+            return Err(Error::Refused(Refusal::Index {
+                what: Space::Vertex,
+                count: first_cut + s.cuts.len() as u64,
+                most: MOST,
+            }));
+        }
+        for (i, &(x, y)) in s.cuts.iter().enumerate() {
+            let c = (first_cut + i as u64) as u32;
+            b.parent.push(NONE);
+            b.parent[x.index()] = c;
+            b.parent[y.index()] = c;
+        }
+        let total = n + b.doors.len() + s.cuts.len();
         for v in 0..total {
             if b.parent[v] != NONE {
                 b.extra.push((b.parent[v], v as u32));
@@ -262,6 +285,10 @@ impl Graph {
             level.push(depth);
             door_of.push(q);
         }
+        for &(x, _) in &s.cuts {
+            switched.push(false);
+            level.push(s.inside[x.index()]);
+        }
         let mut graph = Self {
             start: start.into_boxed_slice(),
             to: to.into_boxed_slice(),
@@ -269,6 +296,7 @@ impl Graph {
             level: level.into_boxed_slice(),
             n: n as u32,
             door_of: door_of.into_boxed_slice(),
+            cut_of: s.cuts.iter().map(|&(x, y)| (x.get(), y.get())).collect(),
             depths: Box::default(),
         };
         graph.depths = graph.count(s);
@@ -339,7 +367,24 @@ impl Graph {
 
     /// Returns the door vertices inside the box of `bang`.
     pub(super) fn doors_in(&self, bang: u32) -> impl Iterator<Item = u32> + '_ {
-        (self.n..self.len() as u32).filter(move |&g| self.level[g as usize] == bang)
+        (self.n..self.first_cut()).filter(move |&g| self.level[g as usize] == bang)
+    }
+
+    /// Returns the cut vertices at the depth of `level`, a `!` vertex or
+    /// `NONE` outside every box.
+    pub(super) fn cuts_in(&self, level: u32) -> impl Iterator<Item = u32> + '_ {
+        (self.first_cut()..self.len() as u32).filter(move |&g| self.level[g as usize] == level)
+    }
+
+    /// Returns the first cut vertex: the doors end there.
+    pub(super) fn first_cut(&self) -> u32 {
+        (self.len() - self.cut_of.len()) as u32
+    }
+
+    /// Returns the two ends of a cut vertex, the one in a cut formula's
+    /// tree first.
+    pub(super) fn cut_ends(&self, c: u32) -> (u32, u32) {
+        self.cut_of[(c - self.first_cut()) as usize]
     }
 
     /// Returns the slots of a vertex.
@@ -350,7 +395,7 @@ impl Graph {
     /// Returns the `?` vertices with a door in the box of `bang`.
     pub(super) fn doors(&self, bang: VertexId) -> Vec<VertexId> {
         let n = self.n as usize;
-        let mut doors: Vec<VertexId> = (n..self.len())
+        let mut doors: Vec<VertexId> = (n..self.first_cut() as usize)
             .filter(|&g| self.level[g] == bang.get())
             .map(|g| VertexId::new(self.door_of[g - n]))
             .collect();
@@ -358,13 +403,15 @@ impl Graph {
         doors
     }
 
-    /// Returns the structure vertex a graph vertex stands for: itself, or a
-    /// door's `?` vertex.
+    /// Returns the structure vertex a graph vertex stands for: itself, a
+    /// door's `?` vertex, or a cut vertex's end in a cut formula's tree.
     fn named(&self, g: u32) -> VertexId {
         if g < self.n {
             VertexId::new(g)
-        } else {
+        } else if g < self.first_cut() {
             VertexId::new(self.door_of[(g - self.n) as usize])
+        } else {
+            VertexId::new(self.cut_ends(g).0)
         }
     }
 
@@ -407,7 +454,14 @@ impl Graph {
                     return Err(STOPPED);
                 };
                 let level = self.level[cycle[0] as usize];
-                let cycle = cycle.into_iter().map(|g| self.named(g)).collect();
+                // A cut vertex stands between its two ends, which the
+                // cycle names one after the other.
+                let first_cut = self.first_cut();
+                let cycle = cycle
+                    .into_iter()
+                    .filter(|&g| g < first_cut)
+                    .map(|g| self.named(g))
+                    .collect();
                 return Err(Self::at(level, NetError::SwitchingCycle { cycle }));
             }
             Some(true) => {}

@@ -56,7 +56,9 @@ pub struct Options {
     /// The most steps [`eliminate`] takes.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub steps: Option<u64>,
-    /// The most nodes a proof a step makes may have.
+    /// The most nodes a proof a step makes may have; on a proof net
+    /// ([`nets::cut`](crate::nets::cut)), the most vertices a net a step
+    /// makes may have.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub nodes: Option<u64>,
 }

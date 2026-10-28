@@ -7,7 +7,9 @@
 //! rule makes the vertex of the formula it introduces from the vertices
 //! its premises left open, so the vertices of a formula are instances of
 //! its occurrence. An axiom makes two literals and links them; a promotion
-//! closes the box around everything its premise made; a copy moves an
+//! closes the box around everything its premise made; a cut joins the
+//! instances of its formula and its dual its two premises left open with a
+//! cut link; a copy moves an
 //! instance from the linear zone to the unrestricted one; a `?` rule
 //! takes every copy of its subformula its premise made and no `?` rule
 //! above took, as the checker reads the unrestricted zone, and without
@@ -50,8 +52,7 @@ impl MellStructure {
     /// # Errors
     ///
     /// [`Error::GoalProof`] for a proof of a goal other than the sequent;
-    /// [`NetError::NotMell`] outside unit-free MELL; [`NetError::Rule`]
-    /// for a cut, which no structure links yet;
+    /// [`NetError::NotMell`] outside unit-free MELL;
     /// the checker's [`CheckError`](crate::proofs::CheckError) for a term
     /// that is no proof; [`Refusal::Index`] for more vertices than a
     /// structure holds; [`NetError::Refused`] when the bound or the stop
@@ -71,17 +72,6 @@ impl MellStructure {
             Mode::CLASSICAL
         };
         Self::exist(proof.sequent().fragment(), mode)?;
-        if let Some(i) = proof
-            .nodes()
-            .iter()
-            .position(|n| matches!(n, Node::Cut(..)))
-        {
-            return Err(NetError::Rule {
-                node: NodeId::new(i as u32),
-                rule: "cut",
-            }
-            .into());
-        }
         proof.check_within(mode, limits, &mut stop)?;
         let vertices = unfolded(proof);
         if vertices > MOST {
@@ -124,7 +114,6 @@ fn unfolded(proof: &Proof) -> u64 {
     for i in (0..=root).rev() {
         let made = match nodes[i] {
             Node::Ax(..) => 2,
-            // A cut was refused before.
             Node::Copy(..) | Node::Mix(..) | Node::Cut(..) => 0,
             Node::Tensor(..)
             | Node::Par(..)
@@ -181,6 +170,8 @@ struct Unfolding<'a> {
     waiting: Vec<Vec<u32>>,
     /// The links, in the order made.
     links: Vec<(u32, u32)>,
+    /// The cut links made, each from its end in a cut formula's tree.
+    cuts: Vec<(u32, u32)>,
     /// The weakenings and the literal each hangs on.
     weakenings: Vec<(u32, u32)>,
 }
@@ -199,6 +190,7 @@ impl<'a> Unfolding<'a> {
             open: vec![Vec::new(); n],
             waiting: vec![Vec::new(); n],
             links: Vec::new(),
+            cuts: Vec::new(),
             weakenings: Vec::new(),
         }
     }
@@ -353,7 +345,13 @@ impl<'a> Unfolding<'a> {
             Node::One(_) | Node::Bot(..) | Node::With(..) | Node::Plus(..) | Node::Top(_) => {
                 unreachable!("a checked proof of unit-free MELL has no such rule")
             }
-            Node::Cut(..) => unreachable!("a proof with a cut is refused before"),
+            Node::Cut(a, _, _) => {
+                let a = a.occ();
+                let d = f.dual(a).expect("a checked cut is on a cut formula's tree");
+                let x = self.take(a, frame.start, frame.middle);
+                let y = self.take(d, frame.middle, end);
+                self.cuts.push((x, y));
+            }
         }
     }
 
@@ -377,8 +375,11 @@ impl<'a> Unfolding<'a> {
             new[r as usize] = order.len() as u32;
             order.push(r);
         }
+        // The cut links' ends come after the roots' trees, each tree with
+        // its vertices.
         let mut stack = Vec::new();
-        for &r in &roots {
+        let ends: Vec<u32> = self.cuts.iter().flat_map(|&(x, y)| [x, y]).collect();
+        for &r in roots.iter().chain(&ends) {
             stack.push(r);
             while let Some(v) = stack.pop() {
                 if new[v as usize] == NONE {
@@ -400,15 +401,19 @@ impl<'a> Unfolding<'a> {
             .map(|&v| {
                 let b = self.boxed[v as usize];
                 let inside = (b != NONE).then(|| renamed(self.doors[b as usize]));
-                Placed::new(
-                    self.occurrence[v as usize],
-                    renamed(parent[v as usize]),
-                    inside,
-                )
+                match parent[v as usize] {
+                    NONE => Placed::cut(self.occurrence[v as usize], inside),
+                    p => Placed::new(self.occurrence[v as usize], renamed(p), inside),
+                }
             })
             .collect();
         Parts {
             vertices,
+            cuts: self
+                .cuts
+                .iter()
+                .map(|&(x, y)| (renamed(x), renamed(y)))
+                .collect(),
             links: self
                 .links
                 .iter()

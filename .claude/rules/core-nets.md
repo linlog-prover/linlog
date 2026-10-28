@@ -39,8 +39,8 @@ code relies on:
   refuses it (`NetError::NoVertex`); `is_acyclic` replaces a scratch
   sized for another structure with one of its own (one comparison).
   The probe found the panics (H23, H24).
-- **`from_proof` matches every node** (`ax` a link, `⊗`, `⅋` and Mix
-  nothing, every other rule `NetError::Rule` by its name, `wk` on an
+- **`from_proof` matches every node** (`ax` a link, `cut` a cut link,
+  `⊗`, `⅋` and Mix nothing, every other rule `NetError::Rule` by its name, `wk` on an
   MLL sequent included), so a node kind added later is a compile error
   there; it refuses a goal proof (`Error::GoalProof`), charges its
   estimate (`STRUCTURE_BYTES` and `SCRATCH_BYTES` per vertex, the
@@ -178,9 +178,73 @@ code relies on:
   described `in_mode`), which is what every front end prints in an
   intuitionistic mode.
 
-- **No net of a proof with a cut yet**: `ProofStructure::from_proof` and
-  `MellStructure::from_proof` refuse a `Cut` node as `NetError::Rule`
-  (the latter before its check); a structure has no cut links.
+## Cut links and their elimination
+
+- **A cut link joins an occurrence `x` of a cut formula's tree and
+  `Forest::dual(x)`**, both structures, given in either order and kept
+  from the end in the `A` tree (`x < dual(x)`, the `A` tree numbered
+  first). Every intermediate net of an elimination lives over the same
+  forest: a `⊗`/`⅋` step cuts the children, which are positional duals.
+- **MLL keeps vertex = occurrence**: over a forest with cut formulas,
+  `live` (an `OccSet`) holds the conclusions' trees and the trees above
+  every cut link's ends; the rest are no vertices (`vertex` and
+  `occurrence` answer `None`, a link to one is `Placement::Uncut`). A
+  cut link's end may not lie in the tree above another's
+  (`Placement::Cut`): a term that cuts an occurrence and one of its
+  subformulas would need two vertices of one occurrence, which only
+  `MellStructure` has. A forest without cut formulas has `live: None`,
+  and the net engine's structures are always of such a forest (the
+  search re-roots a cut forest's goal), so the engine never sees one.
+- **The MLL graph**: a dead occurrence has no slot at all (it is
+  deletable in the first round, and the connectedness count uses
+  `Graph::vertices`, the live count); a cut link sits in slot 0 of both
+  ends, the parent edge's place. So a `⅋`'s parent edge is "its first
+  slot when it has three" (two premises, no axiom slot), which
+  `deletable` reads instead of `forest.parent`: that is the one change
+  on the net engine's hot path. The graph holds one edge between two
+  vertices, and the one parallel pair a cut can make, a cut between two
+  literals linked to each other, is a cycle `is_correct` and
+  `is_acyclic` find first (`looped`).
+- **The MELL graph** has one *cut vertex* per cut link after the doors
+  (`first_cut`, `cut_ends`, `cuts_in`), a `⊗` without a conclusion whose
+  two premises are the ends (their parent slot). A direct edge would be
+  parallel to a door wire where a `?` end's copy lies in the `!` end's
+  box (a cycle no term makes, which the subdivided graph shows as a
+  triangle). A witness names a cut vertex by its `A` end and leaves it
+  out of a cycle.
+- **Sequentialization**: a cut link is a `⊗` without a conclusion, split
+  when its edge is a bridge; a stage takes a splitting `⊗` conclusion
+  first, then a splitting cut link, each the smallest id. The cut
+  edge is removed from the scratch for good (`Graph::remove_cut`); its
+  two ends become conclusions of the two sides.
+- **Elimination** (`nets/cut/`): the cases are the term elimination's
+  names (`Case`); nets have no commutative case. MLL steps build a new
+  `ProofStructure` with the same forest and ids; MELL steps take the
+  structure apart (`Work`), rewrite it and renumber (roots, then depth
+  first each root's tree and each cut link's two trees), so ids do not
+  carry over. The cut links a step makes take the reduced one's place in
+  the list, and the strategy takes the first: it finishes one cut
+  formula before the next. A contraction gives the first copy a `?`
+  vertex of its own, cut against the duplicated box, before the rest.
+  An erased box's `?` vertices that lose every copy, and the weakenings
+  hung in it, hang on the literal the erased `?` hung on, which a proof
+  net never has inside the box (a 2-cycle through the cut).
+- **Remove the reduced cut before rewriting**: `Work::erase` drops every
+  cut link with an end in the box, the reduced one too; removing it
+  after by its index dropped the next cut link, which the tests found.
+- **Checked, not trusted**: `step` and `eliminate` run the criterion on
+  every net made (`NetError::Reduction`, kind defect, if it ever fails);
+  the tests also sequentialize every net and check the proof in its
+  mode. `eliminate`'s callback sees a step only once the net it made
+  passed, with the net it was taken on, which is what the command draws.
+- **The normal forms against the term elimination's** (`nets/cut/tests`):
+  in MLL the same links exactly; with boxes the same net up to the order
+  of copies and the weakenings' links (`mell::tests::isomorphic`) where
+  neither net has two vertices of one occurrence, since a term does not
+  say which instance a rule takes (the round trip's limit above).
+- **Bounds**: `cut::Options::nodes` counts a net's vertices
+  (`Bound::Vertices`); `steps` as for terms; `limits.memory_bytes` bounds
+  each structure built. In MLL a step takes two vertices away.
 
 ## Proof nets with boxes: MELL
 

@@ -55,7 +55,6 @@ impl OccSet {
     }
 
     /// Returns the set over `len` occurrence ids that holds the given ones.
-    #[cfg(test)]
     pub(crate) fn of(len: usize, ids: impl IntoIterator<Item = OccId>) -> Self {
         let mut set = Self::empty(len);
         set.extend(ids);

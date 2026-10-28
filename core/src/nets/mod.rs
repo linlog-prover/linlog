@@ -23,6 +23,7 @@
 #![deny(clippy::wildcard_enum_match_arm)]
 
 /// Essential nets: the directed criterion of intuitionistic structures.
+pub mod cut;
 pub(crate) mod essential;
 /// The coloured structure graph and the criterion's tests on it.
 mod graph;
@@ -41,7 +42,7 @@ use crate::errors::describe::{Budget, Limit, Names, cut};
 use crate::errors::{Described, Owner, Subject};
 use crate::fragment::{Fragment, Mode, Order};
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
-use crate::occurrences::{Forest, OccId, ShapeError};
+use crate::occurrences::{Forest, OccId, OccSet, ShapeError};
 use crate::proofs::{Node, NodeId, Proof};
 use crate::sequents::{Kind, Sequent, Term};
 use graph::Graph;
@@ -342,6 +343,21 @@ pub enum NetError {
         /// The mode asked for.
         mode: Mode,
     },
+    /// A step of cut elimination was asked of a vertex that is no end of a
+    /// cut link, or of a net without one.
+    #[non_exhaustive]
+    NoCut {
+        /// The vertex named, or `None` where the strategy found no cut
+        /// link.
+        vertex: Option<VertexId>,
+    },
+    /// The criterion refused the net a step of cut elimination made: a
+    /// defect of this crate, which never returns such a net.
+    #[non_exhaustive]
+    Reduction {
+        /// How the criterion refused it.
+        error: Box<NetError>,
+    },
     /// A bound or the caller's stop ended the call without a verdict on
     /// the structure.
     #[non_exhaustive]
@@ -377,14 +393,17 @@ impl NetError {
             | Self::Mode { .. }
             | Self::Rule { .. }
             | Self::NotMell { .. }
-            | Self::NotIntuitionistic { .. } => Unsupported,
+            | Self::NotIntuitionistic { .. }
+            | Self::NoCut { .. } => Unsupported,
+            Self::Reduction { .. } => crate::ErrorKind::Defect,
             Self::Refused { refusal } => crate::errors::refusal_kind(refusal),
         }
     }
 
     /// Returns the stable code of the error: `no_nets` where no structure
-    /// exists, `not_intuitionistic` where no essential net does, the
-    /// refusal's, or `invalid_net`.
+    /// exists, `not_intuitionistic` where no essential net does, `no_cut`
+    /// for a step asked of no cut link, `reduction_rejected` for a step's
+    /// net the criterion refuses, the refusal's, or `invalid_net`.
     pub fn code(&self) -> &'static str {
         match self {
             Self::Fragment { .. }
@@ -393,6 +412,8 @@ impl NetError {
             | Self::NotMell { .. } => "no_nets",
             Self::InBox { error, .. } => error.code(),
             Self::NotIntuitionistic { .. } => "not_intuitionistic",
+            Self::NoCut { .. } => "no_cut",
+            Self::Reduction { .. } => "reduction_rejected",
             Self::Refused { refusal } => refusal.code(),
             Self::NoVertex { .. }
             | Self::NotLiteral { .. }
@@ -552,6 +573,12 @@ impl NetError {
                 "proof nets with boxes exist for MELL without units in classical mode, with or \
                  without Mix, and in intuitionistic mode, only, not for {fragment} in {mode} mode"
             ),
+            NoCut { vertex: Some(v) } => write!(f, "vertex {} is no end of a cut link", vertex(v)),
+            NoCut { vertex: None } => f.write_str("the net has no cut link"),
+            Reduction { error } => {
+                f.write_str("a step of cut elimination made a net the criterion refuses: ")?;
+                error.write_over(f, names, vertices, limit)
+            }
             Refused { refusal } => write!(f, "{refusal}"),
         }
     }
@@ -581,6 +608,15 @@ fn afford(bytes: u64, limits: &Limits) -> Result<(), NetError> {
     }
 }
 
+/// Cut links validated, each from its end in a cut formula's tree, and
+/// the set of a structure's vertices where its forest has cut formulas.
+type CutsPlaced = (Vec<(VertexId, VertexId)>, Option<OccSet>);
+
+/// The error of a vertex out of place.
+fn misplaced(vertex: VertexId, fault: Placement) -> Error {
+    NetError::Placement { vertex, fault }.into()
+}
+
 /// The refusal of a call that `stop` ended.
 const STOPPED: NetError = NetError::Refused {
     refusal: Refusal::Stopped { phase: Phase::Net },
@@ -591,6 +627,14 @@ const STOPPED: NetError = NetError::Refused {
 /// between dual literal vertices, and the [`Criterion`] that decides what
 /// [`is_correct`](Self::is_correct) requires. Vertex `i` is occurrence `i`
 /// of the forest ([`vertex`](Self::vertex), [`occurrence`](Self::occurrence)).
+///
+/// Over a sequent with cut formulas, a structure may have *cut links*
+/// ([`with_cuts`](Self::with_cuts)), each joining an occurrence of a cut
+/// formula's tree to its dual, the cut of a proof; its vertices are then
+/// the conclusions' trees and the trees above the cut links' ends, and the
+/// occurrences of the cut formulas' trees above every cut link are none.
+/// For the criterion a cut link is an edge every switching keeps, and
+/// [`cut`](crate::nets::cut) eliminates them.
 ///
 /// Links are added with [`link`](Self::link), which refuses what is not a
 /// link, and taken back in the reverse order with [`unlink`](Self::unlink),
@@ -624,9 +668,10 @@ const STOPPED: NetError = NetError::Refused {
 /// …, "mix": …, "links": [[x, y], …]}` ([`wire`](crate::wire)): its
 /// sequent in [`Sequent`]'s form, the
 /// criterion's fields (whether Mix is allowed, and `"order": "cyclic"`
-/// at level 2 for the cyclic order), and its axiom links as
-/// pairs of vertex ids in the order they were made. Reading validates the
-/// links as [`from_links`](Self::from_links) does and takes a partial or
+/// at level 2 for the cyclic order), its cut links as `"cuts": [[x, y],
+/// …]` at level 6 where it has some, and its axiom links as pairs of
+/// vertex ids in the order they were made. Reading validates the cut
+/// links and links as [`with_cuts`](Self::with_cuts) does and takes a partial or
 /// incorrect structure, since whether it is a net is
 /// [`is_correct`](Self::is_correct)'s question.
 #[derive(Clone, Debug)]
@@ -640,6 +685,15 @@ pub struct ProofStructure {
     /// The links in the order they were made, each as the pair given to
     /// [`link`](Self::link).
     links: Vec<(VertexId, VertexId)>,
+    /// The cut links, each from its end in a cut formula's tree to the
+    /// dual end, in the order given.
+    cuts: Vec<(VertexId, VertexId)>,
+    /// Over a forest with cut formulas, the vertices of the structure:
+    /// the conclusions' trees and the trees above the ends of every cut
+    /// link; `None` over a forest without, where every occurrence is one.
+    live: Option<OccSet>,
+    /// The literals among the vertices.
+    literals: usize,
     /// The coloured structure graph.
     graph: Graph,
     /// The `⅋`-free skeleton.
@@ -650,7 +704,9 @@ impl ProofStructure {
     /// Returns the structure over the forest with no link yet. Fails with
     /// [`NetError::Fragment`] if the sequent lies outside unit-free MLL,
     /// where there are no proof nets, and with [`Refusal::Index`] past
-    /// 1 431 655 763 vertices.
+    /// 1 431 655 763 vertices. Over a forest with cut formulas the
+    /// structure has no cut link, so their trees are none of its vertices:
+    /// [`with_cuts`](Self::with_cuts) gives it some.
     ///
     /// # Errors
     ///
@@ -659,40 +715,7 @@ impl ProofStructure {
     /// which no calculus has, and [`Refusal::Index`] for a forest past the
     /// vertices a structure holds.
     pub fn new(forest: Forest, criterion: Criterion) -> Result<Self, Error> {
-        has_nets(forest.sequent().fragment())?;
-        // No calculus keeps the order with Mix.
-        if criterion.order != Order::Commutative && criterion.mix {
-            return Err(NetError::Mode {
-                mode: Mode::CYCLIC.with_mix(),
-            }
-            .into());
-        }
-        let n = forest.len();
-        if n as u64 > MOST {
-            return Err(Error::Refused(Refusal::Index {
-                what: Space::Vertex,
-                count: n as u64,
-                most: MOST,
-            }));
-        }
-        let mut skeleton = Skeleton::new(n);
-        for o in forest.ids() {
-            if let Some(p) = forest.parent(o)
-                && forest.kind(p) == Kind::Tensor
-            {
-                skeleton.union(p.get(), o.get());
-            }
-        }
-        let literals = forest.all_literals().len();
-        skeleton.commit(literals / 2);
-        Ok(Self {
-            graph: Graph::new(&forest),
-            forest,
-            criterion,
-            partner: vec![NONE; n].into_boxed_slice(),
-            links: Vec::with_capacity(literals / 2),
-            skeleton,
-        })
+        Self::build(forest, criterion, &[])
     }
 
     /// Returns the structure with the given links. Fails as
@@ -710,15 +733,146 @@ impl ProofStructure {
         criterion: Criterion,
         links: &[(VertexId, VertexId)],
     ) -> Result<Self, Error> {
-        let mut net = Self::new(forest, criterion)?;
+        Self::with_cuts(forest, criterion, &[], links)
+    }
+
+    /// Returns the structure with the given cut links and links. A cut
+    /// link joins an occurrence of a cut formula's tree to its dual,
+    /// [`Forest::dual`], in either order; the vertices of the structure
+    /// are then the conclusions' trees and the trees above the ends of
+    /// every cut link, which may lie above no other one. Fails as
+    /// [`from_links`](Self::from_links) does, and with
+    /// [`NetError::Placement`] for a cut link that is none.
+    ///
+    /// # Errors
+    ///
+    /// As [`from_links`](Self::from_links) does;
+    /// [`NetError::Placement`] with [`Placement::Cut`] for a cut link that
+    /// does not join an occurrence of a cut formula's tree to its dual or
+    /// that lies in the tree above another, with [`Placement::Uncut`] for
+    /// a link to a vertex of a cut formula above no cut link;
+    /// [`NetError::Mode`] for cut links under a criterion of the cyclic
+    /// order, whose calculus has no cut.
+    pub fn with_cuts(
+        forest: Forest,
+        criterion: Criterion,
+        cuts: &[(VertexId, VertexId)],
+        links: &[(VertexId, VertexId)],
+    ) -> Result<Self, Error> {
+        let mut net = Self::build(forest, criterion, cuts)?;
         for &(x, y) in links {
             net.link(x, y)?;
         }
         Ok(net)
     }
 
+    /// Returns the structure over the forest with the given cut links and
+    /// no link yet.
+    fn build(
+        forest: Forest,
+        criterion: Criterion,
+        cuts: &[(VertexId, VertexId)],
+    ) -> Result<Self, Error> {
+        has_nets(forest.sequent().fragment())?;
+        // No calculus keeps the order with Mix, nor has it a cut.
+        if criterion.order != Order::Commutative && (criterion.mix || !cuts.is_empty()) {
+            let mode = if criterion.mix {
+                Mode::CYCLIC.with_mix()
+            } else {
+                Mode::CYCLIC
+            };
+            return Err(NetError::Mode { mode }.into());
+        }
+        let n = forest.len();
+        if n as u64 > MOST {
+            return Err(Error::Refused(Refusal::Index {
+                what: Space::Vertex,
+                count: n as u64,
+                most: MOST,
+            }));
+        }
+        let (cuts, live) = Self::place_cuts(&forest, cuts)?;
+        let alive = |o: OccId| live.as_ref().is_none_or(|live| live.contains(o));
+        let mut skeleton = Skeleton::new(n);
+        for o in forest.ids().filter(|&o| alive(o)) {
+            if let Some(p) = forest.parent(o)
+                && forest.kind(p) == Kind::Tensor
+                && alive(p)
+            {
+                skeleton.union(p.get(), o.get());
+            }
+        }
+        for &(x, y) in &cuts {
+            skeleton.union(x.get(), y.get());
+        }
+        let literals = match &live {
+            None => forest.all_literals().len(),
+            Some(live) => forest
+                .all_literals()
+                .iter()
+                .filter(|&&l| live.contains(l))
+                .count(),
+        };
+        skeleton.commit(literals / 2);
+        Ok(Self {
+            graph: Graph::new(&forest, live.as_ref(), &cuts),
+            forest,
+            criterion,
+            partner: vec![NONE; n].into_boxed_slice(),
+            links: Vec::with_capacity(literals / 2),
+            cuts,
+            live,
+            literals,
+            skeleton,
+        })
+    }
+
+    /// Validates cut links over the forest and returns them each from its
+    /// end in a cut formula's tree, with the set of the structure's
+    /// vertices where the forest has cut formulas.
+    fn place_cuts(
+        forest: &Forest,
+        cuts: &[(VertexId, VertexId)],
+    ) -> Result<CutsPlaced, Error> {
+        if !forest.has_cuts() {
+            if let Some(&(x, _)) = cuts.first() {
+                return Err(misplaced(x, Placement::Cut));
+            }
+            return Ok((Vec::new(), None));
+        }
+        let n = forest.len();
+        let conclusions = forest.ids().take_while(|&o| forest.is_conclusion(o));
+        let mut live = OccSet::of(n, conclusions);
+        let mut placed = Vec::with_capacity(cuts.len());
+        for &(x, y) in cuts {
+            for v in [x, y] {
+                if v.index() >= n {
+                    return Err(NetError::NoVertex {
+                        vertex: v.get(),
+                        vertices: n as u32,
+                    }
+                    .into());
+                }
+            }
+            let (a, d) = match (forest.dual(x.occ()), forest.dual(y.occ())) {
+                (Some(dx), _) if dx == y.occ() && x < y => (x, y),
+                (_, Some(dy)) if dy == x.occ() && y < x => (y, x),
+                _ => return Err(misplaced(x, Placement::Cut)),
+            };
+            for end in [a, d] {
+                for o in forest.subtree(end.occ()) {
+                    if !live.insert(o) {
+                        return Err(misplaced(end, Placement::Cut));
+                    }
+                }
+            }
+            placed.push((a, d));
+        }
+        Ok((placed, Some(live)))
+    }
     /// Desequentializes a proof of MLL: reads the axiom links off its `Ax`
-    /// nodes and builds their structure over a copy of the proof's
+    /// nodes and the cut links off its `Cut` nodes, and builds their
+    /// structure over a copy of the proof's
     /// forest, within `limits.memory_bytes` (the structure and the
     /// criterion's working memory, estimated before anything is made) and
     /// until `stop` returns true, which is asked once per node and per
@@ -732,7 +886,7 @@ impl ProofStructure {
     ///
     /// [`Error::GoalProof`] for a proof of a goal other than the sequent;
     /// [`NetError::Rule`] for a node a net has no place for (any but `ax`,
-    /// `⊗`, `⅋` and Mix, so a cut too, which no structure links yet); otherwise as [`from_links`](Self::from_links)
+    /// `⊗`, `⅋`, Mix and the cut); otherwise as [`from_links`](Self::from_links)
     /// does, and with the criterion's error if the links are not a proof
     /// net, which happens only for a proof the checker rejects or one that
     /// uses Mix where the criterion forbids it; [`NetError::Refused`] when
@@ -750,6 +904,7 @@ impl ProofStructure {
         let bytes = Self::bytes(forest);
         afford(bytes, limits)?;
         let mut links = Vec::with_capacity(forest.all_literals().len() / 2);
+        let mut cuts = Vec::new();
         for (i, &node) in proof.nodes().iter().enumerate() {
             let done = i as u64 + 1;
             let progress = Progress {
@@ -762,6 +917,12 @@ impl ProofStructure {
             match node {
                 Node::Ax(x, y) => links.push((VertexId::of(x.occ()), VertexId::of(y.occ()))),
                 Node::Tensor(..) | Node::Par(..) | Node::Mix(..) => {}
+                // A member that is no cut formula's is refused as a cut
+                // link from itself.
+                Node::Cut(a, ..) => {
+                    let d = forest.dual(a.occ()).unwrap_or(a.occ());
+                    cuts.push((VertexId::of(a.occ()), VertexId::of(d)));
+                }
                 Node::One(_)
                 | Node::Bot(..)
                 | Node::With(..)
@@ -770,8 +931,7 @@ impl ProofStructure {
                 | Node::Bang(..)
                 | Node::Quest(..)
                 | Node::Copy(..)
-                | Node::Weaken(..)
-                | Node::Cut(..) => {
+                | Node::Weaken(..) => {
                     return Err(NetError::Rule {
                         node: NodeId::new(i as u32),
                         rule: node.name(),
@@ -780,7 +940,7 @@ impl ProofStructure {
                 }
             }
         }
-        let net = Self::from_links(forest.clone(), criterion, &links)?;
+        let net = Self::with_cuts(forest.clone(), criterion, &cuts, &links)?;
         net.is_correct(|progress| {
             stop(Progress {
                 held_bytes: bytes,
@@ -810,6 +970,12 @@ impl ProofStructure {
             }
             if !f.is_literal(v.occ()) {
                 return Err(NetError::NotLiteral { vertex: v });
+            }
+            if !self.is_vertex(v.occ()) {
+                return Err(NetError::Placement {
+                    vertex: v,
+                    fault: Placement::Uncut,
+                });
             }
         }
         if !self.dual(x, y) {
@@ -843,16 +1009,54 @@ impl ProofStructure {
         self.criterion
     }
 
+    /// Returns whether an occurrence of the forest is a vertex: every one
+    /// over a forest without cut formulas, else one of the conclusions'
+    /// trees or of a tree above an end of a cut link.
+    fn is_vertex(&self, o: OccId) -> bool {
+        self.live.as_ref().is_none_or(|live| live.contains(o))
+    }
+
     /// Returns the vertex of an occurrence of the forest, `None` for an
-    /// id outside it.
+    /// id outside it and for an occurrence of a cut formula's tree above
+    /// every cut link.
     pub fn vertex(&self, o: OccId) -> Option<VertexId> {
-        (o.index() < self.forest.len()).then_some(VertexId::of(o))
+        (o.index() < self.forest.len() && self.is_vertex(o)).then_some(VertexId::of(o))
     }
 
     /// Returns the occurrence a vertex stands for, `None` for a vertex
     /// outside the structure.
     pub fn occurrence(&self, v: VertexId) -> Option<OccId> {
-        (v.index() < self.forest.len()).then_some(v.occ())
+        self.vertex(v.occ()).map(VertexId::occ)
+    }
+
+    /// Returns the vertices, in order: every occurrence of the forest but
+    /// those of cut formulas above every cut link.
+    pub fn vertices(&self) -> impl Iterator<Item = VertexId> + '_ {
+        self.forest
+            .ids()
+            .filter(|&o| self.is_vertex(o))
+            .map(VertexId::of)
+    }
+
+    /// Returns the cut links, each from its end in a cut formula's tree to
+    /// its dual end, in the order they were given.
+    pub fn cuts(&self) -> &[(VertexId, VertexId)] {
+        &self.cuts
+    }
+
+    /// Returns the other end of the cut link at a vertex, `None` for a
+    /// vertex at no cut link.
+    pub fn cut_partner(&self, v: VertexId) -> Option<VertexId> {
+        self.cuts.iter().find_map(|&(x, y)| match v {
+            v if v == x => Some(y),
+            v if v == y => Some(x),
+            _ => None,
+        })
+    }
+
+    /// Returns whether the structure has no cut link.
+    pub fn is_cut_free(&self) -> bool {
+        self.cuts.is_empty()
     }
 
     /// Returns the literal a vertex is linked to, or `None` for an
@@ -881,7 +1085,7 @@ impl ProofStructure {
 
     /// Returns whether every literal is linked.
     pub fn is_complete(&self) -> bool {
-        2 * self.links.len() == self.forest.all_literals().len()
+        2 * self.links.len() == self.literals
     }
 
     /// Returns the literals without a link, grouped by atom and sign as
@@ -890,7 +1094,7 @@ impl ProofStructure {
         self.forest
             .all_literals()
             .iter()
-            .filter(|&&l| self.partner[l.index()] == NONE)
+            .filter(|&&l| self.partner[l.index()] == NONE && self.is_vertex(l))
             .map(|&l| VertexId::of(l))
     }
 
@@ -976,6 +1180,9 @@ impl ProofStructure {
     /// nothing with a scratch from [`scratch`](Self::scratch); a scratch
     /// sized for another structure is replaced by one for this one.
     pub fn is_acyclic(&self, scratch: &mut Scratch) -> bool {
+        if !self.cuts.is_empty() && self.looped().is_some() {
+            return false;
+        }
         if !scratch.fits(&self.graph) {
             *scratch = self.scratch();
         }
@@ -990,6 +1197,8 @@ impl ProofStructure {
     /// survives any switching, and, unless the criterion allows Mix, every
     /// switching is connected, which given acyclicity is the count of
     /// edges a switching keeps being one less than the number of vertices.
+    /// A cut link is an edge every switching keeps, as a `⊗` without a
+    /// conclusion would be (Girard, *Linear logic*, 1987).
     /// It holds working memory linear in the structure and asks `stop`
     /// once per round of the deletion procedure, of which a witness for a
     /// cycle runs one per edge.
@@ -1005,6 +1214,12 @@ impl ProofStructure {
         }
         if let Some(l) = self.unlinked().next() {
             return Err(NetError::Unlinked { vertex: l });
+        }
+        // A cut link and an axiom link between the same two literals are
+        // a cycle that the graph, which holds one edge between two
+        // vertices, cannot show.
+        if let Some((x, y)) = self.looped() {
+            return Err(NetError::SwitchingCycle { cycle: vec![x, y] });
         }
         let mut scratch = self.scratch();
         let held_bytes = self.forest.len() as u64 * SCRATCH_BYTES;
@@ -1027,7 +1242,7 @@ impl ProofStructure {
             Some(true) => {}
         }
         if !self.criterion.mix
-            && self.graph.switched_edges(self.links.len()) + 1 != self.forest.len()
+            && self.graph.switched_edges(self.links.len()) + 1 != self.graph.vertices()
         {
             return Err(NetError::Disconnected {
                 parts: self.graph.parts(&self.forest, &mut scratch),
@@ -1037,6 +1252,14 @@ impl ProofStructure {
             self.is_planar()?;
         }
         Ok(())
+    }
+
+    /// Returns a cut link whose two literals are linked to each other.
+    fn looped(&self) -> Option<(VertexId, VertexId)> {
+        self.cuts
+            .iter()
+            .copied()
+            .find(|&(x, y)| self.partner(x) == Some(y))
     }
 
     /// Decides whether the links are planar, independently of any search
@@ -1093,8 +1316,10 @@ impl ProofStructure {
 }
 
 impl Display for ProofStructure {
-    /// Writes the sequent, then one line per link as `~A[0] — A[2]`, each
-    /// literal with its vertex id, the links ordered by their first id,
+    /// Writes the sequent, then one line per cut link as `cut A ⊗ B[5] —
+    /// A⊥ ⅋ B⊥[8]` in their order, then one line per link as `~A[0] —
+    /// A[2]`, each literal with its vertex id, the links ordered by their
+    /// first id,
     /// then the verdict of the criterion: `proof net`, `proof net with
     /// Mix`, `planar proof net` in the cyclic order, or `not a proof net:
     /// ` and the reason with formulas. No trailing newline.
@@ -1133,11 +1358,21 @@ impl ProofStructure {
             .map(|&(x, y)| (x.min(y), x.max(y)))
             .collect();
         links.sort_unstable();
+        let formula = |v: VertexId| match reading {
+            Some(reading) => reading.formula(v.occ()).to_string(),
+            None => self.forest.formula(v.occ()).to_string(),
+        };
+        for &(x, y) in &self.cuts {
+            writeln!(
+                f,
+                "cut {}[{}] — {}[{}]",
+                formula(x),
+                x.get(),
+                formula(y),
+                y.get()
+            )?;
+        }
         for (x, y) in links {
-            let formula = |v: VertexId| match reading {
-                Some(reading) => reading.formula(v.occ()).to_string(),
-                None => self.forest.formula(v.occ()).to_string(),
-            };
             writeln!(
                 f,
                 "{}[{}] — {}[{}]",

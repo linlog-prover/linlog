@@ -32,7 +32,7 @@ mod graph;
 /// From a proof net to a proof term.
 mod sequentialize;
 #[cfg(all(test, feature = "parse"))]
-mod tests;
+pub(in crate::nets) mod tests;
 
 use super::{Criterion, NONE, NetError, VertexId, afford};
 use crate::Error;
@@ -71,8 +71,9 @@ const SCRATCH_BYTES: u64 = 16 + 2 + 2 + 8;
 
 /// A vertex of a [`MellStructure`] other than a root, as
 /// [`MellStructure::from_parts`] takes it: the occurrence it stands for,
-/// the vertex it is a premise of, and the `!` vertex of the innermost box
-/// it lies in, or `None` outside every box.
+/// the vertex it is a premise of, or none for an end of a cut link, and
+/// the `!` vertex of the innermost box it lies in, or `None` outside every
+/// box.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Placed {
@@ -80,8 +81,9 @@ pub struct Placed {
     pub occurrence: OccId,
     /// The vertex it is a premise of: a `⊗` or `⅋` vertex for its left or
     /// right subformula, a `!` vertex for its subformula, or a `?` vertex
-    /// for a copy of its subformula.
-    pub parent: VertexId,
+    /// for a copy of its subformula; `None` for an end of a cut link, an
+    /// occurrence of a cut formula's tree or its dual.
+    pub parent: Option<VertexId>,
     /// The `!` vertex whose box is the innermost one around the vertex, or
     /// `None` outside every box.
     pub inside: Option<VertexId>,
@@ -93,7 +95,17 @@ impl Placed {
     pub const fn new(occurrence: OccId, parent: VertexId, inside: Option<VertexId>) -> Self {
         Self {
             occurrence,
-            parent,
+            parent: Some(parent),
+            inside,
+        }
+    }
+
+    /// Returns the vertex of `occurrence` at an end of a cut link, inside
+    /// the box of `inside`.
+    pub const fn cut(occurrence: OccId, inside: Option<VertexId>) -> Self {
+        Self {
+            occurrence,
+            parent: None,
             inside,
         }
     }
@@ -108,6 +120,9 @@ impl Placed {
 pub struct Parts {
     /// The vertices after the roots.
     pub vertices: Vec<Placed>,
+    /// The cut links, each between two vertices without a parent in one
+    /// box, an occurrence of a cut formula's tree and its dual.
+    pub cuts: Vec<(VertexId, VertexId)>,
     /// The axiom links, each between two dual literal vertices of one box.
     pub links: Vec<(VertexId, VertexId)>,
     /// The weakenings: a `?` vertex without copies and a literal vertex
@@ -115,9 +130,10 @@ pub struct Parts {
     pub weakenings: Vec<(VertexId, VertexId)>,
 }
 
-/// Why a list of vertices, links and weakenings is not a structure with
-/// boxes over its forest, which [`NetError::Placement`] names with the
-/// vertex at fault.
+/// Why a list of vertices, cut links, links and weakenings is not a
+/// structure with boxes over its forest, or a list of cut links and links
+/// no proof structure over its forest, which [`NetError::Placement`]
+/// names with the vertex at fault.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Placement {
@@ -143,6 +159,14 @@ pub enum Placement {
     /// copies, or hangs twice, or its literal is none, or lies outside its
     /// box.
     Weakening,
+    /// The cut link at this vertex is none: it does not join an occurrence
+    /// of a cut formula's tree to its dual, below neither of which lies a
+    /// premise, in one box; or the vertex is the end of two cut links, or
+    /// of none where it is no premise.
+    Cut,
+    /// The vertex lies in a cut formula's tree above no cut link, so it is
+    /// no vertex of the structure, and a link names it.
+    Uncut,
 }
 
 impl Placement {
@@ -158,6 +182,11 @@ impl Placement {
             Self::Weakening => {
                 "is no weakening: no ? without copies hanging once on a literal of its box"
             }
+            Self::Cut => {
+                "is no end of one cut link between a cut formula's occurrence and its dual in one \
+                 box"
+            }
+            Self::Uncut => "lies in a cut formula above every cut link, and is linked",
         }
     }
 }
@@ -168,7 +197,12 @@ impl Placement {
 /// what [`is_correct`](Self::is_correct) requires. Vertices are numbered
 /// from the root formulas, `0` to `r − 1` in the forest's order; vertex
 /// `v` stands for occurrence [`occurrence(v)`](Self::occurrence), and a
-/// box is named by its `!` vertex. A structure of an MLL sequent has one
+/// box is named by its `!` vertex. Over a sequent with cut formulas, the
+/// vertices without a parent but the roots are the ends of *cut links*,
+/// each joining an instance of a cut formula's occurrence to one of its
+/// dual in one box, which the criterion takes as a `⊗` without a
+/// conclusion and [`cut`](crate::nets::cut) eliminates. A structure of an
+/// MLL sequent has one
 /// vertex per occurrence and no box.
 ///
 /// The structure is built whole, from its [`Parts`] or from a proof term,
@@ -201,6 +235,9 @@ pub struct MellStructure {
     partner: Box<[u32]>,
     /// The links, as given.
     links: Vec<(VertexId, VertexId)>,
+    /// The cut links, each from its end in a cut formula's tree, in the
+    /// order given.
+    cuts: Vec<(VertexId, VertexId)>,
     /// Per vertex, the literal a weakening hangs on, or `NONE`.
     hangs: Box<[u32]>,
     /// The graph of every box depth with boxes contracted.
@@ -230,7 +267,10 @@ impl MellStructure {
     }
 
     /// Returns the structure of `parts` over the forest, validated: every
-    /// vertex in its place in the formula trees and the boxes, every link
+    /// vertex in its place in the formula trees and the boxes, every
+    /// vertex without a parent but the roots at one end of one cut link,
+    /// which joins an occurrence of a cut formula's tree to its dual in one
+    /// box, every link
     /// between two dual literals of one box, every weakening a `?` vertex
     /// without copies on a literal of its box or one inside it. Its graph is
     /// held within `limits.memory_bytes`. Whether it is a proof net is
@@ -282,17 +322,18 @@ impl MellStructure {
             let v = VertexId::new((roots + i) as u32);
             let outside = |w: VertexId| w.index() >= n;
             if placed.occurrence.index() >= forest.len()
-                || outside(placed.parent)
+                || placed.parent.is_some_and(outside)
                 || placed.inside.is_some_and(outside)
             {
                 return Err(misplaced(v, Placement::Outside));
             }
             occurrence.push(placed.occurrence);
-            parent.push(placed.parent.get());
+            parent.push(placed.parent.map_or(NONE, VertexId::get));
             inside.push(placed.inside.map_or(NONE, VertexId::get));
         }
         let (start, premises) = premises(&forest, &occurrence, &parent)?;
-        check_boxes(&forest, &occurrence, &parent, &inside)?;
+        let cuts = place_cuts(&forest, &occurrence, &parent, &inside, roots, &parts.cuts)?;
+        check_boxes(&forest, &occurrence, &parent, &inside, roots)?;
         let mut structure = Self {
             criterion,
             occurrence: occurrence.into_boxed_slice(),
@@ -302,6 +343,7 @@ impl MellStructure {
             premises,
             partner: vec![NONE; n].into_boxed_slice(),
             links: Vec::with_capacity(parts.links.len()),
+            cuts,
             hangs: vec![NONE; n].into_boxed_slice(),
             graph: Graph::default(),
             forest,
@@ -422,8 +464,8 @@ impl MellStructure {
         &self.occurrence
     }
 
-    /// Returns the vertex a vertex is a premise of, `None` for a root and
-    /// for a vertex outside the structure.
+    /// Returns the vertex a vertex is a premise of, `None` for a root, an
+    /// end of a cut link and a vertex outside the structure.
     pub fn parent(&self, v: VertexId) -> Option<VertexId> {
         some(*self.parent.get(v.index())?)
     }
@@ -471,6 +513,27 @@ impl MellStructure {
         &self.links
     }
 
+    /// Returns the cut links, each from its end in a cut formula's tree to
+    /// its dual end, in the order given.
+    pub fn cuts(&self) -> &[(VertexId, VertexId)] {
+        &self.cuts
+    }
+
+    /// Returns the other end of the cut link at a vertex, `None` for a
+    /// vertex at no cut link.
+    pub fn cut_partner(&self, v: VertexId) -> Option<VertexId> {
+        self.cuts.iter().find_map(|&(x, y)| match v {
+            v if v == x => Some(y),
+            v if v == y => Some(x),
+            _ => None,
+        })
+    }
+
+    /// Returns whether the structure has no cut link.
+    pub fn is_cut_free(&self) -> bool {
+        self.cuts.is_empty()
+    }
+
     /// Returns the literal whose axiom link the weakening `v` hangs on, or
     /// `None`.
     pub fn hangs_on(&self, v: VertexId) -> Option<VertexId> {
@@ -484,7 +547,7 @@ impl MellStructure {
         let vertices = (roots..self.len())
             .map(|v| Placed {
                 occurrence: self.occurrence[v],
-                parent: VertexId::new(self.parent[v]),
+                parent: some(self.parent[v]),
                 inside: some(self.inside[v]),
             })
             .collect();
@@ -494,6 +557,7 @@ impl MellStructure {
             .collect();
         Parts {
             vertices,
+            cuts: self.cuts.clone(),
             links: self.links.clone(),
             weakenings,
         }
@@ -547,7 +611,8 @@ impl std::fmt::Display for MellStructure {
     /// Writes the sequent, then a line per `?` vertex with its copies
     /// (`?A⊥[0]: A⊥[3] in !A[1], A⊥[5]`, a copy's box named where it is
     /// another than the `?` vertex's, by its `!` vertex), or `no copy` and
-    /// the literal it hangs on, then one line per link as `A⊥[3] — A[2]`,
+    /// the literal it hangs on, then one line per cut link as `cut !A[4] —
+    /// ?A⊥[7]` in their order, then one line per link as `A⊥[3] — A[2]`,
     /// the links ordered by their first id, then the verdict of the
     /// criterion: `proof net`, `proof net with Mix`, or `not a proof net: `
     /// and the reason with formulas. Every vertex is written as its
@@ -617,6 +682,13 @@ impl MellStructure {
                     vertex(f, d)?;
                 }
             }
+            f.write_str("\n")?;
+        }
+        for &(x, y) in &self.cuts {
+            f.write_str("cut ")?;
+            vertex(f, x)?;
+            f.write_str(" — ")?;
+            vertex(f, y)?;
             f.write_str("\n")?;
         }
         let mut links: Vec<(VertexId, VertexId)> = self
@@ -717,6 +789,45 @@ fn premises(forest: &Forest, occurrence: &[OccId], parent: &[u32]) -> Result<Csr
     Ok((start.into_boxed_slice(), list.into_boxed_slice()))
 }
 
+/// Checks that the cut links join, in one box, vertices without a parent
+/// that are no roots, an occurrence of a cut formula's tree and its dual,
+/// that each such vertex is the end of one, and returns them each from its
+/// end in a cut formula's tree.
+fn place_cuts(
+    forest: &Forest,
+    occurrence: &[OccId],
+    parent: &[u32],
+    inside: &[u32],
+    roots: usize,
+    cuts: &[(VertexId, VertexId)],
+) -> Result<Vec<(VertexId, VertexId)>, Error> {
+    let n = occurrence.len();
+    let mut ended = vec![false; n];
+    let mut placed = Vec::with_capacity(cuts.len());
+    for &(x, y) in cuts {
+        let end = |v: VertexId| v.index() < n && v.index() >= roots && parent[v.index()] == NONE;
+        if !end(x) || !end(y) || inside[x.index()] != inside[y.index()] {
+            return Err(misplaced(x, Placement::Cut));
+        }
+        let (ox, oy) = (occurrence[x.index()], occurrence[y.index()]);
+        let (a, d) = match (forest.dual(ox), forest.dual(oy)) {
+            (Some(dx), _) if dx == oy && ox < oy => (x, y),
+            (_, Some(dy)) if dy == ox && oy < ox => (y, x),
+            _ => return Err(misplaced(x, Placement::Cut)),
+        };
+        for v in [a, d] {
+            if std::mem::replace(&mut ended[v.index()], true) {
+                return Err(misplaced(v, Placement::Cut));
+            }
+        }
+        placed.push((a, d));
+    }
+    if let Some(v) = (roots..n).find(|&v| parent[v] == NONE && !ended[v]) {
+        return Err(misplaced(VertexId::new(v as u32), Placement::Cut));
+    }
+    Ok(placed)
+}
+
 /// The depth of a box whose chain of enclosing boxes is being walked.
 const VISITING: u32 = NONE - 1;
 
@@ -727,13 +838,16 @@ fn check_boxes(
     occurrence: &[OccId],
     parent: &[u32],
     inside: &[u32],
+    roots: usize,
 ) -> Result<(), Error> {
     let n = occurrence.len();
     let is_bang = |b: u32| b == NONE || forest.kind(occurrence[b as usize]) == Kind::Bang;
     for v in 0..n {
         let (p, b) = (parent[v], inside[v]);
         let fits = match p {
-            NONE => b == NONE,
+            // The roots lie outside every box, a cut link in any.
+            NONE if v < roots => b == NONE,
+            NONE => is_bang(b),
             p => match forest.kind(occurrence[p as usize]) {
                 Kind::Bang => b == p,
                 // A copy's box is checked once the boxes are known to nest.

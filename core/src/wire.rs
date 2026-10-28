@@ -84,14 +84,18 @@
 //!   [`Disproof`](crate::Disproof).
 //! - **Proof structure**: `{"version": 1, "sequent": {…}, "mix": false,
 //!   "links": [[0, 2], [3, 4]]}`, see
-//!   [`ProofStructure`](crate::ProofStructure).
+//!   [`ProofStructure`](crate::ProofStructure). A structure with cut
+//!   links is written at level 6, its sequent holding the cut formulas:
+//!   `"cuts": [[2, 5]]`, each cut link by its two vertices, a key written
+//!   only where there are cut links, as in a structure with boxes.
 //! - **Proof structure with boxes**: `{"version": 4, "sequent": {…},
 //!   "mix": false, "vertices": [[3, 1, 1], …], "links": [[2, 3]],
 //!   "weakenings": []}`: the roots are vertices `0` to `r − 1`, then each
 //!   of `vertices` as `[occurrence, parent, box]`, `box` the `!` vertex of
 //!   its innermost box or `null`; `links` and `weakenings` (a `?` vertex
 //!   without copies and the literal it hangs on) name vertices; see
-//!   [`MellStructure`](crate::MellStructure).
+//!   [`MellStructure`](crate::MellStructure). With cut links it is
+//!   written at level 6, an end of a cut link `[occurrence, null, box]`.
 //! - **Intuitionistic sequent**: `{"version": 5, "terms": [{"V": 0},
 //!   {"V": 1}, {"⊸": [0, 1]}], "atoms": ["A", "B"], "hypotheses": [2,
 //!   0], "goal": 1}` for `A ⊸ B, A ⊢ B`: the terms `V`, `1`, `0`, `⊤`,

@@ -41,6 +41,7 @@ fn build(
             .iter()
             .map(|&(oc, p, b)| Placed::new(o(oc), v(p), b.map(v)))
             .collect(),
+        cuts: Vec::new(),
         links: links.iter().map(|&(x, y)| (v(x), v(y))).collect(),
         weakenings: weakenings.iter().map(|&(x, y)| (v(x), v(y))).collect(),
     };
@@ -90,7 +91,7 @@ enum Pending {
 /// links the weakenings hang on: a bijection that keeps occurrences,
 /// premises, boxes and links. A search over the copies' orders, for small
 /// structures.
-fn isomorphic(a: &MellStructure, b: &MellStructure) -> bool {
+pub(in crate::nets) fn isomorphic(a: &MellStructure, b: &MellStructure) -> bool {
     if a.len() != b.len() || a.links().len() != b.links().len() {
         return false;
     }
@@ -397,6 +398,7 @@ fn agrees_with_the_multiplicative_criterion() {
         }
         let parts = Parts {
             vertices,
+            cuts: Vec::new(),
             links: links
                 .iter()
                 .map(|&(x, y)| (v(vertex[x.index()]), v(vertex[y.index()])))
@@ -741,7 +743,7 @@ fn mutate(net: &MellStructure, parts: &mut Parts, rng: &mut Rng) {
         1 => {
             let copies: Vec<usize> = (0..parts.vertices.len())
                 .filter(|&i| {
-                    let p = parts.vertices[i].parent;
+                    let p = parts.vertices[i].parent.unwrap();
                     net.forest().kind(net.occurrence(p).unwrap()) == Kind::Quest
                 })
                 .collect();

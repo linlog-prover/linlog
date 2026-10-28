@@ -351,6 +351,8 @@ pub enum Bound {
     Steps,
     /// The nodes of a proof a step makes.
     Nodes,
+    /// The vertices of a proof net a step makes.
+    Vertices,
 }
 
 /// Why a call was given up without an answer: a bound the caller set, or
@@ -467,7 +469,8 @@ impl Refusal {
                 what: Bound::Steps, ..
             } => Some("cut.steps"),
             Self::Elimination {
-                what: Bound::Nodes, ..
+                what: Bound::Nodes | Bound::Vertices,
+                ..
             } => Some("cut.nodes"),
             Self::Stopped { .. } | Self::Index { .. } => None,
         }
@@ -558,6 +561,14 @@ impl Display for Refusal {
                 f,
                 "the next step of the elimination makes a proof of more than {}",
                 counted(*limit, "node", "nodes")
+            ),
+            Self::Elimination {
+                what: Bound::Vertices,
+                limit,
+            } => write!(
+                f,
+                "the next step of the elimination makes a net of more than {}",
+                counted(*limit, "vertex", "vertices")
             ),
             Self::Index { what, count, most } => write!(
                 f,

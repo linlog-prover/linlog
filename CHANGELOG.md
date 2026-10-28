@@ -363,6 +363,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   holds a cut formula (a proof with a cut, a session with one, an
   outcome of a goal of one) is written at level 6; every other document
   stays as it was.
+- Level 6: the cut links of proof structures, `"cuts": [[x, y], …]`, with
+  and without boxes, written only where there are some (whose sequent
+  holds the cut formulas), and a cut link's end in a structure with
+  boxes as `[occurrence, null, box]`.
 - A session's optional key `written`, how its sequent was written, raises
   no level: a reader that ignores it reads the session as it is, and
   draws it one-sided.
@@ -406,9 +410,8 @@ second number (0.1.x to 0.2.0), anything else the third.
   `Fault::NotACut` (kind `not_a_cut`) for a cut on another member, and
   `Fault::Forbidden` in an ordered mode. `Rule::Cut` and
   `ClassicalRule::Cut` name it in every view and export (`cut`), and
-  `Inference::cut` gives a cut inference's formula. A net is not built
-  of a proof with a cut (`NetError::Rule`), the read-back to LK and LJ
-  refuses it, and NanoYalla's certificate too (`Unsupported::Cut`): the
+  `Inference::cut` gives a cut inference's formula. The read-back to LK
+  and LJ refuses it, and NanoYalla's certificate too (`Unsupported::Cut`): the
   kernel by default is then linlog's library, whose calculi have the cut
   as an optional rule.
 - Cut elimination on proof terms, `proofs::cut`: `step(&proof, mode,
@@ -439,6 +442,35 @@ second number (0.1.x to 0.2.0), anything else the third.
   "steps": [{"cut", "formula", "case", "above"}], "end"}`, `end`
   `cut_free` or `refused` with the `reason` in an error's form, at wire
   level 6.
+- Cut links in proof nets. `ProofStructure::with_cuts(forest, criterion,
+  &cuts, &links)` and `Parts::cuts` join an occurrence of a cut
+  formula's tree to its dual (`cuts`, `cut_partner`, `is_cut_free` on
+  both structures, `ProofStructure::vertices`); the vertices of an MLL
+  structure over a sequent with cut formulas are the conclusions' trees
+  and those above the cut links (`vertex` answers `None` for the
+  others). `Placed::parent` is an `Option`, `None` for an end of a cut
+  link (`Placed::cut`). Both criteria take a cut link as a `⊗` without
+  a conclusion; `from_proof` reads a proof's cuts as cut links (in
+  classical mode with or without Mix and in intuitionistic mode), and
+  `sequentialize` gives a proof with a cut for each. `Placement::Cut` and
+  `Placement::Uncut` (kinds `cut` and `uncut`) for a cut link that is
+  none and for a link to a vertex above no cut link.
+- Cut elimination on proof nets, `nets::cut`: `step(&net, at, &options,
+  &limits, stop)` reduces the cut link at the vertex `at` (either end), or
+  the strategy's, the first of the net's list, checks the net it makes
+  with the criterion and returns it with the `Step` (`cut`, the link's
+  two ends, the `Case`, and the vertex `above` it acted at); `eliminate`
+  takes steps until no cut link is left or a bound is reached, gives
+  every step and the net it was taken on to a callback, and returns the
+  `Elimination` (the net reached, the steps, the `End`). The cases
+  `Axiom`, `TensorPar`, `Weakening` (a box erased), `Dereliction`,
+  `Contraction` (a box duplicated) and `BoxIntoBox`, on `ProofStructure`
+  and `MellStructure` (the sealed trait `nets::cut::Net`); `cut::Options`
+  bounds it, `nodes` counting a net's vertices (`Bound::Vertices`, key
+  `cut.nodes`). `NetError::NoCut` (code `no_cut`) for a vertex at no cut
+  link or a net without one, and `NetError::Reduction` (code
+  `reduction_rejected`, kind defect) were the criterion ever to refuse a
+  net a step made.
 - `linlog eliminate PROOF`: checks a proof file in the flags' mode and
   eliminates its cuts, printing each step's case and cut formula and the
   derivation of the proof reached, or the record with `--format json`;

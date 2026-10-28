@@ -9,7 +9,9 @@
 //! part by part and joined with Mix. Two literals alone are an axiom.
 //! Otherwise some `⊗` conclusion is splitting: the net without it is two
 //! nets, one holding each premise, which is the case exactly when its edge
-//! to a premise is a bridge of the plain graph. A depth-first search per
+//! to a premise is a bridge of the plain graph; a cut link is such a `⊗`
+//! without a conclusion, splitting when it is a bridge, and its rule is
+//! the cut. A depth-first search per
 //! stage finds the parts and the bridges at once, so the whole
 //! sequentialization costs the square of the net's size at most.
 
@@ -22,8 +24,8 @@ use crate::sequents::Kind;
 
 impl ProofStructure {
     /// Turns a proof net into a proof term of its sequent, which the proof
-    /// checker accepts: `⅋`, `⊗`, axiom and, where the structure falls
-    /// apart, Mix nodes, recorded as meant for classical mode, with Mix
+    /// checker accepts: `⅋`, `⊗`, axiom, a cut for each cut link and,
+    /// where the structure falls apart, Mix nodes, recorded as meant for classical mode, with Mix
     /// where the criterion allows it. It takes time quadratic in the
     /// structure at most, holds within `limits.memory_bytes` (estimated
     /// before anything is made) and asks `stop` as
@@ -69,7 +71,8 @@ impl ProofStructure {
                 ..Progress::new(Phase::Net, stage, stages)
             })
         };
-        let root = run.sequentialize(self.forest.roots().to_vec(), &mut stop);
+        let cuts = self.cuts.iter().map(|&(x, _)| x.occ()).collect();
+        let root = run.sequentialize(self.forest.roots().to_vec(), cuts, &mut stop);
         let Some(root) = root else {
             return Err(STOPPED.into());
         };
@@ -102,13 +105,17 @@ struct Sequentialization<'a> {
 
 /// A step of a sequentialization.
 enum Step {
-    /// Prove the sub-net with these conclusions.
-    Prove(Vec<OccId>),
+    /// Prove the sub-net with these conclusions and the cut links at
+    /// these ends in a cut formula's tree.
+    Prove(Vec<OccId>, Vec<OccId>),
     /// Join the last two sub-nets proved with Mix.
     Mix,
     /// Apply this `⊗` to the last two sub-nets proved, which hold its left
     /// and its right premise.
     Tensor(OccId),
+    /// Cut on this occurrence of a cut formula's tree the last two
+    /// sub-nets proved, which hold it and its dual.
+    Cut(OccId),
     /// Apply these `⅋` to the last sub-net proved, the last of them first.
     Pars(Vec<OccId>),
 }
@@ -127,22 +134,23 @@ impl Sequentialization<'_> {
             .expect("a sub-net proved for every premise")
     }
 
-    /// Proves the sub-net with the given conclusions and returns the node
-    /// concluding it, asking `stop` before each stage; `None` when it
-    /// fired.
+    /// Proves the sub-net with the given conclusions and cut links and
+    /// returns the node concluding it, asking `stop` before each stage;
+    /// `None` when it fired.
     fn sequentialize(
         &mut self,
         gamma: Vec<OccId>,
+        cuts: Vec<OccId>,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Option<NodeId> {
-        self.steps.push(Step::Prove(gamma));
+        self.steps.push(Step::Prove(gamma, cuts));
         while let Some(step) = self.steps.pop() {
             let node = match step {
-                Step::Prove(gamma) => {
+                Step::Prove(gamma, cuts) => {
                     if stop(1) {
                         return None;
                     }
-                    self.stage(gamma);
+                    self.stage(gamma, cuts);
                     continue;
                 }
                 Step::Mix => {
@@ -154,6 +162,11 @@ impl Sequentialization<'_> {
                     let right = self.premise();
                     let left = self.premise();
                     self.push(Node::Tensor(Member::from(t), left, right))
+                }
+                Step::Cut(a) => {
+                    let right = self.premise();
+                    let left = self.premise();
+                    self.push(Node::Cut(Member::from(a), left, right))
                 }
                 Step::Pars(pars) => {
                     let mut node = self.premise();
@@ -168,15 +181,17 @@ impl Sequentialization<'_> {
         Some(self.premise())
     }
 
-    /// One stage, on the sub-net with the given conclusions: proves it by
-    /// an axiom, or leaves the steps that prove it, which are its parts
-    /// with a Mix after each but the first, or the two sides of its
-    /// splitting `⊗` and the `⊗` after them; the `⅋` conclusions it opened
-    /// come after either.
-    fn stage(&mut self, mut gamma: Vec<OccId>) {
+    /// One stage, on the sub-net with the given conclusions and cut links
+    /// (each named by its end in a cut formula's tree): proves it by an
+    /// axiom, or leaves the steps that prove it, which are its parts with
+    /// a Mix after each but the first, or the two sides of its splitting
+    /// `⊗` or cut link and the `⊗` or cut after them; the `⅋` conclusions
+    /// it opened come after either.
+    fn stage(&mut self, mut gamma: Vec<OccId>, cuts: Vec<OccId>) {
         let f = self.net.forest();
         let graph = &self.net.graph;
         let child = |o: OccId, left: bool| if left { f.left(o) } else { f.right(o) }.unwrap();
+        let across = |a: OccId| f.dual(a).expect("a cut link's end in a cut formula");
 
         // Every ⅋ conclusion is opened, outermost first; its rule is
         // applied last, below the rest.
@@ -197,14 +212,15 @@ impl Sequentialization<'_> {
             self.steps.push(Step::Pars(pars));
         }
 
-        let parts = graph.search(&mut self.scratch, gamma.iter().map(|o| o.get()));
+        let roots = gamma.iter().chain(&cuts).map(|o| o.get());
+        let parts = graph.search(&mut self.scratch, roots);
         if parts > 1 {
             debug_assert!(
                 self.net.criterion.mix,
                 "a proof net without Mix is connected"
             );
             let mut labels: Vec<OccId> = Vec::new();
-            for &c in &gamma {
+            for &c in gamma.iter().chain(&cuts) {
                 let label = self.scratch.component(c);
                 if !labels.contains(&label) {
                     labels.push(label);
@@ -216,11 +232,16 @@ impl Sequentialization<'_> {
                 if i > 0 {
                     self.steps.push(Step::Mix);
                 }
-                let part = gamma.iter().copied();
-                let part = part.filter(|&c| self.scratch.component(c) == label);
-                self.steps.push(Step::Prove(part.collect()));
+                let of = |list: &[OccId]| {
+                    list.iter()
+                        .copied()
+                        .filter(|&c| self.scratch.component(c) == label)
+                        .collect()
+                };
+                let part = Step::Prove(of(&gamma), of(&cuts));
+                self.steps.push(part);
             }
-        } else if gamma.iter().all(|&c| f.is_literal(c)) {
+        } else if cuts.is_empty() && gamma.iter().all(|&c| f.is_literal(c)) {
             debug_assert!(
                 gamma.len() == 2
                     && self.net.partner(VertexId::of(gamma[0])) == Some(VertexId::of(gamma[1]))
@@ -229,21 +250,40 @@ impl Sequentialization<'_> {
             let axiom = self.push(Node::Ax(x.into(), y.into()));
             self.proved.push(axiom);
         } else {
-            // The splitting ⊗ conclusion with the smallest id: one whose
-            // premise edge is a bridge.
-            let t = gamma
+            // The splitting ⊗ conclusion with the smallest id, one whose
+            // premise edge is a bridge, or else the splitting cut link
+            // with the smallest end, whose edge is a bridge.
+            let tensor = gamma
                 .iter()
                 .copied()
                 .filter(|&c| f.kind(c) == Kind::Tensor)
                 .filter(|&c| self.scratch.is_bridge(c.get(), child(c, true).get()))
-                .min()
-                .expect("a connected proof net whose conclusions are not all literals has a splitting ⊗");
-            let (l, r) = (child(t, true), child(t, false));
-            self.scratch.delete(t);
-            graph.search(&mut self.scratch, [l.get()]);
-            let (mut left, mut right) = (vec![l], vec![r]);
+                .min();
+            let cut = || {
+                cuts.iter()
+                    .copied()
+                    .filter(|&a| self.scratch.is_bridge(a.get(), across(a).get()))
+                    .min()
+            };
+            let (split, left_end, right_end) = match tensor {
+                Some(t) => {
+                    self.scratch.delete(t);
+                    (Step::Tensor(t), child(t, true), child(t, false))
+                }
+                None => {
+                    let a = cut().expect(
+                        "a connected proof net whose conclusions are not all literals has a \
+                         splitting ⊗ or cut link",
+                    );
+                    graph.remove_cut(&mut self.scratch, a.get());
+                    (Step::Cut(a), a, across(a))
+                }
+            };
+            graph.search(&mut self.scratch, [left_end.get()]);
+            let (mut left, mut right) = (vec![left_end], vec![right_end]);
+            let (mut left_cuts, mut right_cuts) = (Vec::new(), Vec::new());
             for &c in &gamma {
-                if c == t {
+                if matches!(split, Step::Tensor(t) if t == c) {
                     continue;
                 }
                 if self.scratch.reached(c) {
@@ -252,9 +292,19 @@ impl Sequentialization<'_> {
                     right.push(c);
                 }
             }
-            self.steps.push(Step::Tensor(t));
-            self.steps.push(Step::Prove(right));
-            self.steps.push(Step::Prove(left));
+            for &a in &cuts {
+                if matches!(split, Step::Cut(b) if b == a) {
+                    continue;
+                }
+                if self.scratch.reached(a) {
+                    left_cuts.push(a);
+                } else {
+                    right_cuts.push(a);
+                }
+            }
+            self.steps.push(split);
+            self.steps.push(Step::Prove(right, right_cuts));
+            self.steps.push(Step::Prove(left, left_cuts));
         }
     }
 }

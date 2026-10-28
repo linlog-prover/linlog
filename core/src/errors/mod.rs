@@ -1062,6 +1062,12 @@ mod tests {
                 fragment: Fragment::LL,
                 mode: Mode::INTUITIONISTIC,
             },
+            NetError::NoCut {
+                vertex: Some(vertex),
+            },
+            NetError::Reduction {
+                error: Box::new(NetError::Empty),
+            },
             NetError::Refused {
                 refusal: refusals[1].clone(),
             },
@@ -1134,7 +1140,9 @@ mod tests {
                 | NetError::Placement { .. }
                 | NetError::Unattached { .. }
                 | NetError::InBox { .. }
-                | NetError::NotMell { .. } => {}
+                | NetError::NotMell { .. }
+                | NetError::NoCut { .. }
+                | NetError::Reduction { .. } => {}
             },
             Error::Refused(refusal) => refused(refusal),
             #[cfg(feature = "parse")]

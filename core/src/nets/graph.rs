@@ -5,7 +5,10 @@
 //! correctness criterion runs on it.
 //!
 //! The vertices are the occurrences. The edges are the premise edges of
-//! every `⊗` and `⅋` and the axiom links. The colouring: the two premise
+//! every `⊗` and `⅋`, the cut links and the axiom links. A cut link takes
+//! the place of the parent edge at both its ends, whose parents are no
+//! vertices; an occurrence that is no vertex of the structure (a cut
+//! formula's above every cut link) has no slot at all. The colouring: the two premise
 //! edges of a `⅋` share a colour of their own, and every other edge has a
 //! colour of its own, so a cycle is *properly coloured* (no two consecutive
 //! edges alike) exactly when it enters and leaves no `⅋` through its two
@@ -30,8 +33,9 @@ use crate::occurrences::{Forest, OccId, OccSet};
 use crate::sequents::Kind;
 
 /// The coloured structure graph in compressed sparse row layout: per
-/// vertex, its edge to its parent first, then to its children, and for a
-/// literal its axiom link last, with `NONE` while it is unlinked.
+/// vertex, its edge to its parent or across its cut link first, then to
+/// its children, and for a literal its axiom link last, with `NONE` while
+/// it is unlinked.
 #[derive(Clone, Debug)]
 pub(super) struct Graph {
     /// Per vertex, where its slots start in `to`; one more entry holds the
@@ -40,8 +44,12 @@ pub(super) struct Graph {
     start: Box<[u32]>,
     /// Per slot, the other end of the edge.
     to: Box<[u32]>,
-    /// The edges every switching keeps: two per `⊗`, one per `⅋`.
+    /// The edges every switching keeps: two per `⊗`, one per `⅋` and one
+    /// per cut link.
     switched_tree_edges: usize,
+    /// The vertices with slots: every occurrence but those of a cut
+    /// formula above every cut link.
+    vertices: usize,
 }
 
 /// Working memory for the correctness tests, sized for one structure, so
@@ -135,16 +143,40 @@ impl Scratch {
 }
 
 impl Graph {
-    /// Builds the graph of a forest, with every literal unlinked.
-    pub(super) fn new(forest: &Forest) -> Self {
+    /// Builds the graph of a forest, with every literal unlinked: over the
+    /// occurrences `live` holds, or every one, and the cut links `cuts`
+    /// between them.
+    pub(super) fn new(
+        forest: &Forest,
+        live: Option<&OccSet>,
+        cuts: &[(VertexId, VertexId)],
+    ) -> Self {
         let n = forest.len();
         let mut start = Vec::with_capacity(n + 1);
         let mut to = Vec::with_capacity(3 * n);
-        let mut switched_tree_edges = 0;
+        let mut switched_tree_edges = cuts.len();
+        let mut across = Vec::new();
+        if !cuts.is_empty() {
+            across = vec![NONE; n];
+            for &(x, y) in cuts {
+                across[x.index()] = y.get();
+                across[y.index()] = x.get();
+            }
+        }
+        let mut vertices = 0;
         for o in forest.ids() {
             start.push(to.len() as u32);
-            if let Some(p) = forest.parent(o) {
-                to.push(p.get());
+            if live.is_some_and(|live| !live.contains(o)) {
+                continue;
+            }
+            vertices += 1;
+            match across.get(o.index()) {
+                Some(&end) if end != NONE => to.push(end),
+                _ => {
+                    if let Some(p) = forest.parent(o) {
+                        to.push(p.get());
+                    }
+                }
             }
             to.extend(forest.children(o).map(OccId::get));
             match forest.kind(o) {
@@ -167,7 +199,13 @@ impl Graph {
             start: start.into_boxed_slice(),
             to: to.into_boxed_slice(),
             switched_tree_edges,
+            vertices,
         }
+    }
+
+    /// Returns the number of vertices with slots.
+    pub(super) fn vertices(&self) -> usize {
+        self.vertices
     }
 
     /// Returns working memory for this graph.
@@ -207,6 +245,16 @@ impl Graph {
     pub(super) fn unlink(&mut self, x: u32, y: u32) {
         self.to[self.axiom_slot(x)] = NONE;
         self.to[self.axiom_slot(y)] = NONE;
+    }
+
+    /// Takes the cut link at its end `x` out of the graph for the searches
+    /// with `scratch` from now on.
+    pub(super) fn remove_cut(&self, scratch: &mut Scratch, x: u32) {
+        let slot = self.slots(x).start;
+        let y = self.to[slot];
+        let twin = self.twin(x, y);
+        scratch.removed[slot] = true;
+        scratch.removed[twin] = true;
     }
 
     /// Returns the number of edges every switching keeps when the
@@ -291,10 +339,10 @@ impl Graph {
             w != NONE && !scratch.removed[s] && !scratch.is_deleted(w)
         };
         if forest.kind(OccId::new(v)) == Kind::Par {
-            match forest.parent(OccId::new(v)) {
-                Some(p) => !present(self.slots(v).start) || scratch.is_bridge(v, p.get()),
-                None => true,
-            }
+            // A `⅋` has two premises and no axiom slot, so a third slot is
+            // its parent edge, to its parent or across its cut link.
+            let slots = self.slots(v);
+            slots.len() < 3 || !present(slots.start) || scratch.is_bridge(v, self.to[slots.start])
         } else {
             self.slots(v)
                 .all(|s| !present(s) || scratch.is_bridge(v, self.to[s]))
@@ -408,12 +456,14 @@ impl Graph {
 
     /// Returns the connected components of the switching that keeps the
     /// left premise of every `⅋`, each as the vertices in it that have no
-    /// parent edge there: the roots and the right premises of `⅋` nodes.
+    /// parent edge there: the roots, the right premises of `⅋` nodes, and
+    /// of each cut link its end in a cut formula's tree.
     /// Components come in the order of their smallest vertex.
     pub(super) fn parts(&self, forest: &Forest, scratch: &mut Scratch) -> Vec<Vec<VertexId>> {
         let n = self.len();
         scratch.restore();
-        for p in forest.ids().filter(|&p| forest.kind(p) == Kind::Par) {
+        let vertex = |o: OccId| !self.slots(o.get()).is_empty();
+        for p in forest.ids().filter(|&p| forest.kind(p) == Kind::Par && vertex(p)) {
             let r = forest.right(p).unwrap();
             scratch.removed[self.twin(r.get(), p.get())] = true;
             scratch.removed[self.slots(r.get()).start] = true;
@@ -421,9 +471,11 @@ impl Graph {
         self.search(scratch, 0..n as u32);
         scratch.removed.fill(false);
         let mut parts: Vec<(u32, Vec<VertexId>)> = Vec::new();
-        for v in forest.ids() {
+        for v in forest.ids().filter(|&v| vertex(v)) {
+            // A cut link is named by its end in a cut formula's tree.
             let cut = match forest.parent(v) {
-                None => true,
+                None => forest.dual(v).is_none_or(|d| v < d),
+                Some(p) if !vertex(p) => forest.dual(v).is_some_and(|d| v < d),
                 Some(p) => forest.kind(p) == Kind::Par && forest.right(p) == Some(v),
             };
             if !cut {
