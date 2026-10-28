@@ -3705,3 +3705,7 @@ client follows it (step 32).
   the `MellStructure` fallback. Follow-ups in `later.md` ("Follow-ups:
   the web client"). Next: step 42, its first session on Fable 5.1 at
   high (the step's plan, quantifiers in the data model).
+- 2026-10-28: the author accepted step 41's departures from the design
+  as relayed (41b's, 41c's with `Placed::parent` an `Option`, and 41d's:
+  the essential drawing of nets with cut links on, the net calls taking
+  a proof's document).
