@@ -21,8 +21,12 @@ Sequent syntax: `A, B |- C, D` (or `⊢`), either side may be empty.
   linear implication  A -o B, A ⊸ B
   negation  ~A, A^            exponentials  !A, ?A
   units  1, bot, ⊥, top, ⊤, 0
-Binding, tightest first: A^, then ~ ! ?, then *, |, &, +, and last -o, which
-groups to the right."
+  quantifiers  forall x. A, ∀x. A, exists x. A, ∃x. A, forall x y. A
+  predicates  p(x, f(a)): a name a quantifier binds is its variable, any
+    other a constant, or a function symbol before a bracket
+Binding, tightest first: A^, then ~ ! ?, then *, |, &, +, then -o, which
+groups to the right, and last a quantifier, which reaches right as far as
+it can."
     };
 }
 

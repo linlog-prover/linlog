@@ -225,11 +225,11 @@ impl<'a> Calculus<'a> {
     /// polarity names.
     fn positive(&self, o: OccId) -> bool {
         match self.forest.kind(o) {
-            Kind::Tensor | Kind::One | Kind::Plus | Kind::Zero | Kind::Bang => true,
+            Kind::Tensor | Kind::One | Kind::Plus | Kind::Zero | Kind::Bang | Kind::Exists => true,
             Kind::Atom | Kind::DualAtom => {
                 self.forest.atom(o).map(|a| self.positive[a.index()]) == self.forest.sign(o)
             }
-            Kind::Par | Kind::Bot | Kind::With | Kind::Top | Kind::Quest => false,
+            Kind::Par | Kind::Bot | Kind::With | Kind::Top | Kind::Quest | Kind::Forall => false,
         }
     }
 
@@ -404,8 +404,15 @@ impl<'a> Calculus<'a> {
                         found.push(Step::Axiom(o, rule.slots.len()));
                         rule.slots.push(self.partners(o));
                     }
-                    Kind::Zero | Kind::Par | Kind::Bot | Kind::With | Kind::Top | Kind::Quest => {
-                        unreachable!("no focus on a 0 or a negative formula")
+                    Kind::Zero
+                    | Kind::Par
+                    | Kind::Bot
+                    | Kind::With
+                    | Kind::Top
+                    | Kind::Quest
+                    | Kind::Forall
+                    | Kind::Exists => {
+                        unreachable!("no focus on a 0, a negative formula or a binder")
                     }
                 },
                 Pending::Phase(mut phase) => loop {

@@ -288,6 +288,7 @@ fn on_own_forest(
         atoms: sequent.atom_names().to_vec(),
         antecedents,
         cuts: vec![],
+        fo: sequent.fo.clone(),
     };
     let own = Forest::within(&own, limits)?;
     let mut outcome = run(&own, stop)?;
@@ -322,7 +323,9 @@ fn on_own_forest(
         match carried.check_within(mode, limits, &mut *stop) {
             Ok(()) => {}
             Err(e @ CheckError::Invalid(_)) => return Err(Error::Rejected(Box::new(e))),
-            Err(e @ CheckError::Refused(_)) => return Err(Error::Check(e)),
+            Err(e @ (CheckError::Refused(_) | CheckError::Quantifiers)) => {
+                return Err(Error::Check(e));
+            }
         }
     }
     outcome.verdict = Verdict::Proved(Box::new(carried));
@@ -996,6 +999,7 @@ fn conclude(
         Err(CheckError::Refused(refused)) => {
             Ok(Verdict::Unknown(unchecked(refused.refusal, limits)?))
         }
+        Err(e @ CheckError::Quantifiers) => Err(Error::Check(e)),
     }
 }
 

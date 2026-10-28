@@ -306,6 +306,8 @@ pub enum Space {
     Inference,
     /// The formulas of an ordinary arena.
     Formula,
+    /// The symbols of a sequent's first-order tables.
+    Symbol,
 }
 
 impl Space {
@@ -320,6 +322,7 @@ impl Space {
             Self::Vertex => "vertex",
             Self::Inference => "inference",
             Self::Formula => "formula",
+            Self::Symbol => "symbol",
         }
     }
 
@@ -334,6 +337,7 @@ impl Space {
             Self::Vertex => "vertices",
             Self::Inference => "inferences",
             Self::Formula => "formulas",
+            Self::Symbol => "symbols",
         }
     }
 }

@@ -77,9 +77,10 @@ fn form(net: &ProofStructure) -> Net {
     };
     let pair = |&(x, y): &(VertexId, VertexId)| (x.get(), y.get());
     Net {
-        // The cyclic order is level 2's, the cut formulas level 6's.
+        // The cyclic order is level 2's, the cut formulas level 6's and a
+        // first-order sequent level 7's.
         version: Some(if order.is_some() {
-            2
+            wire::level_of_sequent(net.sequent()).max(2)
         } else {
             wire::level_of_sequent(net.sequent())
         }),

@@ -170,12 +170,12 @@ impl<'a> Shape<'a> {
     /// bias makes positive.
     pub(super) fn positive(&self, o: OccId) -> bool {
         match self.forest.kind(o) {
-            Kind::Tensor | Kind::One | Kind::Plus | Kind::Zero | Kind::Bang => true,
+            Kind::Tensor | Kind::One | Kind::Plus | Kind::Zero | Kind::Bang | Kind::Exists => true,
             Kind::Atom | Kind::DualAtom => {
                 let atom = self.forest.atom(o).expect("a literal has an atom");
                 self.forest.sign(o) == Some(self.signs[atom.index()])
             }
-            Kind::Par | Kind::Bot | Kind::With | Kind::Top | Kind::Quest => false,
+            Kind::Par | Kind::Bot | Kind::With | Kind::Top | Kind::Quest | Kind::Forall => false,
         }
     }
 
@@ -439,8 +439,15 @@ impl<'s, 'a, 'c> Writer<'s, 'a, 'c> {
                         self.slots.push((o, anchor));
                         self.reversed.push(Step::Axiom(o, slot));
                     }
-                    Kind::Zero | Kind::Par | Kind::Bot | Kind::With | Kind::Top | Kind::Quest => {
-                        unreachable!("a plan never focuses on a 0 or a negative formula")
+                    Kind::Zero
+                    | Kind::Par
+                    | Kind::Bot
+                    | Kind::With
+                    | Kind::Top
+                    | Kind::Quest
+                    | Kind::Forall
+                    | Kind::Exists => {
+                        unreachable!("a plan never focuses on a 0, a negative formula or a binder")
                     }
                 },
                 Pending::Async(mut phase) => {

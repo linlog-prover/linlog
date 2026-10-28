@@ -191,7 +191,9 @@ impl Graph {
                 | Kind::With
                 | Kind::Plus
                 | Kind::Bang
-                | Kind::Quest => to.push(NONE),
+                | Kind::Quest
+                | Kind::Forall
+                | Kind::Exists => to.push(NONE),
             }
         }
         start.push(to.len() as u32);

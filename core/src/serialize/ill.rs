@@ -1,18 +1,18 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+use super::sequents::{Atoms, FoExpression, Tables};
 use crate::hash::HashMap;
 use crate::limits::{Limits, Refusal};
 use crate::occurrences::{IllConnective, IllSequent, Side};
-use crate::sequents::{Atom, Sequent, Term, TermId, Visit, name};
+use crate::sequents::{Atom, Sequent, Term, TermId, Visit};
 use crate::wire::{self, Readable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::borrow::Cow;
 
 /// The serialized form of an intuitionistic formula: the connectives of
 /// intuitionistic linear logic alone, so that a classical tag is refused
 /// as an unknown variant. Its tags are part of the interchange format.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename = "I")]
 enum Expression {
     /// An atom, by its index among the names.
@@ -42,6 +42,12 @@ enum Expression {
     /// `!A`
     #[serde(rename = "!")]
     Bang(u32),
+    /// `∀x.A`: the body; the variable's name stands in `binders`.
+    #[serde(rename = "∀")]
+    Forall(u32),
+    /// `∃x.A`: the body; the variable's name stands in `binders`.
+    #[serde(rename = "∃")]
+    Exists(u32),
 }
 
 impl Expression {
@@ -57,7 +63,14 @@ impl Expression {
             Expression::Tensor(k, l) | Expression::Lollipop(k, l) => Term::Tensor(t(k), t(l)),
             Expression::With(k, l) | Expression::Plus(k, l) => Term::With(t(k), t(l)),
             Expression::Bang(k) => Term::Bang(t(k)),
+            Expression::Forall(k) => Term::Forall(t(k)),
+            Expression::Exists(k) => Term::Exists(t(k)),
         }
+    }
+
+    /// Returns whether the expression is a binder.
+    fn is_binder(self) -> bool {
+        matches!(self, Expression::Forall(_) | Expression::Exists(_))
     }
 
     /// Returns the operands, each with the side it stands on when the
@@ -67,7 +80,9 @@ impl Expression {
             Expression::Atom(_) | Expression::One | Expression::Zero | Expression::Top => {
                 [None, None]
             }
-            Expression::Bang(k) => [Some((k, side)), None],
+            Expression::Bang(k) | Expression::Forall(k) | Expression::Exists(k) => {
+                [Some((k, side)), None]
+            }
             Expression::Lollipop(k, l) => [Some((k, !side)), Some((l, side))],
             Expression::Tensor(k, l) | Expression::With(k, l) | Expression::Plus(k, l) => {
                 [Some((k, side)), Some((l, side))]
@@ -98,6 +113,10 @@ impl Expression {
             Expression::Plus(..) => Term::With(left, right),
             Expression::Bang(_) if output => Term::Bang(left),
             Expression::Bang(_) => Term::Quest(left),
+            Expression::Forall(..) if output => Term::Forall(left),
+            Expression::Forall(..) => Term::Exists(left),
+            Expression::Exists(..) if output => Term::Exists(left),
+            Expression::Exists(..) => Term::Forall(left),
         }
     }
 }
@@ -114,8 +133,19 @@ struct Ill {
     version: Option<u32>,
     /// The arena, every operand before the term that names it.
     terms: Vec<Expression>,
-    /// The atom names.
-    atoms: Vec<String>,
+    /// The atoms: names, or predicates in a first-order sequent.
+    atoms: Atoms,
+    /// The symbols of a first-order sequent, each a name with its arity;
+    /// absent in a propositional one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    symbols: Vec<(String, u32)>,
+    /// The first-order terms; absent in a propositional sequent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    fo: Vec<FoExpression>,
+    /// The names of the binders' variables, one per `∀` or `∃` term in
+    /// the order of the terms; absent without binders.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    binders: Vec<String>,
     /// The hypotheses, as arena indices, in the order written.
     hypotheses: Vec<u32>,
     /// The goal, as an arena index.
@@ -129,6 +159,7 @@ impl From<&IllSequent> for Ill {
         let reading = sequent.reading();
         let forest = sequent.forest();
         let mut terms = Vec::new();
+        let mut binders = Vec::new();
         let mut index = HashMap::<(TermId, Side), u32>::default();
         // Each formula once, however many one-sided terms read as it.
         let mut written = HashMap::<Expression, u32>::default();
@@ -161,9 +192,15 @@ impl From<&IllSequent> for Ill {
                     C::With => Expression::With(at(l), at(r)),
                     C::Plus => Expression::Plus(at(l), at(r)),
                     C::Lollipop | C::Under | C::Over => Expression::Lollipop(at(l), at(r)),
+                    C::Forall => Expression::Forall(at(l)),
+                    C::Exists => Expression::Exists(at(l)),
                 };
                 // Fewer terms than the forest has occurrences, which fit a `u32`.
                 let n = *written.entry(expression).or_insert_with(|| {
+                    if expression.is_binder() {
+                        let name = forest.sequent().binder_name(forest.term(o));
+                        binders.push(name.unwrap_or("x").to_owned());
+                    }
                     terms.push(expression);
                     terms.len() as u32 - 1
                 });
@@ -171,10 +208,14 @@ impl From<&IllSequent> for Ill {
             }
         }
         let at = |o| index[&(forest.term(o), reading.position(o))];
+        let tables = Tables::of(forest.sequent());
         Self {
             version: None,
             terms,
-            atoms: forest.sequent().atom_names().to_vec(),
+            atoms: tables.atoms,
+            symbols: tables.symbols,
+            fo: tables.fo,
+            binders,
             hypotheses: reading.hypotheses().map(at).collect(),
             goal: at(reading.goal()),
         }
@@ -184,13 +225,13 @@ impl From<&IllSequent> for Ill {
 impl Ill {
     /// Returns the sequent the form holds, lowered within the limits:
     /// every formula on the side it stands on, each term on a side once.
-    fn within(mut self, limits: &Limits) -> Result<IllSequent, crate::Error> {
-        for name in &mut self.atoms {
-            if let Cow::Owned(composed) = name::normalized(name) {
-                *name = composed;
-            }
-            name::check(name)?;
+    fn within(self, limits: &Limits) -> Result<IllSequent, crate::Error> {
+        let (mut fo, atoms) = Tables {
+            symbols: self.symbols,
+            fo: self.fo,
+            atoms: self.atoms,
         }
+        .read(limits)?;
         let len = self.terms.len();
         // Each term lowers to two at most, numbered by a `u32`.
         let most = u64::from(u32::MAX / 2);
@@ -202,7 +243,7 @@ impl Ill {
             }));
         }
         for (n, e) in self.terms.iter().enumerate() {
-            e.shape().check_bounds(self.atoms.len() as u32, n as u32)?;
+            e.shape().check_bounds(atoms.len() as u32, n as u32)?;
         }
         let roots = self.hypotheses.iter().chain([&self.goal]);
         if let Some(&n) = roots.clone().find(|&&n| n as usize >= len) {
@@ -231,6 +272,14 @@ impl Ill {
         // The one-sided terms, operands first; at most two per term.
         let mut lowered = vec![[TermId::new(0); 2]; len];
         let mut terms = Vec::new();
+        // Per binder term its name, in the order of the terms.
+        let mut names = vec![None; len];
+        let mut given = self.binders.into_iter();
+        for (n, e) in self.terms.iter().enumerate() {
+            if e.is_binder() {
+                names[n] = Some(given.next().unwrap_or_else(|| "x".to_owned()));
+            }
+        }
         // At most two terms each, fewer than `u32::MAX` in all (above).
         for n in 0..len {
             for side in [Side::Input, Side::Output] {
@@ -241,6 +290,10 @@ impl Ill {
                     .operands(side)
                     .map(|k| k.map_or(TermId::new(0), |(k, s)| lowered[k as usize][s as usize]));
                 lowered[n][side as usize] = TermId::new(terms.len() as u32);
+                if let Some(name) = &names[n] {
+                    fo.binders
+                        .push((TermId::new(terms.len() as u32), name.clone()));
+                }
                 terms.push(self.terms[n].lowered(side, l, r));
             }
         }
@@ -253,11 +306,13 @@ impl Ill {
         let mut sequent = Sequent {
             terms,
             roots,
-            atoms: self.atoms,
+            atoms,
             // Fewer hypotheses than `u32::MAX`: each is a lowered term.
             antecedents: Some(self.hypotheses.len() as u32),
             cuts: vec![],
+            fo,
         };
+        sequent.check()?;
         sequent.merge_atoms();
         let occurrences = sequent.occurrences();
         match limits.occurrences {
@@ -279,7 +334,7 @@ impl Serialize for IllSequent {
     /// goal.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut proxy = Ill::from(self);
-        proxy.version = Some(wire::ILL);
+        proxy.version = Some(wire::ILL.max(wire::level_of_sequent(self.sequent())));
         proxy.serialize(serializer)
     }
 }

@@ -352,6 +352,7 @@ impl<'a> Reading<'a> {
                 Atom | One | Bang => both(false, l_out || forest.kind(o) != Bang),
                 DualAtom | Bot | Quest => both(l_in || forest.kind(o) != Quest, false),
                 Top | Zero => IN | OUT,
+                Forall | Exists => both(l_in, l_out),
                 With | Plus => both(l_in && r_in, l_out && r_out),
                 // In input position `A ⊗ B⊥` is `A ⊸ B`, in output position
                 // `A⊥ ⅋ B`: the left factor is the antecedent, or in the
@@ -621,6 +622,8 @@ impl<'a> Reading<'a> {
             (Kind::Tensor, Side::Input) | (Kind::Par, Side::Output) => C::Lollipop,
             (Kind::With, Side::Output) | (Kind::Plus, Side::Input) => C::With,
             (Kind::Plus, Side::Output) | (Kind::With, Side::Input) => C::Plus,
+            (Kind::Forall, Side::Output) | (Kind::Exists, Side::Input) => C::Forall,
+            (Kind::Exists, Side::Output) | (Kind::Forall, Side::Input) => C::Exists,
         }
     }
 
@@ -719,6 +722,10 @@ pub enum IllConnective {
     /// `B / A` in the Lambek calculus's ordered reading: an output `⅋` or
     /// an input `⊗` whose antecedent `A` is its second operand.
     Over,
+    /// `∀x.A`, an output `∀` or an input `∃`.
+    Forall,
+    /// `∃x.A`, an output `∃` or an input `∀`.
+    Exists,
 }
 
 /// An intuitionistic formula of a read sequent, as a value that prints it.

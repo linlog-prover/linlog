@@ -197,7 +197,9 @@ impl Graph {
                 | Kind::Top
                 | Kind::Zero
                 | Kind::With
-                | Kind::Plus => unreachable!("only the structure's connectives have premises"),
+                | Kind::Plus
+                | Kind::Forall
+                | Kind::Exists => unreachable!("only the structure's connectives have premises"),
             }
         }
         for q in 0..n as u32 {

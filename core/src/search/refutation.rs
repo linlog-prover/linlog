@@ -681,6 +681,12 @@ impl Disproof {
     pub fn check(&self) -> Result<(), crate::Error> {
         let fault = |fault| crate::Error::Refutation(fault);
         let forest = crate::occurrences::Forest::new(&self.sequent)?;
+        if forest.has_binders() {
+            return Err(fault(RefutationFault::NotApplicable {
+                invariant: "every refutation",
+                why: "each is propositional, and the sequent has a quantifier",
+            }));
+        }
         let goal: Vec<OccId> = match &self.goal {
             None => forest.roots().to_vec(),
             Some(members) => members
@@ -750,6 +756,9 @@ fn check_classical(
                 Tensor | With => l && r,
                 Par | Plus => l || r,
                 Bang | Quest => l,
+                Forall | Exists => {
+                    unreachable!("a refutation of a sequent with a binder is refused")
+                }
             };
         }
         if truth[member.index()] {
@@ -805,6 +814,9 @@ fn check_unbalanced(
                 Tensor | Par => l.zip(r).map(|((a, b), (c, d))| (a + c, b + d)),
                 With | Plus => l.zip(r).map(|((a, b), (c, d))| (a.min(c), b.max(d))),
                 Bang | Quest => l.filter(|&s| s == (0, 0)),
+                Forall | Exists => {
+                    unreachable!("a refutation of a sequent with a binder is refused")
+                }
             };
         }
         let Some((lo, hi)) = span[member.index()] else {
@@ -849,7 +861,7 @@ fn check_equation(
                 One => ones += 1,
                 Bot => bottoms += 1,
                 Atom | DualAtom => {}
-                Top | Zero | With | Plus | Bang | Quest => {
+                Top | Zero | With | Plus | Bang | Quest | Forall | Exists => {
                     return Err(RefutationFault::NotApplicable {
                         invariant: INVARIANT,
                         why: "it holds in the multiplicative fragment with units alone",

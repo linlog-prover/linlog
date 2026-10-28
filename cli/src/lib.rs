@@ -269,11 +269,12 @@ pub(crate) fn parse_error(input: &str, error: Error) -> anyhow::Error {
             message.push_str(last);
         }
         if let Some(hint) = e.hint {
-            write!(
-                message,
-                "\n  {hint}; --ill-syntax one-sided reads the classical syntax"
-            )
-            .unwrap();
+            write!(message, "\n  {hint}").unwrap();
+            // The hints of the strict intuitionistic syntax name what it
+            // lacks; the flag that reads the classical syntax is theirs.
+            if hint.starts_with("intuitionistic linear logic has no") {
+                message.push_str("; --ill-syntax one-sided reads the classical syntax");
+            }
         }
     }
     Explained::error(message, error)

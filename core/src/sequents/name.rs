@@ -18,8 +18,8 @@ pub(crate) const KEYWORDS: [&str; 3] = ["par", "top", "bot"];
 /// The keywords of the ordinary syntax: its constants.
 pub(crate) const ORDINARY_KEYWORDS: [&str; 2] = ["true", "false"];
 
-/// The words reserved for the quantifiers of a later version of both
-/// syntaxes.
+/// The keywords of the quantifiers, `forall x.` and `exists x.`, which
+/// name no atom, variable or symbol in either syntax.
 pub(crate) const RESERVED: [&str; 2] = ["forall", "exists"];
 
 /// Returns whether an identifier may start with `c`: `_` or a character
@@ -54,7 +54,7 @@ pub(crate) fn normalized(name: &str) -> Cow<'_, str> {
 }
 
 /// Checks that `name` can name an atom of a sequent: an identifier that is
-/// no keyword of the linear syntax and no reserved word.
+/// no keyword of the linear syntax and no quantifier's keyword.
 pub(crate) fn check(name: &str) -> Result<(), Error> {
     if is_identifier(name) && !KEYWORDS.contains(&name) && !RESERVED.contains(&name) {
         Ok(())
@@ -82,9 +82,7 @@ pub(crate) fn check_ordinary(name: &str) -> Result<(), Error> {
 /// Returns what is wrong with an atom name that [`check`] or
 /// [`check_ordinary`] refused, as a phrase.
 pub(crate) fn fault(name: &str) -> &'static str {
-    if RESERVED.contains(&name) {
-        "is reserved for a later version of the syntax"
-    } else if KEYWORDS.contains(&name) || ORDINARY_KEYWORDS.contains(&name) {
+    if RESERVED.contains(&name) || KEYWORDS.contains(&name) || ORDINARY_KEYWORDS.contains(&name) {
         "is a keyword of the syntax"
     } else {
         "is no identifier of the syntax"
@@ -118,8 +116,8 @@ mod tests {
         for (name, why) in [
             ("par", "is a keyword of the syntax"),
             ("top", "is a keyword of the syntax"),
-            ("forall", "is reserved for a later version of the syntax"),
-            ("exists", "is reserved for a later version of the syntax"),
+            ("forall", "is a keyword of the syntax"),
+            ("exists", "is a keyword of the syntax"),
             ("", "is no identifier of the syntax"),
             ("1a", "is no identifier of the syntax"),
             ("a b", "is no identifier of the syntax"),

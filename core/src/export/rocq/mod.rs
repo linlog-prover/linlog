@@ -349,6 +349,12 @@ pub enum Unsupported {
         "linlog's library has no theorem for a saturated set, so a refutation by one has no certificate in Rocq"
     )]
     Saturated,
+    /// The derivation's sequent has a quantifier, which neither library
+    /// has yet.
+    #[error(
+        "neither library has quantifiers yet, so a derivation of a sequent with ∀ or ∃ has no certificate"
+    )]
+    Quantifiers,
 }
 
 /// Rocq's keywords, which no atom and no lemma may take.
@@ -533,6 +539,9 @@ fn term(out: &mut String, sequent: &Sequent, names: &[String], id: TermId, argum
                     Plus(..) => out.push_str("aplus "),
                     Bang(_) => out.push_str("oc "),
                     Quest(_) => out.push_str("wn "),
+                    Forall(_) | Exists(_) => {
+                        unreachable!("the Rocq export refuses a sequent with a binder")
+                    }
                 }
             }
             Stop::Between(_) => out.push(' '),
@@ -889,6 +898,9 @@ fn linear(
 ) -> Result<(), Error> {
     if derivation.is_of_goal() {
         return Err(Error::GoalProof);
+    }
+    if derivation.forest().has_binders() {
+        return Err(Unsupported::Quantifiers.into());
     }
     if derivation.mode().is_some_and(Mode::is_ordered) {
         return Err(Unsupported::Ordered.into());

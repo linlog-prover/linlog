@@ -396,6 +396,9 @@ impl Counts {
                 Bot => (false, 1),
                 Top => (true, 0),
                 Zero => (false, 0),
+                Forall | Exists => {
+                    unreachable!("the focused engine refuses a sequent with a binder")
+                }
                 Bang | Quest => {
                     // No row: the literals below it are copied any number
                     // of times, which `copied` accounts for.
@@ -444,6 +447,9 @@ impl Counts {
                     Some(Forced::Duals)
                 }
                 Atom | DualAtom | Bot | Top | Quest | Tensor | Par | With | Plus => None,
+                Forall | Exists => {
+                    unreachable!("the focused engine refuses a sequent with a binder")
+                }
             };
             if rows.bytes() != charged {
                 account.resize(charged, rows.bytes());

@@ -372,6 +372,7 @@ mod tests {
             atoms,
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         })
         .unwrap();
         let literal = |a, sign| forest.literals(Atom::new(a), sign)[0];

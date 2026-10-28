@@ -87,6 +87,9 @@ const NOTATION: Notation = Notation {
     turnstile: r"\vdash",
     align: "&",
     atom: Atoms::Latex,
+    forall: r"\forall ",
+    exists: r"\exists ",
+    dot: r".\,",
     ordinary: Symbols {
         not: r"\lnot ",
         and: r"\land",

@@ -163,7 +163,9 @@ pub(crate) fn one_sided(forest: &Forest) -> Box<[Written]> {
                 | Kind::With
                 | Kind::Plus
                 | Kind::Bang
-                | Kind::Quest => side,
+                | Kind::Quest
+                | Kind::Forall
+                | Kind::Exists => side,
             };
             *written = Written::new(side, false);
         }

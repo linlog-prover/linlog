@@ -23,9 +23,19 @@ use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::Forest;
 use crate::occurrences::reading::Side;
 use crate::occurrences::written::Written;
-use crate::sequents::name::{RESERVED, normalized, starts_identifier};
+use crate::sequents::fo::{self, FoTerm, FoTermId, Interner, SymbolFault};
+use crate::sequents::name::{KEYWORDS, RESERVED, normalized, starts_identifier};
 use crate::sequents::{Atom, Sequent, Term, TermId};
 use std::borrow::Cow;
+
+/// What a symbol used with another number of arguments than before is
+/// told.
+const ARITY: &str = "a symbol takes the same number of arguments everywhere: \
+                     this use differs from the first";
+/// What a name used as a predicate and as a function symbol is told.
+const ROLE: &str = "a name is a predicate or a function symbol, not both";
+/// What a keyword in term position is told.
+const KEYWORD: &str = "a keyword names no variable, constant or function symbol";
 
 /// A binary connective as it is written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,6 +92,9 @@ enum Pending {
     Bang,
     /// `?`
     Quest,
+    /// `∀x.` or `∃x.`, whose variable's name is the innermost of the
+    /// parser's open scope.
+    Binder(bool),
     /// A binary connective with its left operand.
     Binary(Binary, TermId),
 }
@@ -149,6 +162,22 @@ struct Parser<'a> {
     recording: bool,
     /// While recording, the terms written as `⊸`, in ascending order.
     implications: Vec<TermId>,
+    /// The names of the binders whose body is being read, the innermost
+    /// last: what an identifier in term position is resolved against.
+    scope: Vec<&'a str>,
+    /// The symbols, terms and argument lists read so far, interned; empty
+    /// until the text is first-order.
+    interner: Interner,
+    /// Whether the text is first-order so far: an atom with arguments or a
+    /// binder has been read.
+    first_order: bool,
+    /// Per atom, its predicate symbol and arguments, once the text is
+    /// first-order; empty before, so that a propositional text pays
+    /// nothing.
+    predicates: Vec<(fo::Symbol, fo::Args)>,
+    /// The binders read, each with its variable's name, in the order of
+    /// their terms.
+    binders: Vec<(TermId, String)>,
 }
 
 /// Reads `text` as a sequent for a calculus of `order`, refused past
@@ -208,6 +237,11 @@ impl<'a> Parser<'a> {
             order,
             recording: false,
             implications: Vec::new(),
+            scope: Vec::new(),
+            interner: Interner::new(),
+            first_order: false,
+            predicates: Vec::new(),
+            binders: Vec::new(),
         }
     }
 
@@ -273,22 +307,209 @@ impl<'a> Parser<'a> {
         &self.input[start..self.at]
     }
 
-    /// Returns the atom called `name` in NFC, a new one if the name is.
-    /// A name read before is one lookup; only a new spelling is composed.
+    /// Returns the atom called `name` in NFC, a new one if the name is:
+    /// one lookup, which inserts the name where it is new.
     fn atom(&mut self, name: &'a str) -> Atom {
-        if let Some(&atom) = self.names.get(name) {
-            return atom;
+        use std::collections::hash_map::Entry;
+        let next = Atom::new(self.atoms.len() as u32);
+        match self.names.entry(normalized(name)) {
+            Entry::Occupied(known) => *known.get(),
+            Entry::Vacant(new) => {
+                self.atoms.push(new.key().clone().into_owned());
+                new.insert(next);
+                next
+            }
         }
-        let key = normalized(name);
-        if let Cow::Owned(composed) = &key
-            && let Some(&atom) = self.names.get(composed.as_str())
-        {
-            return atom;
+    }
+
+    /// Gives `atom`, read as `name`, its predicate in a first-order text
+    /// where it is new: the nullary symbol of its name.
+    #[cold]
+    #[inline(never)]
+    fn nullary(&mut self, atom: Atom, name: &'a str) -> Result<(), Error> {
+        if atom.index() < self.predicates.len() {
+            return Ok(());
         }
-        let atom = Atom::new(self.atoms.len() as u32);
-        self.atoms.push(key.clone().into_owned());
-        self.names.insert(key, atom);
-        atom
+        let start = self.at - name.len();
+        let key = self.atoms[atom.index()].clone();
+        let symbol = self.symbol(&key, 0, true, start..self.at)?;
+        let empty = self.interner.list(&[]);
+        self.predicates.push((symbol, empty));
+        Ok(())
+    }
+
+    /// Makes the text first-order, if it was not: every atom read so far
+    /// gets its predicate, the nullary symbol of its name.
+    #[cold]
+    #[inline(never)]
+    fn enter_first_order(&mut self, span: std::ops::Range<usize>) -> Result<(), Error> {
+        if std::mem::replace(&mut self.first_order, true) || self.atoms.is_empty() {
+            return Ok(());
+        }
+        let empty = self.interner.list(&[]);
+        for a in 0..self.atoms.len() {
+            let name = std::mem::take(&mut self.atoms[a]);
+            let symbol = self.symbol(&name, 0, true, span.clone());
+            self.atoms[a] = name;
+            self.predicates.push((symbol?, empty));
+        }
+        Ok(())
+    }
+
+    /// Returns the symbol called `name` of `arity` in the role `predicate`
+    /// says, interned, or the error at `span` for a name known with
+    /// another arity or in the other role.
+    #[cold]
+    #[inline(never)]
+    fn symbol(
+        &mut self,
+        name: &str,
+        arity: u32,
+        predicate: bool,
+        span: std::ops::Range<usize>,
+    ) -> Result<fo::Symbol, Error> {
+        self.interner
+            .symbol(name, arity, predicate)
+            .map_err(|fault| {
+                let hint = match fault {
+                    SymbolFault::Arity { .. } => ARITY,
+                    SymbolFault::Role | SymbolFault::Repeated => ROLE,
+                };
+                ParseError::spanning(self.input, span, &[])
+                    .with_hint(hint)
+                    .into()
+            })
+    }
+
+    /// Reads the variables and the dot of a binder whose keyword ends at
+    /// the current place, `x y.` of `forall x y.`, and opens a binder per
+    /// variable, the first outermost.
+    #[cold]
+    #[inline(never)]
+    fn binder(&mut self, universal: bool) -> Result<State, Error> {
+        let keyword = self.at;
+        // Before the variables open their scope, so that every atom read
+        // so far gets its predicate.
+        self.enter_first_order(keyword..self.at)?;
+        let mut names = 0;
+        loop {
+            self.skip_blank();
+            let start = self.at;
+            let Some(c) = self.peek() else {
+                return Err(self.unexpected(start, &["a variable name"]));
+            };
+            if c == '.' && names > 0 {
+                self.at += 1;
+                break;
+            }
+            if !starts_identifier(c) {
+                let expected: &'static [&'static str] = if names > 0 {
+                    &["a variable name", "`.`"]
+                } else {
+                    &["a variable name"]
+                };
+                return Err(self.unexpected(start, expected));
+            }
+            self.at += c.len_utf8();
+            let name = self.identifier(start);
+            if KEYWORDS.contains(&name) || RESERVED.contains(&name) {
+                let error = ParseError::spanning(self.input, start..self.at, &["a variable name"]);
+                return Err(error.with_hint(KEYWORD).into());
+            }
+            self.scope.push(name);
+            names += 1;
+        }
+        for _ in 0..names {
+            self.prefix(Pending::Binder(universal))?;
+        }
+        Ok(State::Operand)
+    }
+
+    /// Skips the whitespace at the current place.
+    fn skip_blank(&mut self) {
+        let blank = &self.input[self.at..];
+        self.at += blank.len() - blank.trim_start().len();
+    }
+
+    /// Reads the argument list of the predicate `name`, whose `(` has been
+    /// read, up to its `)`, and returns the predicate's atom: an
+    /// identifier bound by an open binder is that variable, any other a
+    /// constant or, before a `(`, a function symbol. Nested applications
+    /// are read on an explicit stack: no term costs the caller's stack.
+    #[cold]
+    #[inline(never)]
+    fn predicate(&mut self, name: &'a str, start: usize) -> Result<Atom, Error> {
+        self.enter_first_order(start..self.at)?;
+        // The applications being read, each its symbol, where it starts
+        // and its arguments so far; the predicate's own list is the first.
+        let mut open: Vec<(Cow<'a, str>, usize, Vec<FoTermId>)> =
+            vec![(normalized(name), start, Vec::new())];
+        loop {
+            // A term.
+            self.skip_blank();
+            let at = self.at;
+            match self.peek() {
+                Some(c) if starts_identifier(c) => {
+                    self.at += c.len_utf8();
+                }
+                _ => return Err(self.unexpected(at, &["a term"])),
+            }
+            let word = self.identifier(at);
+            if KEYWORDS.contains(&word) || RESERVED.contains(&word) {
+                let error = ParseError::spanning(self.input, at..self.at, &["a term"]);
+                return Err(error.with_hint(KEYWORD).into());
+            }
+            let word = normalized(word);
+            self.skip_blank();
+            if self.peek() == Some('(') {
+                self.at += 1;
+                open.push((word, at, Vec::new()));
+                continue;
+            }
+            let mut term = match self.scope.iter().rev().position(|&v| *v == *word) {
+                Some(index) => FoTerm::Bound(index as u32),
+                None => {
+                    let symbol = self.symbol(&word, 0, false, at..self.at)?;
+                    FoTerm::App(symbol, self.interner.list(&[]))
+                }
+            };
+            // The term closes every application whose last argument it is.
+            loop {
+                let id = self.interner.term(term);
+                let list = &mut open.last_mut().expect("the predicate's list is open").2;
+                list.push(id);
+                self.skip_blank();
+                let at = self.at;
+                match self.peek() {
+                    Some(',') => {
+                        self.at += 1;
+                        break;
+                    }
+                    Some(')') => self.at += 1,
+                    _ => return Err(self.unexpected(at, &["`,`", "`)`"])),
+                }
+                let (symbol, from, items) = open.pop().expect("an application was open");
+                let arity = u32::try_from(items.len()).map_err(|_| self.past_bound())?;
+                let args = self.interner.list(&items);
+                if open.is_empty() {
+                    let symbol = self.symbol(&symbol, arity, true, from..self.at)?;
+                    let key = self.interner.tables.atom_key(symbol, args);
+                    let atom = match self.names.get(key.as_str()) {
+                        Some(&atom) => atom,
+                        None => {
+                            let atom = Atom::new(self.atoms.len() as u32);
+                            self.atoms.push(key.clone());
+                            self.names.insert(Cow::Owned(key), atom);
+                            self.predicates.push((symbol, args));
+                            atom
+                        }
+                    };
+                    return Ok(atom);
+                }
+                let symbol = self.symbol(&symbol, arity, false, from..self.at)?;
+                term = FoTerm::App(symbol, args);
+            }
+        }
     }
 
     /// Gives `operand` to the pending operators that take it before the
@@ -313,6 +534,14 @@ impl<'a> Parser<'a> {
                 Pending::Quest => {
                     self.owed -= 1;
                     Term::Quest(operand)
+                }
+                Pending::Binder(universal) => {
+                    // A binder binds loosest: a connective to its right is
+                    // inside its scope.
+                    if next.is_some() {
+                        break;
+                    }
+                    self.close_binder(universal, operand)
                 }
                 Pending::Binary(connective, left) => {
                     if next.is_some_and(|next| !connective.takes_before(next)) {
@@ -342,6 +571,22 @@ impl<'a> Parser<'a> {
             operand = self.push(term)?;
         }
         Ok(operand)
+    }
+
+    /// Closes the innermost binder over `operand`, its variable's name
+    /// recorded for the term about to be pushed, and returns that term.
+    #[cold]
+    #[inline(never)]
+    fn close_binder(&mut self, universal: bool, operand: TermId) -> Term {
+        self.owed -= 1;
+        let name = self.scope.pop().expect("a binder has its variable");
+        self.binders
+            .push((TermId::new(self.terms.len() as u32), name.to_owned()));
+        if universal {
+            Term::Forall(operand)
+        } else {
+            Term::Exists(operand)
+        }
     }
 
     /// Completes a formula of the sequent, outside every parenthesis, with
@@ -394,7 +639,7 @@ impl<'a> Parser<'a> {
                 self.marks -= 1;
                 return Ok(State::Operand);
             }
-            Pending::Bang | Pending::Quest => {
+            Pending::Bang | Pending::Quest | Pending::Binder(_) => {
                 self.owed += 1;
                 if (self.terms.len() as u64).saturating_add(self.owed) > self.most {
                     return Err(self.past_bound());
@@ -437,6 +682,8 @@ impl<'a> Parser<'a> {
             '1' => Term::One,
             '⊥' => Term::Bot,
             '⊤' => Term::Top,
+            '∀' => return self.binder(true),
+            '∃' => return self.binder(false),
             '⊢' if self.empty && self.left => return Ok(self.turnstile()),
             '|' if self.empty && self.left => {
                 // Only `|-` can start a sequent with `|`, so what is wrong
@@ -455,11 +702,19 @@ impl<'a> Parser<'a> {
                     let error = ParseError::spanning(self.input, start..self.at, self.operands());
                     return Err(error.into());
                 }
-                word if RESERVED.contains(&word) => {
-                    let error = ParseError::reserved(self.input, start..self.at, self.operands());
-                    return Err(error.into());
+                "forall" => return self.binder(true),
+                "exists" => return self.binder(false),
+                name if self.input.as_bytes().get(self.at) == Some(&b'(') => {
+                    self.at += 1;
+                    Term::Atom(self.predicate(name, start)?)
                 }
-                name => Term::Atom(self.atom(name)),
+                name => {
+                    let atom = self.atom(name);
+                    if self.first_order {
+                        self.nullary(atom, name)?;
+                    }
+                    Term::Atom(atom)
+                }
             },
             _ => return Err(self.unexpected(start, self.operands())),
         };
@@ -619,13 +874,18 @@ impl<'a> Parser<'a> {
         if let Some(written) = written {
             *written = self.written();
         }
+        let mut fo = self.interner.tables;
+        fo.atoms = self.predicates;
+        fo.binders = self.binders;
         let mut sequent = Sequent {
             terms: self.terms,
             roots: self.roots,
             atoms: self.atoms,
             antecedents: Some(self.antecedents),
             cuts: vec![],
+            fo,
         };
+        debug_assert!(sequent.check().is_ok(), "{:?}", sequent.check());
         sequent.optimize();
         Ok(sequent)
     }

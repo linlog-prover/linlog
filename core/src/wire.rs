@@ -31,8 +31,11 @@
 //! occurrences past its forest) and the proof's tag `cut`, so a document
 //! whose sequent holds a cut formula is written at level 6, and so is a
 //! proof with a cut, whose sequent holds the cut's formula, and the
-//! record of a cut elimination, whose proof's sequent holds them; every other
-//! document is written at level 1. A reader refuses a
+//! record of a cut elimination, whose proof's sequent holds them; level 7
+//! adds the first-order sequent (`"symbols"`, `"fo"`, `"binders"`, an atom
+//! as `{"P": [symbol, [terms]]}`, the terms `∀` and `∃`), so a document whose
+//! sequent is first-order is written at level 7; every other document is
+//! written at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes
 //! first, as the writer puts it; a document without `version` reads as
@@ -50,7 +53,8 @@
 //! level up to [`LEVEL`] as a value of this release, every older level
 //! through one step per level that changed a form (none so far: level 2
 //! only adds a kind of refutation and a mode, level 3 a kind of
-//! refutation, levels 4 and 5 a form each, level 6 a key and a tag), and
+//! refutation, levels 4 and 5 a form each, level 6 a key and a tag, level
+//! 7 keys, tags and a shape of atom), and
 //! counts every sequent's occurrences against `limits.occurrences` before
 //! anything unfolds. [`Within`] is the same as a serde seed, for a value
 //! nested in a document of the caller's; the plain `Deserialize` impls read
@@ -100,7 +104,19 @@
 //!   {"V": 1}, {"⊸": [0, 1]}], "atoms": ["A", "B"], "hypotheses": [2,
 //!   0], "goal": 1}` for `A ⊸ B, A ⊢ B`: the terms `V`, `1`, `0`, `⊤`,
 //!   `⊗`, `⊸` (the antecedent first), `&`, `⊕` and `!`, every operand
-//!   before its term; see [`IllSequent`](crate::IllSequent).
+//!   before its term; see [`IllSequent`](crate::IllSequent). With the
+//!   quantifiers `∀` and `∃` and the first-order keys it is written at
+//!   level 7, as the one-sided sequent is.
+//! - **First-order sequent**: `{"version": 7, "terms": [{"D": 0}, {"∃":
+//!   0}, {"V": 1}], "roots": [1, 2], "atoms": [{"P": [0, [0]]},
+//!   {"P": [0, [1]]}], "symbols": [["p", 1], ["a", 0]], "fo": [{"B": 0},
+//!   {"F": [1, []]}], "binders": ["x"], "antecedents": 1}` for `forall x.
+//!   p(x) |- p(a)`: `symbols` each a name with its arity, `fo` the terms
+//!   (`B` a bound variable, the innermost binder's `0`; `F` a symbol
+//!   applied to terms of `fo`, each before its term), every atom a
+//!   predicate applied to terms, a binder as `{"∀": body}` or `{"∃":
+//!   body}`, and `binders` the variables' names, one per binder in the
+//!   order of the terms.
 //! - **Session**: `{"version": 1, "sequent": {…}, "mode":
 //!   "intuitionistic", "inferences": […], "history": […]}`, and for a
 //!   session that keeps how its sequent was written `"written":
@@ -125,7 +141,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 /// The highest wire level this build reads and writes.
-pub const LEVEL: u32 = 6;
+pub const LEVEL: u32 = 7;
 
 /// The level of every document but a disproof (or an unprovable
 /// outcome) with a classical refutation, which is level 2, or with a
@@ -271,10 +287,16 @@ pub(crate) fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Opti
 /// The level of a sequent with cut formulas, which level 6 added.
 pub(crate) const CUTS: u32 = 6;
 
-/// The level of a document that holds `sequent`: 6 where it has cut
-/// formulas, which level 6 added, else 1.
+/// The level of a first-order sequent, which level 7 added.
+pub(crate) const TERMS: u32 = 7;
+
+/// The level of a document that holds `sequent`: 7 where it is
+/// first-order, which level 7 added, 6 where it has cut formulas, which
+/// level 6 added, else 1.
 pub(crate) fn level_of_sequent(sequent: &crate::Sequent) -> u32 {
-    if sequent.cuts().is_empty() {
+    if sequent.is_first_order() {
+        TERMS
+    } else if sequent.cuts().is_empty() {
         BASE
     } else {
         CUTS

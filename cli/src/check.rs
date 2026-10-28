@@ -163,6 +163,11 @@ fn check_into(
     let format = show.format;
     let over = || interrupted() || deadline.passed() || io::closed();
     let result = proof.check_within(mode, &show.limits, |_| over());
+    // No verdict on a proof the checker takes no rule for: an error, never
+    // an invalid proof.
+    if let Err(e @ CheckError::Quantifiers) = &result {
+        return Err(linlog::Error::from(e.clone()).into());
+    }
     let status = match &result {
         Ok(()) => Status::Yes,
         Err(CheckError::Refused(_)) => Status::Unknown,

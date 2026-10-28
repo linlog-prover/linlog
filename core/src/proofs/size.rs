@@ -22,7 +22,7 @@ use super::{Branch, Derivation, Node, NodeId, Proof, ViewOptions};
 use crate::fragment::Mode;
 use crate::limits::{Limits, Phase, Progress};
 use crate::occurrences::{Forest, OccId, Reading, Side};
-use crate::sequents::Term;
+use crate::sequents::{Term, TermId};
 
 /// How large the derivation of a proof is, as
 /// [`Proof::derivation_size`] computes it. A count that passes `u64::MAX`
@@ -239,6 +239,18 @@ pub(crate) fn weights(forest: &Forest) -> Vec<u32> {
                 true,
             ),
             Bang(k) | Quest(k) => (inner[k.index()].saturating_add(1), false),
+            // `∀x. ` before the body: the symbol, the name, the dot and a
+            // space.
+            Forall(k) | Exists(k) => {
+                let name = sequent
+                    .binder_name(TermId::new(top.len() as u32))
+                    .map_or(1, |name| name.chars().count());
+                let name = u32::try_from(name).unwrap_or(u32::MAX);
+                (
+                    inner[k.index()].saturating_add(name.saturating_add(3)),
+                    false,
+                )
+            }
         };
         top.push(width);
         inner.push(if binary {
@@ -812,6 +824,7 @@ mod tests {
             atoms: vec!["a".repeat(1 << 20)],
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         };
         let forest = Forest::new(&sequent).unwrap();
         assert_eq!(forest.len(), 1 + (1 << 13) - 1);

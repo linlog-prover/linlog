@@ -661,6 +661,7 @@ mod tests {
             atoms: vec![],
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         };
         // Occurrences: 0 is 1, 1 to `width` the ⊥ formulas, then the tree
         // in preorder.
@@ -771,6 +772,7 @@ mod tests {
             atoms: vec![],
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         };
         // Occurrences: 0 is ⊤, 1 to `width` the ⊥ formulas, then each
         // `⊥ & ⊥` and its two subformulas.

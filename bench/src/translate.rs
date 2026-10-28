@@ -65,6 +65,9 @@ pub fn one_sided(out: &mut String, sequent: &Sequent, root: TermId, s: &Spelling
                 Term::Tensor(..) | Term::Par(..) | Term::With(..) | Term::Plus(..) => {
                     write!(out, "(")
                 }
+                Term::Forall(_) | Term::Exists(_) => {
+                    unreachable!("the harness translates propositional sequents alone")
+                }
             },
             Visit::Between(t, _) => {
                 let op = match sequent.term(t) {
@@ -81,7 +84,9 @@ pub fn one_sided(out: &mut String, sequent: &Sequent, root: TermId, s: &Spelling
                     | Term::Top
                     | Term::Zero
                     | Term::Bang(_)
-                    | Term::Quest(_) => "",
+                    | Term::Quest(_)
+                    | Term::Forall(_)
+                    | Term::Exists(_) => "",
                 };
                 write!(out, " {op} ")
             }

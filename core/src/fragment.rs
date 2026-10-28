@@ -8,7 +8,7 @@ use std::ops::{BitAnd, BitOr, BitOrAssign};
 use std::str::FromStr;
 
 /// The connective classes a sequent uses, which name the fragment of
-/// propositional linear logic it lives in. Fragments form a lattice under
+/// linear logic it lives in, the quantifiers one class among them. Fragments form a lattice under
 /// [`union`](Self::union) and [`contains`](Self::contains); the named
 /// constants are the usual fragments, and [`Sequent::fragment`] computes
 /// the smallest one a sequent fits.
@@ -28,6 +28,11 @@ impl Fragment {
     pub const ADDITIVE_UNITS: Self = Self(8);
     /// `!` and `?`.
     pub const EXPONENTIALS: Self = Self(16);
+    /// `∀` and `∃`: the quantifiers of first-order linear logic, whose
+    /// fragments are the propositional ones with a `1` after the acronym
+    /// (`MLL1`, `MALL1`, `LL1`). A ground atom (`p(a)`) sets no class: a
+    /// sequent is first-order by its binders alone.
+    pub const QUANTIFIERS: Self = Self(32);
 
     /// Multiplicative linear logic without units: `⊗ ⅋`.
     pub const MLL: Self = Self::MULTIPLICATIVES;
@@ -43,6 +48,18 @@ impl Fragment {
     pub const MELL: Self = Self::MLL_WITH_UNITS.union(Self::EXPONENTIALS);
     /// Full propositional linear logic: every propositional connective.
     pub const LL: Self = Self::MALL.union(Self::EXPONENTIALS);
+    /// First-order multiplicative linear logic without units: `⊗ ⅋ ∀ ∃`.
+    pub const MLL1: Self = Self::MLL.union(Self::QUANTIFIERS);
+    /// First-order multiplicative linear logic with units.
+    pub const MLL1_WITH_UNITS: Self = Self::MLL_WITH_UNITS.union(Self::QUANTIFIERS);
+    /// First-order additive linear logic, named `ALL1`.
+    pub const ADDITIVE1: Self = Self::ADDITIVE.union(Self::QUANTIFIERS);
+    /// First-order multiplicative-additive linear logic.
+    pub const MALL1: Self = Self::MALL.union(Self::QUANTIFIERS);
+    /// First-order multiplicative-exponential linear logic.
+    pub const MELL1: Self = Self::MELL.union(Self::QUANTIFIERS);
+    /// Full first-order linear logic: every connective and both quantifiers.
+    pub const LL1: Self = Self::LL.union(Self::QUANTIFIERS);
 
     /// The named fragments, in the order of [`NAMES`](Self::NAMES): each is
     /// the largest fragment of its name.
@@ -53,12 +70,30 @@ impl Fragment {
         Self::MALL,
         Self::MELL,
         Self::LL,
+        Self::MLL1,
+        Self::MLL1_WITH_UNITS,
+        Self::ADDITIVE1,
+        Self::MALL1,
+        Self::MELL1,
+        Self::LL1,
     ];
 
     /// The names of the [`NAMED`](Self::NAMED) fragments, as
     /// [`name`](Self::name) writes them and [`FromStr`] reads them.
-    pub const NAMES: &'static [&'static str] =
-        &["MLL", "MLL with units", "ALL", "MALL", "MELL", "LL"];
+    pub const NAMES: &'static [&'static str] = &[
+        "MLL",
+        "MLL with units",
+        "ALL",
+        "MALL",
+        "MELL",
+        "LL",
+        "MLL1",
+        "MLL1 with units",
+        "ALL1",
+        "MALL1",
+        "MELL1",
+        "LL1",
+    ];
 
     /// Returns the fragment with the connective classes of both.
     #[must_use]
@@ -109,6 +144,12 @@ impl Fragment {
         self.contains(Self::EXPONENTIALS)
     }
 
+    /// Returns whether `∀` or `∃` occurs: whether the fragment is
+    /// first-order.
+    pub const fn has_quantifiers(self) -> bool {
+        self.contains(Self::QUANTIFIERS)
+    }
+
     /// Returns whether a sequent of this fragment has proof structures:
     /// whether it is unit-free MLL.
     pub const fn has_nets(self) -> bool {
@@ -116,38 +157,65 @@ impl Fragment {
     }
 
     /// Returns the usual name of the smallest named fragment that contains
-    /// this one: `MLL`, `MLL with units`, `ALL`, `MALL`, `MELL` or `LL`. The
-    /// empty fragment is named `MLL`, and units only count for the name of a
-    /// purely multiplicative fragment, where they decide which engine applies.
+    /// this one: `MLL`, `MLL with units`, `ALL`, `MALL`, `MELL` or `LL`,
+    /// with a `1` after the acronym where the fragment has quantifiers
+    /// (`MLL1`, `MLL1 with units`, `LL1`). The empty fragment is named
+    /// `MLL`, and units only count for the name of a purely multiplicative
+    /// fragment, where they decide which engine applies.
     pub const fn name(self) -> &'static str {
         let additive = self.has_additives() || self.has_additive_units();
         let multiplicative = self.has_multiplicatives() || self.has_multiplicative_units();
-        match (self.has_exponentials(), additive, multiplicative) {
-            (true, true, _) => "LL",
-            (true, false, _) => "MELL",
-            (false, true, true) => "MALL",
-            (false, true, false) => "ALL",
-            (false, false, _) if self.has_multiplicative_units() => "MLL with units",
-            (false, false, _) => "MLL",
+        let units = self.has_multiplicative_units();
+        match (
+            self.has_quantifiers(),
+            self.has_exponentials(),
+            additive,
+            multiplicative,
+        ) {
+            (false, true, true, _) => "LL",
+            (false, true, false, _) => "MELL",
+            (false, false, true, true) => "MALL",
+            (false, false, true, false) => "ALL",
+            (false, false, false, _) if units => "MLL with units",
+            (false, false, false, _) => "MLL",
+            (true, true, true, _) => "LL1",
+            (true, true, false, _) => "MELL1",
+            (true, false, true, true) => "MALL1",
+            (true, false, true, false) => "ALL1",
+            (true, false, false, _) if units => "MLL1 with units",
+            (true, false, false, _) => "MLL1",
         }
     }
 
     /// Returns the fragment's name in a mode: the classical
     /// [`name`](Self::name), or in intuitionistic mode the intuitionistic
-    /// one, `IMLL`, `IMLL with units`, `IALL`, `IMALL`, `IMELL` or `ILL`.
+    /// one, `IMLL`, `IMLL with units`, `IALL`, `IMALL`, `IMELL` or `ILL`,
+    /// with the `1` of a first-order fragment (`IMLL1`, …).
     pub const fn name_in(self, mode: Mode) -> &'static str {
         if !mode.is_intuitionistic() {
             return self.name();
         }
         let additive = self.has_additives() || self.has_additive_units();
         let multiplicative = self.has_multiplicatives() || self.has_multiplicative_units();
-        match (self.has_exponentials(), additive, multiplicative) {
-            (true, true, _) => "ILL",
-            (true, false, _) => "IMELL",
-            (false, true, true) => "IMALL",
-            (false, true, false) => "IALL",
-            (false, false, _) if self.has_multiplicative_units() => "IMLL with units",
-            (false, false, _) => "IMLL",
+        let units = self.has_multiplicative_units();
+        match (
+            self.has_quantifiers(),
+            self.has_exponentials(),
+            additive,
+            multiplicative,
+        ) {
+            (false, true, true, _) => "ILL",
+            (false, true, false, _) => "IMELL",
+            (false, false, true, true) => "IMALL",
+            (false, false, true, false) => "IALL",
+            (false, false, false, _) if units => "IMLL with units",
+            (false, false, false, _) => "IMLL",
+            (true, true, true, _) => "ILL1",
+            (true, true, false, _) => "IMELL1",
+            (true, false, true, true) => "IMALL1",
+            (true, false, true, false) => "IALL1",
+            (true, false, false, _) if units => "IMLL1 with units",
+            (true, false, false, _) => "IMLL1",
         }
     }
 }
@@ -215,6 +283,7 @@ impl Kind {
             With | Plus => Fragment::ADDITIVES,
             Top | Zero => Fragment::ADDITIVE_UNITS,
             Bang | Quest => Fragment::EXPONENTIALS,
+            Forall | Exists => Fragment::QUANTIFIERS,
         }
     }
 }
@@ -692,6 +761,7 @@ mod tests {
             atoms: vec![],
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         };
         assert_eq!(
             s.fragment(),

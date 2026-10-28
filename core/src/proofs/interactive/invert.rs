@@ -244,7 +244,7 @@ impl Interactive {
                 &[x, y] if f.dual_literals(x, y) => Some(Rule::Ax),
                 _ => None,
             },
-            Kind::Plus | Kind::Zero | Kind::Quest => None,
+            Kind::Plus | Kind::Zero | Kind::Quest | Kind::Forall | Kind::Exists => None,
         }
     }
 }

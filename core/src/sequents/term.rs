@@ -25,8 +25,12 @@ impl TermId {
     }
 }
 
-/// An atomic formula, by its index in a sequent's dictionary of atom names.
-/// An atom takes no arguments: it is propositional.
+/// An atomic formula, by its index in a sequent's table of atoms: a
+/// predicate symbol applied to its arguments, interned, so that two
+/// literals of one atom are two occurrences of one atomic formula. Every
+/// atom of a propositional sequent is nullary, and a ground atom (`p(a)`)
+/// is propositional too: only an atom under a binder has a bound variable
+/// among its arguments ([`Sequent::atom_is_open`](super::Sequent::atom_is_open)).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Atom(u32);
 
@@ -49,7 +53,7 @@ impl Atom {
 
 /// A node of a formula in negation normal form, which refers to its subterms
 /// by arena index.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Term {
     /// An atom `a`.
     Atom(Atom),
@@ -75,11 +79,38 @@ pub enum Term {
     Bang(TermId),
     /// `?A`
     Quest(TermId),
+    /// `∀x.A`: a binder and its body, in which the variable it binds is
+    /// the bound variable of index 0 and the variables of the binders
+    /// above it are shifted by one (locally nameless, so two binders that
+    /// differ in their variable's name alone are one term). The name is
+    /// kept beside the arena for printing.
+    Forall(TermId),
+    /// `∃x.A`, a binder as [`Forall`](Self::Forall) is.
+    Exists(TermId),
 }
 
 /// A term is a tag and two arena indices at most: every arena and every
 /// table keyed by terms grows with it.
 const _: () = assert!(size_of::<Term>() == 12);
+
+impl std::hash::Hash for Term {
+    /// Hashes the term as one word: its two indices, the second zero
+    /// where there is none, and its kind in the top byte, over the second
+    /// index's top bits, which only an arena past 2²⁴ terms fills; one
+    /// write whatever the variant, where the derived form writes the
+    /// discriminant and each field.
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        use Term::*;
+        let (a, b) = match *self {
+            Atom(a) | DualAtom(a) => (a.0, 0),
+            One | Bot | Top | Zero => (0, 0),
+            Tensor(k, l) | Par(k, l) | With(k, l) | Plus(k, l) => (k.0, l.0),
+            Bang(k) | Quest(k) | Forall(k) | Exists(k) => (k.0, 0),
+        };
+        let kind = u64::from(self.kind() as u8) << 56;
+        state.write_u64(u64::from(a) | (u64::from(b) << 32) ^ kind);
+    }
+}
 
 /// The kind of a term: its connective, or which literal it is.
 #[repr(u8)]
@@ -109,6 +140,10 @@ pub enum Kind {
     Bang,
     /// `?`
     Quest,
+    /// `∀`
+    Forall,
+    /// `∃`
+    Exists,
 }
 
 impl Kind {
@@ -129,6 +164,8 @@ impl Kind {
             Plus => With,
             Bang => Quest,
             Quest => Bang,
+            Forall => Exists,
+            Exists => Forall,
         }
     }
 
@@ -137,7 +174,7 @@ impl Kind {
         use Kind::*;
         match self {
             Atom | DualAtom | One | Bot | Top | Zero => 0,
-            Bang | Quest => 1,
+            Bang | Quest | Forall | Exists => 1,
             Tensor | Par | With | Plus => 2,
         }
     }
@@ -145,6 +182,11 @@ impl Kind {
     /// Returns whether this is a literal, `a` or `~a`.
     pub const fn is_literal(self) -> bool {
         matches!(self, Kind::Atom | Kind::DualAtom)
+    }
+
+    /// Returns whether this is a binder, `∀` or `∃`.
+    pub const fn is_binder(self) -> bool {
+        matches!(self, Kind::Forall | Kind::Exists)
     }
 }
 
@@ -165,6 +207,8 @@ impl Term {
             Plus(..) => Kind::Plus,
             Bang(_) => Kind::Bang,
             Quest(_) => Kind::Quest,
+            Forall(_) => Kind::Forall,
+            Exists(_) => Kind::Exists,
         }
     }
 
@@ -181,7 +225,9 @@ impl Term {
             | Term::With(..)
             | Term::Plus(..)
             | Term::Bang(_)
-            | Term::Quest(_) => None,
+            | Term::Quest(_)
+            | Term::Forall(_)
+            | Term::Exists(_) => None,
         }
     }
 
@@ -204,11 +250,13 @@ impl Term {
             Plus(k, l) => With(k, l),
             Bang(k) => Quest(k),
             Quest(k) => Bang(k),
+            Forall(k) => Exists(k),
+            Exists(k) => Forall(k),
         }
     }
 
     /// Returns the subterms in order: none for a literal or a unit, one for
-    /// `!` and `?`, the left one then the right one for a binary connective.
+    /// `!`, `?` and a binder (its body), the left one then the right one for a binary connective.
     pub fn subterms(self) -> impl Iterator<Item = TermId> {
         let (first, second) = self.operands();
         first.into_iter().chain(second)
@@ -219,7 +267,7 @@ impl Term {
         use Term::*;
         match self {
             Tensor(k, l) | Par(k, l) | With(k, l) | Plus(k, l) => (Some(k), Some(l)),
-            Bang(k) | Quest(k) => (Some(k), None),
+            Bang(k) | Quest(k) | Forall(k) | Exists(k) => (Some(k), None),
             Atom(_) | DualAtom(_) | One | Bot | Top | Zero => (None, None),
         }
     }
@@ -235,6 +283,8 @@ impl Term {
             Plus(k, l) => Plus(f(k), f(l)),
             Bang(k) => Bang(f(k)),
             Quest(k) => Quest(f(k)),
+            Forall(k) => Forall(f(k)),
+            Exists(k) => Exists(f(k)),
             leaf @ Atom(_)
             | leaf @ DualAtom(_)
             | leaf @ One
@@ -259,7 +309,9 @@ impl Term {
             | other @ With(..)
             | other @ Plus(..)
             | other @ Bang(_)
-            | other @ Quest(_) => other.map_subterms(|k| TermId(k.0 + terms)),
+            | other @ Quest(_)
+            | other @ Forall(_)
+            | other @ Exists(_) => other.map_subterms(|k| TermId(k.0 + terms)),
         }
     }
 

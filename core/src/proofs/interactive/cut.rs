@@ -181,6 +181,11 @@ impl Interactive {
         limits: &Limits,
     ) -> Result<[GoalId; 2], Error> {
         let sequent = self.open(goal)?;
+        if formula.formula.fragment().has_quantifiers() {
+            return Err(Error::Quantifiers {
+                what: "interactive proving",
+            });
+        }
         if self.mode.is_ordered() {
             return Err(StepError::Mode {
                 rule: Rule::Cut.into(),

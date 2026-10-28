@@ -102,6 +102,9 @@ pub enum CheckError {
     /// The check was given up without a verdict on the term: a bound or the
     /// caller's stop.
     Refused(Refused),
+    /// The proof's sequent has a quantifier, which the checker takes no
+    /// rule for yet: no verdict on the term.
+    Quantifiers,
 }
 
 /// What makes a term no proof: the node at fault, what the checker had
@@ -225,11 +228,12 @@ impl Invalid {
 
 impl CheckError {
     /// Returns the node at fault, or the node the check had come to when
-    /// it was refused.
+    /// it was refused: the first one where it never began.
     pub fn node(&self) -> NodeId {
         match self {
             Self::Invalid(invalid) => invalid.node,
             Self::Refused(refused) => refused.node,
+            Self::Quantifiers => NodeId::new(0),
         }
     }
 
@@ -237,7 +241,7 @@ impl CheckError {
     pub fn fault(&self) -> Option<&Fault> {
         match self {
             Self::Invalid(invalid) => Some(&invalid.fault),
-            Self::Refused(_) => None,
+            Self::Refused(_) | Self::Quantifiers => None,
         }
     }
 
@@ -281,6 +285,11 @@ impl CheckError {
                     "the check was given up at node {}, without a verdict on the proof: {}",
                     refused.node.get(),
                     refused.refusal
+                );
+            }
+            Self::Quantifiers => {
+                return f.write_str(
+                    "the checker takes no quantifiers yet: no verdict on a proof of a sequent with ∀ or ∃",
                 );
             }
         };

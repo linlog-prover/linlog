@@ -768,7 +768,14 @@ fn premises(forest: &Forest, occurrence: &[OccId], parent: &[u32]) -> Result<Csr
             Kind::Tensor | Kind::Par => 2,
             Kind::Bang => 1,
             Kind::Quest | Kind::Atom | Kind::DualAtom => continue,
-            Kind::One | Kind::Bot | Kind::Top | Kind::Zero | Kind::With | Kind::Plus => {
+            Kind::One
+            | Kind::Bot
+            | Kind::Top
+            | Kind::Zero
+            | Kind::With
+            | Kind::Plus
+            | Kind::Forall
+            | Kind::Exists => {
                 unreachable!("a unit-free MELL sequent has no such occurrence")
             }
         };
@@ -860,7 +867,9 @@ fn check_boxes(
                 | Kind::Top
                 | Kind::Zero
                 | Kind::With
-                | Kind::Plus => false,
+                | Kind::Plus
+                | Kind::Forall
+                | Kind::Exists => false,
             },
         };
         if !fits {

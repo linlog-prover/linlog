@@ -161,18 +161,22 @@ impl Kind {
             | Kind::With
             | Kind::Plus
             | Kind::Bang
-            | Kind::Quest => None,
+            | Kind::Quest
+            | Kind::Forall
+            | Kind::Exists => None,
         }
     }
 
     /// Returns the polarity of a connective, or `None` for a literal, whose
-    /// polarity is a per-atom choice.
+    /// polarity is a per-atom choice. `∃` is positive (its witness is a
+    /// choice) and `∀` negative (its eigenvariable is fresh, so the rule
+    /// is invertible).
     pub const fn polarity(self) -> Option<Polarity> {
         use Kind::*;
         match self {
             Atom | DualAtom => None,
-            Tensor | One | Plus | Zero | Bang => Some(Polarity::Positive),
-            Par | Bot | With | Top | Quest => Some(Polarity::Negative),
+            Tensor | One | Plus | Zero | Bang | Exists => Some(Polarity::Positive),
+            Par | Bot | With | Top | Quest | Forall => Some(Polarity::Negative),
         }
     }
 }
@@ -395,7 +399,13 @@ impl Forest {
             .map(|&a| (a, OccId::new(a.get() + self.size(a))))
     }
 
-    /// Returns whether the forest has cut formulas.
+    /// Returns whether a formula of the sequent has a binder, `∀` or `∃`:
+    /// whether the sequent is first-order with quantifiers.
+    pub fn has_binders(&self) -> bool {
+        self.kind.iter().any(|k| k.is_binder())
+    }
+
+    /// Returns whether the sequent has cut formulas.
     pub fn has_cuts(&self) -> bool {
         !self.cuts.is_empty()
     }
@@ -1003,6 +1013,7 @@ mod tests {
             atoms: vec!["A".into()],
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         };
         let f = Forest::new(&s).unwrap();
         check_invariants(&f);
@@ -1050,6 +1061,7 @@ mod tests {
             atoms: vec![],
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         }
     }
 

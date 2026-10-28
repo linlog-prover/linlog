@@ -6,6 +6,8 @@
 
 /// Printing sequents and formulas in one-sided notation.
 pub mod fmt;
+/// The first-order terms, symbols and binders of a sequent.
+pub mod fo;
 /// Atom names: identifiers of the text syntax that no keyword takes.
 pub(crate) mod name;
 /// The one printer of formulas and sequents, a table of spellings per
@@ -17,6 +19,7 @@ pub mod term;
 pub use fmt::Formula;
 pub(crate) use fmt::{Stop, Stops};
 pub use fmt::{Visit, Walk};
+pub use fo::{Args, FoTerm, FoTermId, Symbol, SymbolFault};
 pub use term::{Atom, Kind, Term, TermId};
 
 use crate::hash::HashMap;
@@ -38,12 +41,30 @@ use crate::hash::HashMap;
 /// characters of `XID_Continue`), read in NFC, so that one name is one
 /// atom however its accents are encoded, other than the keywords `bot`, `top` and
 /// `par`, which are that constant or connective only as whole
-/// identifiers, and the words `forall` and `exists`, which are reserved
-/// for the quantifiers of a later version: the syntax grows by new tokens
-/// only, never by a new meaning of text that reads today. Text that is no
-/// sequent is `Error::Parse`, whose `ParseError` says where. Every atom
-/// name of a sequent, however it was read, is such an identifier, so that
-/// the formulas written as text read back as themselves. The ordered
+/// identifiers, and `forall` and `exists`, the quantifiers' keywords.
+/// Text that is no sequent is `Error::Parse`, whose `ParseError` says
+/// where. Every atom name of a sequent, however it was read, is such an
+/// identifier, so that the formulas written as text read back as
+/// themselves.
+///
+/// First-order sequents: `forall x. A` (`∀x. A`) and `exists x. A`
+/// (`∃x. A`) bind loosest, their scope running to the right as far as it
+/// can (to a `)`, a `,`, the turnstile or the end), and `forall x y. A`
+/// binds both; an atom may be a predicate applied to terms, `p(x,
+/// f(a))`, where an identifier bound by an enclosing quantifier is its
+/// variable and any other a constant or, before a `(`, a function
+/// symbol. A symbol has one arity throughout the sequent, a name is a
+/// predicate or a function symbol, not both, a keyword names none of
+/// them, and every formula is closed. A quantifier's variable is kept by
+/// name for printing ([`binder_name`](Self::binder_name)) and bound by
+/// index in the arena ([`Term::Forall`]), so two quantifiers that differ
+/// in their variable's name alone are one term. An atom with arguments
+/// is interned by its text, `p(f(a), b)`, and an atom under a quantifier
+/// by its text with the bound variables as indices, `p(#0)`
+/// ([`atom_name`](Self::atom_name)); the symbols and the terms are the
+/// sequent's tables ([`symbols`](Self::symbols),
+/// [`fo_terms`](Self::fo_terms), [`atom_predicate`](Self::atom_predicate)),
+/// empty for a propositional sequent. The ordered
 /// parse ([`parse_ordered`](Self::parse_ordered)) reads the divisions of
 /// the Lambek calculus besides, `\` (to the right) and `/` (to the left),
 /// as loose as `-o`; mixed, a division takes all to its right, `A \ B / C`
@@ -81,7 +102,14 @@ use crate::hash::HashMap;
 /// A sequent with cut formulas ([`cuts`](Self::cuts)) writes them as
 /// `"cuts": […]`, the term of each cut formula `A` (its dual is the
 /// reader's to build), which a document that holds one writes at wire
-/// level 6; a sequent without them writes no key.
+/// level 6; a sequent without them writes no key. A first-order sequent
+/// writes `"symbols": [["p", 1], …]` (each a name with its arity),
+/// `"fo": […]` (its terms, `{"B": n}` a bound variable and `{"F":
+/// [symbol, [terms]]}` an application, each term before the one that
+/// names it), every atom as `{"P": [symbol, [terms]]}`, a quantifier
+/// as `{"∀": body}` or `{"∃": body}`, and `"binders": ["x", …]`, the
+/// quantifiers' variable names in the order of the terms, at wire level
+/// 7; a propositional sequent writes none of it.
 ///
 #[cfg_attr(all(feature = "parse", feature = "serialize"), doc = "```")]
 #[cfg_attr(not(all(feature = "parse", feature = "serialize")), doc = "```ignore")]
@@ -108,6 +136,10 @@ pub struct Sequent {
     /// formula `A` and the term of its dual `A⊥`, of one shape, which
     /// the forest numbers after the roots, `A` then `A⊥`.
     pub(crate) cuts: Vec<[TermId; 2]>,
+    /// The first-order tables: the symbols, the terms, what each atom is
+    /// as a predicate over terms, the binders' names. Empty exactly when
+    /// every atom is nullary and there is no binder.
+    pub(crate) fo: fo::FirstOrder,
 }
 
 impl std::default::Default for Sequent {
@@ -126,6 +158,7 @@ impl Sequent {
             atoms: vec![],
             antecedents: None,
             cuts: vec![],
+            fo: fo::FirstOrder::new(),
         }
     }
 
@@ -196,6 +229,7 @@ impl Sequent {
                 .map(|e| e.offset(offset_atoms, offset_terms)),
         );
         self.atoms.extend(formula.atoms);
+        self.join_first_order(formula.fo, offset_terms);
         self.merge_atoms();
         self.push_cuts(&[TermId::new(formula.roots[0].get() + offset_terms)]);
         Ok(())
@@ -278,6 +312,8 @@ impl Sequent {
         // An atom no term names, which only a sequent read from JSON can
         // have, goes too.
         self.atoms.truncate(atoms);
+        self.fo.atoms.truncate(atoms.min(self.fo.atoms.len()));
+        self.fo.binders.retain(|&(t, _)| t.index() < end);
     }
 
     /// A sequent of an arena built elsewhere in the crate: every term's
@@ -297,6 +333,7 @@ impl Sequent {
             atoms,
             antecedents,
             cuts: vec![],
+            fo: fo::FirstOrder::new(),
         };
         debug_assert!(sequent.check().is_ok());
         sequent
@@ -322,6 +359,67 @@ impl Sequent {
             .iter()
             .position(|n| n == name)
             .map(|i| Atom::new(i as u32))
+    }
+
+    /// Returns whether the sequent is first-order: an atom has arguments
+    /// or a formula has a binder. A propositional sequent's first-order
+    /// tables are empty, and its JSON holds none of their keys.
+    pub fn is_first_order(&self) -> bool {
+        !self.fo.is_empty()
+    }
+
+    /// Returns the predicate symbol of `atom` and its argument list, or
+    /// `None` in a propositional sequent, where every atom is its name
+    /// alone ([`atom_name`](Self::atom_name)) and no symbol table exists.
+    ///
+    /// # Panics
+    ///
+    /// For an atom of another sequent, past the table's end.
+    pub fn atom_predicate(&self, atom: Atom) -> Option<(Symbol, Args)> {
+        self.fo.atoms.get(atom.index()).copied()
+    }
+
+    /// Returns whether an argument of `atom` holds a bound variable, which
+    /// only an atom under a binder can. A ground atom pairs with its dual
+    /// as a propositional atom does; an open one is instantiated by the
+    /// binders above it.
+    ///
+    /// # Panics
+    ///
+    /// For an atom of another sequent, past the table's end.
+    pub fn atom_is_open(&self, atom: Atom) -> bool {
+        self.atom_predicate(atom).is_some_and(|(_, args)| {
+            let loose = self.fo.loose();
+            self.fo.list(args).iter().any(|t| loose[t.index()] > 0)
+        })
+    }
+
+    /// Returns the symbols, each a name with its arity, in the order
+    /// `Symbol` indexes them: empty in a propositional sequent.
+    pub fn symbols(&self) -> &[(String, u32)] {
+        &self.fo.symbols
+    }
+
+    /// Returns the first-order terms, in the order `FoTermId` indexes
+    /// them, each referring only to terms before it.
+    pub fn fo_terms(&self) -> &[FoTerm] {
+        &self.fo.terms
+    }
+
+    /// Returns the terms of the argument list `args`, which must belong
+    /// to this sequent.
+    ///
+    /// # Panics
+    ///
+    /// For a list of another sequent, past the table's end.
+    pub fn arguments(&self, args: Args) -> &[FoTermId] {
+        self.fo.list(args)
+    }
+
+    /// Returns the name of the variable the binder `term` binds, for
+    /// printing, or `None` where `term` is no binder.
+    pub fn binder_name(&self, term: TermId) -> Option<&str> {
+        self.fo.binder_name(term)
     }
 
     /// Returns, per arena term, the number of subformula occurrences of the
@@ -394,12 +492,63 @@ impl Sequent {
             })?;
 
         match self.antecedents {
-            Some(k) if k as usize > self.roots.len() => Err(crate::Error::Antecedents {
-                antecedents: k as usize,
-                roots: self.roots.len(),
-            }),
-            _ => Ok(()),
+            Some(k) if k as usize > self.roots.len() => {
+                return Err(crate::Error::Antecedents {
+                    antecedents: k as usize,
+                    roots: self.roots.len(),
+                });
+            }
+            _ => {}
         }
+        if self.fo.is_empty() {
+            return Ok(());
+        }
+        self.fo.check(self.atoms.len())?;
+        // The scope: per term how many binders it needs above it, which a
+        // root or a cut formula, closed, needs none of. A subterm precedes
+        // its parent, so one ascending pass has every subterm's count.
+        let fo_loose = self.fo.loose();
+        let mut loose = vec![0u32; self.terms.len()];
+        for (n, term) in self.terms.iter().enumerate() {
+            loose[n] = match *term {
+                Term::Atom(a) | Term::DualAtom(a) => {
+                    self.fo.atoms.get(a.index()).map_or(0, |&(_, args)| {
+                        self.fo
+                            .list(args)
+                            .iter()
+                            .map(|t| fo_loose[t.index()])
+                            .max()
+                            .unwrap_or(0)
+                    })
+                }
+                Term::Forall(k) | Term::Exists(k) => loose[k.index()].saturating_sub(1),
+                Term::One
+                | Term::Bot
+                | Term::Top
+                | Term::Zero
+                | Term::Tensor(..)
+                | Term::Par(..)
+                | Term::With(..)
+                | Term::Plus(..)
+                | Term::Bang(_)
+                | Term::Quest(_) => term.subterms().map(|k| loose[k.index()]).max().unwrap_or(0),
+            };
+        }
+        for root in self.roots.iter().chain(self.cuts.iter().flatten()) {
+            if loose[root.index()] > 0 {
+                return Err(crate::Error::LooseVariable { term: root.index() });
+            }
+        }
+        for &(t, _) in &self.fo.binders {
+            if t.index() >= self.terms.len() || !self.terms[t.index()].kind().is_binder() {
+                return Err(crate::Error::IndexOutOfBounds {
+                    space: crate::limits::Space::Term,
+                    index: t.index(),
+                    len: self.terms.len(),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Drops the terms no root formula reaches and merges equal terms, keeping
@@ -454,6 +603,19 @@ impl Sequent {
         for pair in &mut self.cuts {
             *pair = pair.map(|k| new_index[k.index()].unwrap());
         }
+        if !self.fo.binders.is_empty() {
+            // A binder's name follows its term; where two binders merged
+            // the first name wins, and a dropped binder's name goes.
+            let mut binders = Vec::with_capacity(self.fo.binders.len());
+            for (t, name) in std::mem::take(&mut self.fo.binders) {
+                if let Some(t) = new_index[t.index()] {
+                    binders.push((t, name));
+                }
+            }
+            binders.sort_by_key(|&(t, _)| t);
+            binders.dedup_by_key(|&mut (t, _)| t);
+            self.fo.binders = binders;
+        }
     }
 
     /// Numbers the atoms in the order the terms first name them and drops
@@ -480,6 +642,10 @@ impl Sequent {
             *a = term::Atom::new(*slot);
         }
         let mut names = std::mem::take(&mut self.atoms);
+        if !self.fo.atoms.is_empty() {
+            let predicates = std::mem::take(&mut self.fo.atoms);
+            self.fo.atoms = entries.iter().map(|&entry| predicates[entry]).collect();
+        }
         self.atoms = entries
             .into_iter()
             .map(|entry| std::mem::take(&mut names[entry]))
@@ -530,7 +696,9 @@ impl Sequent {
                 | other @ With(..)
                 | other @ Plus(..)
                 | other @ Bang(_)
-                | other @ Quest(_) => other,
+                | other @ Quest(_)
+                | other @ Forall(_)
+                | other @ Exists(_) => other,
             };
         }
         // An entry stays when it is the first of its name, which is when
@@ -542,6 +710,15 @@ impl Sequent {
             kept += usize::from(first);
             first
         });
+        if !self.fo.atoms.is_empty() {
+            let (mut old, mut kept) = (0, 0);
+            self.fo.atoms.retain(|_| {
+                let first = merged[old].index() == kept;
+                old += 1;
+                kept += usize::from(first);
+                first
+            });
+        }
     }
 
     /// Consumes another sequent and appends its root formulas to this one,
@@ -572,10 +749,120 @@ impl Sequent {
         );
 
         self.atoms.extend(s.atoms);
+        self.join_first_order(s.fo, offset_terms);
         // The roots of the second sequent follow those of the first, so
         // its antecedents are no longer the first roots.
         self.antecedents = None;
         self.merge_atoms();
+    }
+
+    /// Appends another sequent's first-order tables to this one's, whose
+    /// atoms the other's follow in the table: the symbols, terms and lists
+    /// of both are interned anew, a symbol of one name being one symbol
+    /// (one of another arity or role is renamed with `_` after it, so
+    /// that nothing is lost), a nullary atom of a propositional side gets
+    /// its predicate where the other side has tables, and every atom's
+    /// key is its canonical text over the joined symbols. `terms_offset`
+    /// is where the other's formula terms start.
+    fn join_first_order(&mut self, other: fo::FirstOrder, terms_offset: u32) {
+        if other.is_empty() && self.fo.is_empty() {
+            return;
+        }
+        let own_atoms = if self.fo.is_empty() {
+            self.atoms.len() - other_atoms(&other, self.atoms.len())
+        } else {
+            self.fo.atoms.len()
+        };
+        /// How many atoms of the joined table are the other sequent's.
+        fn other_atoms(other: &fo::FirstOrder, total: usize) -> usize {
+            if other.is_empty() {
+                0
+            } else {
+                other.atoms.len()
+            }
+            .min(total)
+        }
+        let mut interner = fo::Interner::new();
+        let mut atoms = Vec::with_capacity(self.atoms.len());
+        let names = std::mem::take(&mut self.atoms);
+        let intern_symbol = |interner: &mut fo::Interner, name: &str, arity, predicate| {
+            let mut name = name.to_owned();
+            loop {
+                match interner.symbol(&name, arity, predicate) {
+                    Ok(symbol) => return symbol,
+                    Err(_) => name.push('_'),
+                }
+            }
+        };
+        let sides = [(&self.fo, 0, own_atoms), (&other, own_atoms, names.len())];
+        for (tables, from, to) in sides {
+            // A symbol's role on its side: a predicate where an atom has
+            // it, a function symbol where a term does.
+            let mut predicate = vec![false; tables.symbols.len()];
+            for &(p, _) in &tables.atoms {
+                predicate[p.index()] = true;
+            }
+            let symbols: Vec<Symbol> = tables
+                .symbols
+                .iter()
+                .enumerate()
+                .map(|(i, (name, arity))| intern_symbol(&mut interner, name, *arity, predicate[i]))
+                .collect();
+            let mut terms: Vec<FoTermId> = Vec::with_capacity(tables.terms.len());
+            let mut lists: Vec<Option<Args>> = vec![None; tables.lists.len()];
+            for term in &tables.terms {
+                let term = match *term {
+                    FoTerm::Bound(i) => FoTerm::Bound(i),
+                    FoTerm::App(f, args) => FoTerm::App(
+                        symbols[f.index()],
+                        join_list(&mut interner, tables, &terms, &mut lists, args),
+                    ),
+                };
+                terms.push(interner.term(term));
+            }
+            for (a, name) in names[from..to].iter().enumerate() {
+                atoms.push(match tables.atoms.get(a) {
+                    Some(&(p, args)) => (
+                        symbols[p.index()],
+                        join_list(&mut interner, tables, &terms, &mut lists, args),
+                    ),
+                    None => (
+                        intern_symbol(&mut interner, name, 0, true),
+                        interner.list(&[]),
+                    ),
+                });
+            }
+        }
+        /// Returns the list `args` of `tables` interned over `terms`, the
+        /// tables' terms as interned, once per list.
+        fn join_list(
+            interner: &mut fo::Interner,
+            tables: &fo::FirstOrder,
+            terms: &[FoTermId],
+            lists: &mut [Option<Args>],
+            args: Args,
+        ) -> Args {
+            *lists[args.index()].get_or_insert_with(|| {
+                let items: Vec<FoTermId> =
+                    tables.list(args).iter().map(|t| terms[t.index()]).collect();
+                interner.list(&items)
+            })
+        }
+        let mut fo = interner.tables;
+        fo.atoms = atoms;
+        fo.binders = std::mem::take(&mut self.fo.binders);
+        fo.binders.extend(
+            other
+                .binders
+                .into_iter()
+                .map(|(t, name)| (TermId::new(t.get() + terms_offset), name)),
+        );
+        self.atoms = fo
+            .atoms
+            .iter()
+            .map(|&(p, args)| fo.atom_key(p, args))
+            .collect();
+        self.fo = fo;
     }
 }
 
@@ -591,6 +878,7 @@ mod tests {
             atoms: atoms.iter().map(|s| s.to_string()).collect(),
             antecedents: None,
             cuts: vec![],
+            fo: fo::FirstOrder::new(),
         }
     }
 

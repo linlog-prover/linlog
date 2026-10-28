@@ -245,9 +245,15 @@ the lowered forest, the side of every occurrence and the goal.
   `⊢`); `written::context` puts an `A` root right of `⊢` and an `A⊥` root
   left of it, and `written::one_sided` records the pair so.
 - **Where later steps plug in**: an instance's
-  substitution enters the raising at `Reading::formula`'s atom arm
-  (`TEXT.ill`), the one place an atom is written; quantifiers are new
-  `IllConnective` variants and new tags of the JSON form.
+  substitution enters the raising at `Notation::write_atom`, the one
+  place an atom is written (a predicate's arguments through
+  `FirstOrder::write`, a bound variable by the name of its binder in the
+  walk's `Scope`, renamed with `_` after it where a symbol or an
+  enclosing binder has the name). The quantifiers are
+  `IllConnective::Forall` and `Exists` (an output `∀` or an input `∃`,
+  and the reverse), their body on their own side as `!`'s is, and the
+  JSON form's tags `∀` and `∃`, the names in `binders`
+  (`core-sequents.md`, level 7).
 
 ## The classical sequent as written
 

@@ -789,8 +789,8 @@ mod tests {
             Err(Error::IndexOutOfBounds { index: 3, .. })
         ));
         assert!(matches!(
-            read(r#"{"version":7,"terms":[{"V":0}],"atoms":["A"],"hypotheses":[],"goal":0}"#),
-            Err(Error::Version { found: 7, .. })
+            read(r#"{"version":8,"terms":[{"V":0}],"atoms":["A"],"hypotheses":[],"goal":0}"#),
+            Err(Error::Version { found: 8, .. })
         ));
     }
 }

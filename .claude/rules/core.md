@@ -15,7 +15,7 @@ it; only what holds for the whole crate goes here.
 
 | file | loads for | what it holds |
 |---|---|---|
-| `core-sequents.md` | `sequents/`, `parse/`, `fragment.rs`, `serialize/`, the parse, serialize and lock tests | the arena and its order, negation normal form, terms, kinds, fragments and modes, the parser, the JSON forms of every value |
+| `core-sequents.md` | `sequents/` (`fo.rs` the first-order tables), `parse/`, `fragment.rs`, `serialize/`, the parse, serialize, stability, first-order and lock tests | the arena and its order, negation normal form, terms, kinds, binders and predicates, fragments and modes, the parser, the JSON forms of every value |
 | `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, literal lists), `OccSet`, the intuitionistic reading, the intuitionistic sequent as written (`IllSequent`) and how outputs are raised, the classical sequent as written (`ClassicalSequent`, `Written`) |
 | `core-proofs.md` | `proofs/mod.rs`, `check/`, `oracle.rs`, `cut/` | proof terms and their invariants, the checker: its one pass, its memory bound, its integers, the one-succedent condition; cut elimination on terms |
 | `core-derivations.md` | `proofs/derivation/`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive/` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the two-sided view of a classical derivation (`TwoSided`), the text tree, interactive proving |

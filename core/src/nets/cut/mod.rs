@@ -357,7 +357,9 @@ impl crate::sealed::Net for ProofStructure {
             | Kind::With
             | Kind::Plus
             | Kind::Bang
-            | Kind::Quest => unreachable!("a proof structure is of unit-free MLL"),
+            | Kind::Quest
+            | Kind::Forall
+            | Kind::Exists => unreachable!("a proof structure is of unit-free MLL"),
         };
         within(self.vertices().count() - 2, options)?;
         afford(Self::bytes(forest), limits)?;

@@ -311,6 +311,11 @@ pub fn step(
     limits: &Limits,
     mut stop: impl FnMut(Progress) -> bool,
 ) -> Result<Reduction, Error> {
+    if proof.forest().has_binders() {
+        return Err(Error::Quantifiers {
+            what: "cut elimination",
+        });
+    }
     let record = Record::of(proof, mode, limits, &mut stop).map_err(Error::Check)?;
     let cut = match at {
         Some(at) if matches!(proof.nodes().get(at.index()), Some(Node::Cut(..))) => at,
@@ -365,6 +370,11 @@ pub fn eliminate(
     mut stop: impl FnMut(Progress) -> bool,
     mut each: impl FnMut(&Proof, &Step),
 ) -> Result<Elimination, Error> {
+    if proof.forest().has_binders() {
+        return Err(Error::Quantifiers {
+            what: "cut elimination",
+        });
+    }
     let mut steps: Vec<Step> = Vec::new();
     // The proof reached last and the one before it, which is the last one
     // checked while the latest waits for its check.

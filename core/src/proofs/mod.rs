@@ -747,6 +747,9 @@ impl Proof {
     /// [`CheckError::Refused`] when the default memory bound refused the
     /// pass.
     pub fn check(&self, mode: Mode) -> Result<(), CheckError> {
+        if self.forest().has_binders() {
+            return Err(CheckError::Quantifiers);
+        }
         check::check(self, mode)
     }
 
@@ -774,6 +777,9 @@ impl Proof {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<(), CheckError> {
+        if self.forest().has_binders() {
+            return Err(CheckError::Quantifiers);
+        }
         check::check_within(self, mode, limits, &mut stop)
     }
 

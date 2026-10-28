@@ -8,7 +8,8 @@
 //! JSON` per line, `wire/level-2.txt` the forms level 2 added and
 //! `wire/level-3.txt` those level 3 added, `wire/level-4.txt` those
 //! level 4 added, `wire/level-5.txt` those level 5 added,
-//! `wire/level-6.txt` those level 6 added; none is ever
+//! `wire/level-6.txt` those level 6 added, `wire/level-7.txt` those
+//! level 7 added; none is ever
 //! rewritten: where
 //! the lock moves on, these files stay. Every
 //! line of a form that is read back reads through
@@ -171,4 +172,27 @@ fn the_sixth_level_reads() {
         }
     }
     assert_eq!(lines.lines().count(), 2);
+}
+
+/// Every document of level 7, the first-order sequent in its one-sided and
+/// its intuitionistic form, reads and writes the same bytes again.
+#[test]
+fn the_seventh_level_reads() {
+    let lines = include_str!("wire/level-7.txt");
+    for line in lines.lines() {
+        let (name, json) = line.split_once(": ").unwrap();
+        match name.split('-').next().unwrap() {
+            "sequent" => {
+                again::<Sequent>(name, json);
+                let sequent: Sequent = read(name, json);
+                assert!(sequent.is_first_order(), "{name}");
+            }
+            "intuitionistic" => {
+                again::<IllSequent>(name, json);
+                let sequent: IllSequent = read(name, json);
+                assert!(sequent.sequent().fragment().has_quantifiers(), "{name}");
+            }
+            other => panic!("{other}: no form of level 7"),
+        }
+    }
 }

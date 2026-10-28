@@ -176,6 +176,9 @@ fn evaluate(
             Term::Tensor(k, l) | Term::With(k, l) => values[k.index()].and(values[l.index()]),
             Term::Par(k, l) | Term::Plus(k, l) => values[k.index()].or(values[l.index()]),
             Term::Bang(k) | Term::Quest(k) => values[k.index()],
+            Term::Forall(_) | Term::Exists(_) => {
+                unreachable!("the classical refuter refuses a sequent with a binder")
+            }
         };
     }
     members

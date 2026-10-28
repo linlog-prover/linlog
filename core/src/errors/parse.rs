@@ -28,7 +28,8 @@ pub struct ParseError {
     /// What could have stood there, in words.
     pub expected: &'static [&'static str],
     /// Whether what was found is a word reserved for a later version of
-    /// the syntax (`forall`, `exists`), which names no atom.
+    /// the syntax: none is, since `forall` and `exists` read as the
+    /// quantifiers, so this is `false`; kept so that a stored error reads.
     #[cfg_attr(
         feature = "serialize",
         serde(skip_serializing_if = "std::ops::Not::not")
@@ -47,19 +48,6 @@ impl ParseError {
     pub(crate) fn new(input: &str, at: usize, expected: &'static [&'static str]) -> Self {
         let end = at + input[at..].chars().next().map_or(0, char::len_utf8);
         Self::spanning(input, at..end, expected)
-    }
-
-    /// Returns the error for the reserved word of `input` that spans
-    /// `span`, where `expected` could have stood.
-    pub(crate) fn reserved(
-        input: &str,
-        span: Range<usize>,
-        expected: &'static [&'static str],
-    ) -> Self {
-        Self {
-            reserved: true,
-            ..Self::spanning(input, span, expected)
-        }
     }
 
     /// Returns the error for the text of `input` that spans `span`, the

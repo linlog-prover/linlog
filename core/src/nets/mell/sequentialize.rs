@@ -287,7 +287,9 @@ impl Sequentialization<'_> {
                 | Kind::Top
                 | Kind::Zero
                 | Kind::With
-                | Kind::Plus => i += 1,
+                | Kind::Plus
+                | Kind::Forall
+                | Kind::Exists => i += 1,
             }
         }
         gamma.retain(|&c| c != NONE);

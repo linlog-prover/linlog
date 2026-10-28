@@ -231,7 +231,8 @@ fn error_positions() {
         ("| A |- B", 1, Some(" ")),
         ("A - B |- C", 3, Some(" ")),
         ("A -", 3, None),
-        ("|- é * ∀", 8, Some("∀")),
+        // A binder without its variable ends at the end of the input.
+        ("|- é * ∀", 11, None),
         // The Unicode turnstile out of place, and a `)` that closes
         // nothing; `⊢` is three bytes.
         ("A, ⊢ B", 3, Some("⊢")),
@@ -241,7 +242,7 @@ fn error_positions() {
         ("|- A)", 4, Some(")")),
         // A keyword where a formula starts is the whole word.
         ("|- par par par", 3, Some("par")),
-        ("|- A * forall", 7, Some("forall")),
+        ("|- A * forall", 13, None),
     ] {
         let Err(Error::Parse(error)) = input.parse::<Sequent>() else {
             panic!("{input:?} is no parse error");
@@ -263,13 +264,13 @@ fn error_places_and_expectations() {
         Err(Error::Parse(error)) => *error,
         other => panic!("{input:?}: {other:?}"),
     };
-    let e = error("|- é,\n 𝔸 * ∀");
+    let e = error("|- é,\n 𝔸 * ⊢");
     assert_eq!((e.span.clone(), e.span_utf16.clone()), (15..18, 12..13));
     assert_eq!((e.line, e.column), (2, 6));
     assert_eq!(e.expected, ["a formula"]);
     assert_eq!(
         e.to_string(),
-        "unexpected \"∀\" at line 2, character 6, expected a formula"
+        "unexpected \"⊢\" at line 2, character 6, expected a formula"
     );
     let e = error("A * B");
     assert_eq!(
@@ -279,16 +280,15 @@ fn error_places_and_expectations() {
     // Inside a parenthesis only a connective or its end can follow.
     let e = error("|- (A * B");
     assert_eq!((e.found, e.expected), (None, &["a connective", "`)`"][..]));
-    // A word reserved for the quantifiers names no atom.
+    // A quantifier's keyword names no atom: its variables must follow.
     let e = error("exists |- é");
     assert_eq!(
         (&e.span, &e.span_utf16, e.reserved),
-        (&(0..6), &(0..6), true)
+        (&(7..8), &(7..8), false)
     );
     assert_eq!(
         e.to_string(),
-        "\"exists\", a word reserved for a later version of the syntax, at line 1, character \
-         1, expected a formula or `|-`"
+        "unexpected \"|\" at line 1, character 8, expected a variable name"
     );
 }
 
@@ -336,4 +336,157 @@ fn depth_costs_no_stack() {
         .unwrap()
         .join()
         .unwrap();
+}
+
+/// Quantifiers and predicates: `forall x. A` and `exists x. A` (`∀`, `∃`,
+/// several variables at once) bind loosest and to the right, a predicate
+/// takes its arguments in brackets, an identifier bound by an enclosing
+/// binder is its variable and any other a constant, a negation swaps the
+/// binders, and every sequent prints as text that reads back as itself.
+#[test]
+fn quantifiers_and_predicates() {
+    for (input, printed) in [
+        ("forall x. p(x) |- p(a)", "⊢ ∃x. ~p(x), p(a)"),
+        ("|- exists x. p(x) -o q(x)", "⊢ ∃x. (~p(x) ⅋ q(x))"),
+        (
+            "∀x. p(x) * q |- ∃y. p(y) * q",
+            "⊢ ∃x. (~p(x) ⅋ ~q), ∃y. (p(y) ⊗ q)",
+        ),
+        (
+            "|- ∀x y. ~r(x, f(y)) ⅋ r(x, f(y))",
+            "⊢ ∀x. (∀y. (~r(x, f(y)) ⅋ r(x, f(y))))",
+        ),
+        ("|- (forall x. p(x)) * q", "⊢ (∀x. p(x)) ⊗ q"),
+        (
+            "|- ~forall x. p(x), (exists y. p(y))^",
+            "⊢ ∃x. ~p(x), ∀y. ~p(y)",
+        ),
+        ("|- !forall x. p(x, c)", "⊢ !(∀x. p(x, c))"),
+        // A bound name that a constant or an enclosing binder takes is
+        // written apart, so that the text reads back as the formula.
+        ("forall x. p(x) |- p(x)", "⊢ ∃x_1. ~p(x_1), p(x)"),
+        ("|- forall x. forall x. p(x)", "⊢ ∀x. (∀x_1. p(x_1))"),
+        // Two binders over one shape are one term, whatever their names.
+        (
+            "forall x. p(x), forall y. p(y) |- q",
+            "⊢ ∃x. ~p(x), ∃x. ~p(x), q",
+        ),
+        // Atoms read before the first binder or predicate get their
+        // predicates then.
+        ("q |- forall x. p(x)", "⊢ ~q, ∀x. p(x)"),
+        ("a * forall x. b, c |- d(e)", "⊢ ~a ⅋ (∃x. ~b), ~c, d(e)"),
+        // A shadowed name is written apart from its enclosing binder's.
+        (
+            "|- forall x. forall x. forall x. r(x)",
+            "⊢ ∀x. (∀x_1. (∀x_2. r(x_2)))",
+        ),
+    ] {
+        let s: Sequent = input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"));
+        assert_eq!(s.to_string(), printed, "{input:?}");
+        let back: Sequent = printed
+            .parse()
+            .unwrap_or_else(|e| panic!("{printed:?}: {e}"));
+        assert_eq!(back.to_string(), printed, "{input:?} read back");
+        assert_eq!(
+            (
+                back.terms(),
+                back.roots(),
+                back.atom_names(),
+                back.symbols()
+            ),
+            (s.terms(), s.roots(), s.atom_names(), s.symbols()),
+            "{input:?} read back"
+        );
+        assert!(s.fragment().has_quantifiers(), "{input:?}");
+    }
+    let s: Sequent = "forall x. p(x), forall y. p(y) |- q".parse().unwrap();
+    assert_eq!(s.terms().len(), 3);
+    assert_eq!(s.fragment().to_string(), "MLL1");
+    // Ground atoms are propositional: no binder, no quantifier bit, and
+    // an atom's key is its text.
+    let ground: Sequent = "p(a, f(b)) |- p(a, f(b))".parse().unwrap();
+    assert_eq!(ground.fragment().to_string(), "MLL");
+    assert!(ground.is_first_order());
+    assert_eq!(ground.atom_names(), ["p(a, f(b))"]);
+    assert_eq!(ground.symbols().len(), 4);
+    let open: Sequent = "|- forall x. p(x, a)".parse().unwrap();
+    assert_eq!(open.atom_names(), ["p(#0, a)"]);
+    assert!(open.atom_is_open(linlog::Atom::new(0)));
+    assert!(!ground.atom_is_open(linlog::Atom::new(0)));
+    assert_eq!(open.binder_name(linlog::TermId::new(1)), Some("x"));
+}
+
+/// What is no first-order sequent is refused at its place with a hint: a
+/// symbol with another number of arguments than before, a name used as a
+/// predicate and as a function symbol, a keyword in a binder's or a term's
+/// place, a binder without its dot, a numeral in term position.
+#[test]
+fn first_order_errors() {
+    for (input, at, found, hint) in [
+        (
+            "p(a), p |- p(a)",
+            6,
+            Some("p"),
+            "a symbol takes the same number",
+        ),
+        (
+            "p(a) |- p(a, b)",
+            8,
+            Some("p(a, b)"),
+            "a symbol takes the same number",
+        ),
+        (
+            "p(f(a)) |- f(p)",
+            13,
+            Some("p"),
+            "a symbol takes the same number",
+        ),
+        (
+            "p(f(a)), f |- q",
+            9,
+            Some("f"),
+            "a symbol takes the same number",
+        ),
+        (
+            "f(a) |- q(f(b))",
+            10,
+            Some("f(b)"),
+            "a name is a predicate or a function",
+        ),
+        (
+            "|- forall top. p(x)",
+            10,
+            Some("top"),
+            "a keyword names no variable",
+        ),
+        ("|- p(par)", 5, Some("par"), "a keyword names no variable"),
+        // Without the dot, `p` is one more variable.
+        ("|- forall x p(x)", 13, Some("("), ""),
+        ("|- p(0)", 5, Some("0"), ""),
+        ("|- p(a, )", 8, Some(")"), ""),
+        ("|- p(a", 6, None, ""),
+    ] {
+        let Err(Error::Parse(error)) = input.parse::<Sequent>() else {
+            panic!("{input:?} is no parse error");
+        };
+        assert_eq!(
+            (error.span.start, error.found.as_deref()),
+            (at, found),
+            "{input:?}"
+        );
+        if hint.is_empty() {
+            assert_eq!(error.hint, None, "{input:?}");
+        } else {
+            assert!(
+                error.hint.is_some_and(|h| h.starts_with(hint)),
+                "{input:?}: {:?}",
+                error.hint
+            );
+        }
+    }
+    // The strict intuitionistic syntax reads the same binders.
+    let ill: linlog::IllSequent = "forall x. p(x) -o q(x), p(a) |- exists y. q(y)"
+        .parse()
+        .unwrap();
+    assert_eq!(ill.to_string(), "∀x. (p(x) ⊸ q(x)), p(a) ⊢ ∃y. q(y)");
 }

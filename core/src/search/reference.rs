@@ -286,6 +286,9 @@ impl Prover {
             Term::Plus(l, r) => F::Plus(self.term(sequent, l, ids), self.term(sequent, r, ids)),
             Term::Bang(a) => F::Bang(self.term(sequent, a, ids)),
             Term::Quest(a) => F::Quest(self.term(sequent, a, ids)),
+            Term::Forall(_) | Term::Exists(_) => {
+                unreachable!("the reference prover decides propositional sequents alone")
+            }
         };
         let i = self.add(f);
         ids.insert(id, i);

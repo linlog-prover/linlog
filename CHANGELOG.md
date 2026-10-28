@@ -11,6 +11,36 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Added
 
+- First-order linear logic's syntax, in the data model and both
+  surfaces: `Term::Forall` and `Term::Exists` (and `Kind`'s), a binder
+  over its body with the bound variable as a de Bruijn index, the name
+  kept beside the arena for printing (`Sequent::binder_name`); atoms as
+  predicates applied to first-order terms, interned by their canonical
+  text (`Sequent::atom_predicate`, `atom_is_open`, `symbols`,
+  `fo_terms`, `arguments`, `is_first_order`), the terms in the module
+  `sequents::fo` (`FoTerm`, `Symbol`, `FoTermId`, `Args`, `SymbolFault`);
+  `Fragment::QUANTIFIERS` with the names `MLL1`, `MLL1 with units`,
+  `ALL1`, `MALL1`, `MELL1` and `LL1` (and `IMLL1`, …), read back by
+  `FromStr`, and `Fragment::has_quantifiers`; `IllConnective::Forall` and
+  `Exists`. The text syntax reads `forall x. A`, `exists x. A`, `∀x. A`,
+  `∃x. A` and `forall x y. A`, a quantifier binding loosest and reaching
+  right as far as it can, and `p(t, …)` with an identifier bound by an
+  enclosing quantifier as its variable and any other as a constant or a
+  function symbol; a symbol has one arity throughout, a name is a
+  predicate or a function symbol, and every sequent is closed. Every
+  printer writes the binders and the predicates, a bound name that a
+  symbol or an enclosing binder takes written with `_` after it. A
+  sequent with a quantifier is refused by every engine by its fragment
+  (`Error::NoEngine`, or `EngineRefused` for a forced one) and by the
+  checker (`CheckError::Quantifiers`), interactive proving, cut
+  elimination (`Error::Quantifiers`), the proof structures (by the
+  fragment) and the Rocq export (`Unsupported::Quantifiers`);
+  `Forest::has_binders` says whether one has a binder. A sequent whose
+  atoms have arguments but whose formulas have no quantifier is
+  propositional and decided by every engine. `Error::Symbol`,
+  `Error::LooseVariable` and `Error::Predicates` refuse the tables a
+  file cannot hold; `Space::Symbol` names their index space.
+
 - `IllSequent`, a sequent of intuitionistic linear logic as written: its
   hypotheses in the order written and exactly one goal, every formula
   built from `⊗`, `⊸`, `&`, `⊕`, `!`, `1`, `⊤`, `0` and atoms. It is
@@ -336,6 +366,15 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Wire forms
 
+- Level 7 adds the first-order sequent: `symbols` (each a name with its
+  arity), `fo` (the terms: `{"B": n}` a bound variable, `{"F": [symbol,
+  [terms]]}` an application), an atom as `{"P": [symbol, [terms]]}`, and
+  the terms `{"∀": body}` and `{"∃": body}` with their variables' names
+  in `binders`; the intuitionistic sequent's form takes the same keys
+  and tags. A document
+  whose sequent is first-order is written at level 7; a propositional
+  sequent's bytes are as before.
+
 - Level 2: the refutation kind `classical`, `{"kind": "classical",
   "assignment": [true, false, …]}`, the modes `"cyclic"`, `"lambek"`
   and `"lambek-star"`, the rule names `"\\L"`, `"\\R"`, `"/L"` and
@@ -535,6 +574,13 @@ second number (0.1.x to 0.2.0), anything else the third.
   page replays a session's cuts.
 
 ### Changed
+
+- `forall` and `exists` are no longer refused as reserved words: they
+  are the quantifiers' keywords, and `ParseError::reserved` is never set.
+- The hint of a parse error of the strict intuitionistic syntax alone
+  gets the command's `--ill-syntax` note; the hints of the first-order
+  syntax (a symbol's arity or role, a keyword in a term's place) stand
+  on their own.
 
 - A proof net with cut links is drawn under the intuitionistic reading
   with `svg::Style::essential`, as a cut-free one is (the cut formula's

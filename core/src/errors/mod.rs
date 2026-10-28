@@ -18,6 +18,7 @@ use crate::nets::NetError;
 use crate::occurrences::ShapeError;
 use crate::proofs::CheckError;
 use crate::search::{Engine, NotTaken};
+use crate::sequents::fo::SymbolFault;
 use thiserror::Error;
 
 /// Everything that can go wrong in a call of this crate, as one family:
@@ -216,6 +217,35 @@ pub enum Error {
         /// The name.
         name: String,
     },
+    /// A symbol of a sequent's first-order tables cannot be one, as the
+    /// fault says: listed twice, used with another number of arguments
+    /// than its arity, or a predicate and a function symbol at once.
+    #[error("the symbol {name:?} {fault}")]
+    #[non_exhaustive]
+    Symbol {
+        /// The symbol's name.
+        name: String,
+        /// What is wrong with it.
+        fault: SymbolFault,
+    },
+    /// A root or a cut formula of a sequent holds a bound variable that no
+    /// binder of the formula binds: every formula of a sequent is closed.
+    #[error("term {term} holds a bound variable no binder of it binds")]
+    #[non_exhaustive]
+    LooseVariable {
+        /// The arena index of the root or cut formula.
+        term: usize,
+    },
+    /// The table of predicates of a sequent read from JSON has another
+    /// length than its table of atoms, where the two must be parallel.
+    #[error("{predicates} predicates for {atoms} atoms: every atom has its predicate, or none has")]
+    #[non_exhaustive]
+    Predicates {
+        /// The number of predicate entries.
+        predicates: usize,
+        /// The number of atoms.
+        atoms: usize,
+    },
     /// The parts of an interactive proof read back do not fit together, as
     /// the reason says.
     ///
@@ -309,6 +339,22 @@ pub enum Error {
     OrderedMode {
         /// The mode asked for.
         mode: Mode,
+    },
+    /// A sequent with a quantifier reached an entry that takes
+    /// propositional sequents alone, which is every one but the parsers,
+    /// the printers, the JSON forms and the views of a sequent: the
+    /// engines refuse a first-order goal by its fragment, and the checker,
+    /// interactive proving, the proof structures, cut elimination and the
+    /// Rocq export by this error, until a later version teaches them.
+    #[error(
+        "{what} takes no quantifiers yet: a sequent with ∀ or ∃ is read, printed and written as JSON, and nothing else"
+    )]
+    #[non_exhaustive]
+    Quantifiers {
+        /// The entry reached, in words: `the checker`, `interactive
+        /// proving`, `a proof structure`, `cut elimination` or `the Rocq
+        /// export`.
+        what: &'static str,
     },
     /// A sequent searched in an ordered mode lies beyond unit-free MLL,
     /// the fragment the ordered calculus is decided in.
@@ -556,6 +602,10 @@ impl Error {
         "not_intuitionistic",
         "intuitionistic_mix",
         "ordered_mode",
+        "quantifiers",
+        "symbol",
+        "loose_variable",
+        "predicates",
         "ordered_fragment",
         "goal_outputs",
         "succedents",
@@ -602,11 +652,15 @@ impl Error {
             | Self::NotTopological { .. }
             | Self::Antecedents { .. }
             | Self::CutFormula { .. }
-            | Self::AtomName { .. } => Malformed,
+            | Self::AtomName { .. }
+            | Self::Symbol { .. }
+            | Self::LooseVariable { .. }
+            | Self::Predicates { .. } => Malformed,
             #[cfg(feature = "interactive")]
             Self::InconsistentSession { .. } => Malformed,
             Self::Check(CheckError::Invalid(_)) => Invalid,
             Self::Check(CheckError::Refused(refused)) => refusal_kind(&refused.refusal),
+            Self::Check(CheckError::Quantifiers) => Unsupported,
             Self::Refutation(crate::search::RefutationFault::Uncertified { .. }) => Unsupported,
             Self::Refutation(_) => Invalid,
             Self::Net(error) => error.kind(),
@@ -614,7 +668,7 @@ impl Error {
             Self::Step(_) | Self::OpenGoals { .. } | Self::ForeignProof | Self::GoalMismatch => {
                 Invalid
             }
-            Self::GoalProof => Unsupported,
+            Self::GoalProof | Self::Quantifiers { .. } => Unsupported,
             Self::SequentMismatch { .. } => Invalid,
             Self::NotIntuitionistic(_)
             | Self::IntuitionisticMix
@@ -668,10 +722,14 @@ impl Error {
             Self::Antecedents { .. } => "antecedents",
             Self::CutFormula { .. } => "cut_formula",
             Self::AtomName { .. } => "atom_name",
+            Self::Symbol { .. } => "symbol",
+            Self::LooseVariable { .. } => "loose_variable",
+            Self::Predicates { .. } => "predicates",
             #[cfg(feature = "interactive")]
             Self::InconsistentSession { .. } => "inconsistent_session",
             Self::Check(CheckError::Invalid(_)) => "invalid_proof",
             Self::Check(CheckError::Refused(refused)) => refused.refusal.code(),
+            Self::Check(CheckError::Quantifiers) => "quantifiers",
             Self::Refutation(crate::search::RefutationFault::Uncertified { .. }) => "uncertified",
             Self::Refutation(_) => "invalid_refutation",
             Self::Net(error) => error.code(),
@@ -688,6 +746,7 @@ impl Error {
             Self::NotIntuitionistic(_) => "not_intuitionistic",
             Self::IntuitionisticMix => "intuitionistic_mix",
             Self::OrderedMode { .. } => "ordered_mode",
+            Self::Quantifiers { .. } => "quantifiers",
             Self::OrderedFragment { .. } => "ordered_fragment",
             Self::GoalOutputs { .. } => "goal_outputs",
             Self::Succedents { .. } => "succedents",
@@ -811,7 +870,7 @@ fn not_topological(space: Space, index: usize, parent: usize) -> String {
 fn check_message(error: &CheckError) -> String {
     match error {
         CheckError::Invalid(_) => format!("{INVALID_PROOF}{error}"),
-        CheckError::Refused(_) => error.to_string(),
+        CheckError::Refused(_) | CheckError::Quantifiers => error.to_string(),
     }
 }
 
@@ -958,6 +1017,15 @@ mod tests {
             },
             Error::CutFormula { formulas: 2 },
             Error::AtomName { name: "par".into() },
+            Error::Symbol {
+                name: "p".into(),
+                fault: SymbolFault::Role,
+            },
+            Error::Predicates {
+                predicates: 1,
+                atoms: 2,
+            },
+            Error::LooseVariable { term: 3 },
             Error::Check(invalid.clone()),
             Error::Check(CheckError::Refused(Refused {
                 node: NodeId::new(0),
@@ -974,6 +1042,9 @@ mod tests {
             Error::IntuitionisticMix,
             Error::OrderedMode {
                 mode: Mode::CYCLIC.with_mix(),
+            },
+            Error::Quantifiers {
+                what: "the checker",
             },
             Error::OrderedFragment {
                 fragment: Fragment::MALL,
@@ -1175,6 +1246,9 @@ mod tests {
             | Error::Antecedents { .. }
             | Error::CutFormula { .. }
             | Error::AtomName { .. }
+            | Error::Symbol { .. }
+            | Error::LooseVariable { .. }
+            | Error::Predicates { .. }
             | Error::Check(_)
             | Error::Refutation(_)
             | Error::GoalProof
@@ -1182,6 +1256,7 @@ mod tests {
             | Error::NotIntuitionistic(_)
             | Error::IntuitionisticMix
             | Error::OrderedMode { .. }
+            | Error::Quantifiers { .. }
             | Error::OrderedFragment { .. }
             | Error::GoalOutputs { .. }
             | Error::Succedents { .. }

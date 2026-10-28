@@ -1045,3 +1045,107 @@ fn engine_refusals_json() {
         r#"{"because":{"kind":"mode","mode":"affine"},"engine":"net"}"#
     );
 }
+
+/// A first-order sequent writes its symbols, its terms and its atoms as
+/// predicates at wire level 7, and reads back as itself, one-sided and
+/// intuitionistic alike; a ground one writes level 7 too, a propositional
+/// one level 1 as before.
+#[test]
+fn first_order_round_trip() {
+    for input in [
+        "forall x. p(x, c) -o q(x), p(a, c) |- exists y. q(y)",
+        "|- ∀x y. ~r(x, f(y)) ⅋ r(x, f(y)), ∀x. p(x) & ∃z. ~p(z)",
+        "p(a) |- p(a)",
+        "forall x. p(x), forall y. p(y) |- q",
+    ] {
+        let s: Sequent = input.parse().unwrap();
+        let json = serde_json::to_string(&s).unwrap();
+        assert!(json.starts_with(r#"{"version":7,"#), "{input:?}: {json}");
+        let back: Sequent = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, s, "{input:?}");
+        assert_eq!(back.to_string(), s.to_string(), "{input:?}");
+    }
+    let s: Sequent = "forall x. p(x, c) -o q(x), p(a, c) |- exists y. q(y)"
+        .parse()
+        .unwrap();
+    assert_eq!(
+        serde_json::to_string(&s).unwrap(),
+        r#"{"version":7,"terms":[{"V":0},{"D":1},{"⊗":[0,1]},{"∃":2},{"D":2},{"V":1},{"∃":5}],"roots":[3,4,6],"atoms":[{"P":[1,[0,1]]},{"P":[2,[0]]},{"P":[1,[2,1]]}],"symbols":[["c",0],["p",2],["q",1],["a",0]],"fo":[{"B":0},{"F":[0,[]]},{"F":[3,[]]}],"binders":["x","y"],"antecedents":2}"#
+    );
+    let ill: linlog::IllSequent = "forall x. p(x, c) -o q(x), p(a, c) |- exists y. q(y)"
+        .parse()
+        .unwrap();
+    let json = serde_json::to_string(&ill).unwrap();
+    assert_eq!(
+        json,
+        r#"{"version":7,"terms":[{"V":0},{"V":1},{"⊸":[0,1]},{"∀":2},{"V":2},{"∃":1}],"atoms":[{"P":[1,[0,1]]},{"P":[2,[0]]},{"P":[1,[2,1]]}],"symbols":[["c",0],["p",2],["q",1],["a",0]],"fo":[{"B":0},{"F":[0,[]]},{"F":[3,[]]}],"binders":["x","y"],"hypotheses":[3,4],"goal":5}"#
+    );
+    let back: linlog::IllSequent = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.to_string(), ill.to_string());
+    assert_eq!(back.sequent().to_string(), ill.sequent().to_string());
+    // A propositional sequent's bytes are those of level 1.
+    let s: Sequent = "A |- A".parse().unwrap();
+    assert!(
+        serde_json::to_string(&s)
+            .unwrap()
+            .starts_with(r#"{"version":1,"#)
+    );
+    // A binder over nullary atoms alone keeps its atoms as names, and the
+    // document writes back as it was read, with or without the names.
+    let json =
+        r#"{"version":7,"terms":[{"V":0},{"∀":0}],"roots":[1],"atoms":["a"],"binders":["x"]}"#;
+    let s: Sequent = serde_json::from_str(json).unwrap();
+    assert_eq!(s.to_string(), "⊢ ∀x. a");
+    assert_eq!(serde_json::to_string(&s).unwrap(), json);
+    let json = r#"{"version":7,"terms":[{"V":0},{"∀":0}],"roots":[1],"atoms":["a"]}"#;
+    let s: Sequent = serde_json::from_str(json).unwrap();
+    assert_eq!(s.to_string(), "⊢ ∀x. a");
+    // The terms an atom unfolds to are counted against the limit before
+    // its key is built: shared terms could name a key of exponential
+    // length from a short document.
+    let mut fo = String::from(r#"{"F":[0,[]]}"#);
+    for n in 0..40 {
+        fo.push_str(&format!(r#",{{"F":[1,[{n},{n}]]}}"#));
+    }
+    let json = format!(
+        r#"{{"version":7,"terms":[{{"V":0}}],"roots":[0],"atoms":[{{"P":[2,[40]]}}],"symbols":[["a",0],["f",2],["p",1]],"fo":[{fo}]}}"#
+    );
+    let mut document = serde_json::Deserializer::from_str(&json);
+    let error =
+        linlog::wire::upgrade::<Sequent, _>(&mut document, &linlog::Limits::default()).unwrap_err();
+    assert_eq!(error.code(), "too_many_occurrences", "{error}");
+    // What a file cannot hold: a loose variable, a symbol at two arities,
+    // an argument past the terms, predicates for some atoms only, a name
+    // as predicate and function.
+    for (json, code) in [
+        (
+            r#"{"version":7,"terms":[{"V":0}],"roots":[0],"atoms":[{"P":[0,[5]]}],"symbols":[["p",1]],"fo":[]}"#,
+            "index_out_of_bounds",
+        ),
+        (
+            r#"{"version":7,"terms":[{"V":0}],"roots":[0],"atoms":[{"P":[0,[0]]}],"symbols":[["p",1]],"fo":[{"B":0}]}"#,
+            "loose_variable",
+        ),
+        (
+            r#"{"version":7,"terms":[{"V":0}],"roots":[0],"atoms":[{"P":[0,[0]]}],"symbols":[["p",2]],"fo":[{"F":[1,[]]}, {"B": 0}]}"#,
+            "index_out_of_bounds",
+        ),
+        (
+            r#"{"version":7,"terms":[{"V":0}],"roots":[0],"atoms":[{"P":[0,[0]]}],"symbols":[["p",2],["a",0]],"fo":[{"F":[1,[]]}]}"#,
+            "symbol",
+        ),
+        (
+            r#"{"version":7,"terms":[{"V":0}],"roots":[0],"atoms":[{"P":[0,[0]]}],"symbols":[["p",1]],"fo":[{"F":[0,[]]}]}"#,
+            "symbol",
+        ),
+    ] {
+        let error = serde_json::from_str::<Sequent>(json)
+            .unwrap_err()
+            .to_string();
+        let mut document = serde_json::Deserializer::from_str(json);
+        let error = linlog::wire::upgrade::<Sequent, _>(&mut document, &linlog::Limits::default())
+            .map(|_| error.clone())
+            .unwrap_err();
+        assert_eq!(error.code(), code, "{json}: {error}");
+    }
+}

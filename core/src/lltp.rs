@@ -199,9 +199,14 @@ impl Clauses {
             let rest = &file[start..];
             start += rest.len() - rest.trim_start().len();
         }
-        if error.reserved {
+        // An error that spans a word, or carries a hint, keeps both.
+        if error.hint.is_some() || error.span.len() > 1 {
             let end = self.in_file(file, at(error.span.end).0);
-            return ParseError::reserved(file, start..end.max(start), error.expected);
+            let mut placed = ParseError::spanning(file, start..end.max(start), error.expected);
+            if let Some(hint) = error.hint {
+                placed = placed.with_hint(hint);
+            }
+            return placed;
         }
         ParseError::new(file, start, error.expected)
     }
@@ -443,8 +448,8 @@ mod tests {
 
     /// A formula that does not parse is reported at its place in the
     /// file, not in the sequent assembled from the clauses: a formula cut
-    /// short where its clause closes, and a reserved word in a name's
-    /// place after a comment and a name with a hyphen.
+    /// short where its clause closes, and a binder cut short after a
+    /// comment and a name with a hyphen.
     #[test]
     fn parse_errors_are_placed_in_the_file() {
         let place = |text: &str| match read(text, &Limits::default()) {
@@ -455,7 +460,7 @@ mod tests {
         assert_eq!(place(text), (2, 20, Some(")".to_owned()), false));
         let text =
             "% a comment\nfof(a1, axiom, P-a % and one more\n * forall).\nfof(c, conjecture, a).";
-        assert_eq!(place(text), (3, 4, Some("forall".to_owned()), true));
+        assert_eq!(place(text), (3, 10, Some(")".to_owned()), false));
         assert_eq!(
             place("fof(c, conjecture, a * )."),
             (1, 24, Some(")".to_owned()), false)

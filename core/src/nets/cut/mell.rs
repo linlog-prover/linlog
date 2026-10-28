@@ -354,7 +354,14 @@ impl crate::sealed::Net for MellStructure {
                     }
                 }
             }
-            Kind::One | Kind::Bot | Kind::Top | Kind::Zero | Kind::With | Kind::Plus => {
+            Kind::One
+            | Kind::Bot
+            | Kind::Top
+            | Kind::Zero
+            | Kind::With
+            | Kind::Plus
+            | Kind::Forall
+            | Kind::Exists => {
                 unreachable!("a structure with boxes is of unit-free MELL")
             }
         };

@@ -142,6 +142,7 @@ pub(super) fn goal(
         atoms: sequent.atom_names().to_vec(),
         antecedents: None,
         cuts: vec![],
+        fo: sequent.fo.clone(),
     };
     let own = Forest::within(&own, limits)?;
     let mut answer = run(&own)?;

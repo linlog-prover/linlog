@@ -99,6 +99,9 @@ const NOTATION: Notation = Notation {
     turnstile: "⊢",
     align: "",
     atom: Atoms::Typst,
+    forall: "forall ",
+    exists: "exists ",
+    dot: ". ",
     ordinary: Symbols::UNICODE,
 };
 

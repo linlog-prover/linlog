@@ -317,7 +317,11 @@ pub(super) fn draw(
             | Kind::Top
             | Kind::Zero
             | Kind::With
-            | Kind::Plus => unreachable!("a literal has no symbol, a MELL net no unit or additive"),
+            | Kind::Plus
+            | Kind::Forall
+            | Kind::Exists => {
+                unreachable!("a literal has no symbol, a MELL net no unit, additive or binder")
+            }
         }
     };
     // Whether a copy lies in another box than its `?` vertex.
@@ -660,7 +664,9 @@ pub(super) fn draw(
             | Kind::Top
             | Kind::Zero
             | Kind::With
-            | Kind::Plus => {
+            | Kind::Plus
+            | Kind::Forall
+            | Kind::Exists => {
                 unreachable!("a literal is handled above and a MELL net has no units or additives")
             }
         };

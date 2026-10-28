@@ -81,9 +81,32 @@ is `|- A`. Quote it for the shell.
 | negation | `~A`, `A^` | |
 | exponentials | `!A`, `?A` | |
 | units | `1`, `bot`, `top`, `0` | `⊥`, `⊤` |
+| quantifiers | `forall x. A`, `exists x. A`, `forall x y. A` | `∀x. A`, `∃x. A` |
+| predicates | `p(x, f(a))` | |
 
 Binding, tightest first: `A^`, then `~ ! ?`, then `*`, `|`, `&`, `+`,
-and last `-o`, which groups to the right. Atoms are identifiers.
+and last `-o`, which groups to the right; a quantifier binds loosest
+and reaches right as far as it can (to `)`, `,`, `|-` or the end), so
+`forall x. p(x) -o q(x)` is `∀x. (p(x) ⊸ q(x))`. Atoms are identifiers,
+or predicates applied to terms in brackets: inside them an identifier
+bound by an enclosing quantifier is its variable, any other a constant
+or, before a bracket, a function symbol; a symbol has one arity
+throughout, a name is a predicate or a function symbol, not both, and no
+variable is free. A sequent with a quantifier is read, printed and
+written as JSON (wire level 7) and nothing more yet: `prove`, `check`,
+`interact` and the net and Rocq outputs refuse it with an error (exit
+status 2), while a sequent with arguments and no quantifier is
+propositional and decided by every engine.
+
+```console
+$ linlog seq print "forall x. p(x) -o q(x), p(a) |- exists y. q(y)"
+⊢ ∃x. (p(x) ⊗ ~q(x)), ~p(a), ∃y. q(y)
+$ linlog seq fragment "forall x. p(x) |- p(a)"
+MLL1
+$ linlog prove "forall x. p(x) |- p(a)"; echo "exit $?"
+error: no engine for MLL1 in classical mode yet
+exit 2
+```
 
 The search works on the one-sided sequent: `Γ ⊢ Δ` is `⊢ ~Γ, Δ` in
 negation normal form, `A -o B` is `~A par B`. `seq print` shows it:

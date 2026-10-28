@@ -492,6 +492,9 @@ fn formula(forest: &Forest, out: &mut String, o: OccId, argument: bool) {
                     Term::Plus(..) => "aplus ",
                     Term::Bang(_) => "oc ",
                     Term::Quest(_) => "wn ",
+                    Term::Forall(_) | Term::Exists(_) => {
+                        unreachable!("the Rocq export refuses a sequent with a binder")
+                    }
                 };
                 out.push_str(name);
                 if matches!(t, Term::Atom(_) | Term::DualAtom(_)) {
@@ -534,6 +537,9 @@ fn iformula(forest: &Forest, reading: &Reading, out: &mut String, o: OccId, argu
                     (Term::With(..), true) | (Term::Plus(..), false) => "iwith ",
                     (Term::Plus(..), true) | (Term::With(..), false) => "iplus ",
                     (Term::Bang(_) | Term::Quest(_), _) => "ioc ",
+                    (Term::Forall(_) | Term::Exists(_), _) => {
+                        unreachable!("the Rocq export refuses a sequent with a binder")
+                    }
                 };
                 out.push_str(name);
                 if matches!(t, Term::Atom(_) | Term::DualAtom(_)) {

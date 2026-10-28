@@ -51,6 +51,9 @@ impl Interactive {
             Kind::Zero => vec![],
             Kind::Bang => vec![Promotion],
             Kind::Quest => vec![Dereliction, Contraction, Weakening],
+            Kind::Forall | Kind::Exists => {
+                unreachable!("interactive proving refuses a sequent with a binder")
+            }
         };
         if self.mode.affine && self.forest.kind(o) != Kind::Quest {
             rules.push(AffineWeakening);

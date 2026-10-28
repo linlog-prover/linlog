@@ -492,6 +492,11 @@ impl Interactive {
     ///
     /// As [`new`](Self::new) does, the bound being `limits.occurrences`.
     pub fn within(sequent: &Sequent, mode: Mode, limits: &Limits) -> Result<Self, Error> {
+        if sequent.fragment().has_quantifiers() {
+            return Err(Error::Quantifiers {
+                what: "interactive proving",
+            });
+        }
         if !sequent.cuts().is_empty() {
             let mut conclusion = sequent.clone();
             while !conclusion.cuts().is_empty() {
@@ -506,6 +511,11 @@ impl Interactive {
     /// Starts a proof over a forest built already.
     fn from_forest(forest: Forest, mode: Mode) -> Result<Self, Error> {
         mode.check()?;
+        if forest.has_binders() {
+            return Err(Error::Quantifiers {
+                what: "interactive proving",
+            });
+        }
         let fragment = forest.sequent().fragment();
         if mode.is_ordered() && !crate::Fragment::MLL.contains(fragment) {
             return Err(Error::OrderedFragment { fragment, mode });

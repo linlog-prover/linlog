@@ -1466,6 +1466,12 @@ $ rocq compile -R path/to/rocq/theories Linlog mix.v
 The syntax: `*`/`⊗` tensor, `|`/`par`/`⅋` par, `&` with, `+`/`⊕` plus,
 `-o`/`⊸` linear implication, `~A` or `A^` negation, `!` and `?`, and the
 units `1`, `bot`/`⊥`, `top`/`⊤`, `0`; `|-` or `⊢` separates the sides.
+First-order sequents add `forall x. A`/`∀x. A` and `exists x. A`/`∃x. A`
+(several variables at once, `forall x y. A`), which bind loosest and
+reach as far right as they can, and predicates over terms, `p(x, f(a))`:
+inside the brackets an identifier bound by an enclosing quantifier is
+its variable, any other a constant or, before a bracket, a function
+symbol ("First-order sequents" below).
 
 ### Cyclic linear logic
 
@@ -1565,6 +1571,69 @@ cyclic order and its implications dominating their antecedents, and
 without empty antecedents the body of every division with a hypothesis
 of its own. Batches and problem files name the modes `lambek` and
 `lambek-star`.
+
+### First-order sequents
+
+A sequent may quantify over terms: `forall x. A` (`∀x. A`) and `exists
+x. A` (`∃x. A`) bind loosest, their scope running to the right as far as
+it can (to a closing bracket, a comma, the turnstile or the end), and an
+atom may be a predicate applied to terms, `p(x, f(a))`, where an
+identifier bound by an enclosing quantifier is its variable and any
+other a constant (or a function symbol, before a bracket). A symbol has
+one arity throughout the sequent, and a name is a predicate or a
+function symbol, not both. Every sequent is closed: no free variable.
+`seq print` writes the one-sided form, a negation swapping the
+quantifiers, and `seq fragment` names the first-order fragment with a
+`1` after the acronym:
+
+<!-- readme-check: machine -->
+```console
+$ linlog seq print "forall x. p(x) -o q(x), p(a) |- exists y. q(y)"
+⊢ ∃x. (p(x) ⊗ ~q(x)), ~p(a), ∃y. q(y)
+$ linlog seq print "|- ∀x y. ~r(x, f(y)) ⅋ r(x, f(y)), (exists z. p(z))^"
+⊢ ∀x. (∀y. (~r(x, f(y)) ⅋ r(x, f(y)))), ∀z. ~p(z)
+$ linlog seq fragment "forall x. p(x) |- p(a)"
+MLL1
+$ linlog seq fragment "p(a), !p(a) -o q(f(a)) |- q(f(a))"
+MELL
+```
+
+A sequent whose atoms have arguments but whose formulas have no
+quantifier is propositional, with structured atoms, and every engine
+decides it; a sequent with a quantifier is read, printed, written as
+JSON and drawn two-sided, and nothing more yet: no engine proves it, and
+the checker, interactive proving, the proof nets and the exports to Rocq
+refuse it, each saying so. The exit status is 2, the error's:
+
+<!-- readme-check: machine -->
+```console
+$ linlog prove "p(a), p(a) -o q(f(a)) |- q(f(a))"
+provable (MLL, classical, focus engine)
+───────────── ax   ─────────────────── ax
+⊢ ~p(a), p(a)      ⊢ ~q(f(a)), q(f(a))
+────────────────────────────────────── ⊗
+  ⊢ ~p(a), p(a) ⊗ ~q(f(a)), q(f(a))
+$ linlog prove "forall x. p(x) |- p(a)"; echo "exit $?"
+error: no engine for MLL1 in classical mode yet
+exit 2
+$ linlog interact "forall x. p(x) |- p(a)" < /dev/null; echo "exit $?"
+error: interactive proving takes no quantifiers yet: a sequent with ∀ or ∃ is read, printed and written as JSON, and nothing else
+exit 2
+```
+
+The JSON form of a first-order sequent is written at wire level 7: its
+`symbols` (each a name with its arity), its first-order terms `fo`
+(`{"B": n}` a bound variable, the innermost quantifier's `0`, `{"F":
+[symbol, [terms]]}` an application), each atom as `{"P": [symbol,
+[terms]]}`, a quantifier as `{"∀": body}` or `{"∃": body}`, and the
+quantifiers' variable names in `binders`, one per quantifier in the
+order of the terms:
+
+<!-- readme-check: machine -->
+```console
+$ linlog seq json "forall x. p(x) |- p(a)"
+{"version":7,"terms":[{"D":0},{"∃":0},{"V":1}],"roots":[1,2],"atoms":[{"P":[0,[0]]},{"P":[0,[1]]}],"symbols":[["p",1],["a",0]],"fo":[{"B":0},{"F":[1,[]]}],"binders":["x"],"antecedents":1}
+```
 
 ### Ordinary logic
 
@@ -1989,6 +2058,11 @@ Built:
   workflow anyone can start).
 - Parsing and printing of sequents in the syntax above, with the ASCII and
   Unicode spellings of every connective, and a compact JSON form.
+- The syntax of first-order linear logic: quantifiers over terms,
+  predicates with arguments, function symbols and constants, read,
+  printed one- and two-sided and written as JSON; a sequent with
+  arguments but no quantifier is decided by every engine as a
+  propositional one.
 - Detection of the fragment a sequent lives in (MLL, MLL with units, ALL,
   MALL, MELL, LL, and their intuitionistic counterparts IMLL to ILL) and
   the modes classical, affine, intuitionistic and Mix as user choices.
@@ -2257,7 +2331,11 @@ Planned, in roughly this order:
   countermodels of the other logics, failure certificates of the
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
-- Later: first-order linear logic.
+- First-order linear logic beyond its syntax: proof search with
+  unification, witnesses and eigenvariables in proofs and the checker,
+  the quantifier rules in interactive proving, the exports, certificates
+  in the Rocq library, first-order problem families and the comparison
+  with LinearOne.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.

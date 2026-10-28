@@ -469,6 +469,7 @@ pub fn translate(
         atoms: builder.atoms,
         antecedents: Some(antecedents),
         cuts: vec![],
+        fo: crate::sequents::fo::FirstOrder::new(),
     };
     linear.optimize();
     let mode = if classical {

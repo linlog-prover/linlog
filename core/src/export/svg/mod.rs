@@ -748,6 +748,9 @@ const NOTATION: Notation = Notation {
     turnstile: "⊢",
     align: "",
     atom: Atoms::Italic,
+    forall: "∀",
+    exists: "∃",
+    dot: ". ",
     ordinary: Symbols::UNICODE,
 };
 

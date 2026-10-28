@@ -670,6 +670,7 @@ mod tests {
             atoms: vec![],
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         };
         let mut nodes = vec![One(o(2))];
         for _ in 0..ROUNDS {
@@ -716,6 +717,7 @@ mod tests {
             atoms: vec![],
             antecedents: None,
             cuts: vec![],
+            fo: Default::default(),
         };
         let mut nodes = vec![One(o(0))];
         for level in 0..levels {

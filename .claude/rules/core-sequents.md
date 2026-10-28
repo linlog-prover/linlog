@@ -5,6 +5,7 @@ paths:
   - "core/src/fragment.rs"
   - "core/src/serialize/**"
   - "core/tests/parse.rs"
+  - "core/tests/first_order.rs"
   - "core/tests/serialize.rs"
   - "core/tests/lock.rs"
 ---
@@ -16,7 +17,7 @@ the parser or the serialization is read or changed.
 
 ## Sequents are arena-allocated DAGs
 
-`Sequent` (`core/src/sequents/mod.rs`) has four fields, all `pub(crate)`:
+`Sequent` (`core/src/sequents/mod.rs`) has six fields, all `pub(crate)`:
 - `terms: Vec<Term>`: every subformula. Children are referenced by arena
   index (`TermId`, a `u32` newtype), never by pointer.
 - `roots: Vec<TermId>`: the root formulas that make up the sequent, in the
@@ -30,6 +31,31 @@ the parser or the serialization is read or changed.
   their own sides; `check` refuses one above the number of
   roots (`Error::Antecedents`). Only the intuitionistic reading reads it
   (`core-forest.md`); it is part of equality.
+- `cuts: Vec<[TermId; 2]>`: the cut formulas (`core-proofs.md`).
+- `fo: fo::FirstOrder` (`sequents/fo.rs`): the first-order tables, empty
+  exactly when every atom is nullary and there is no binder, so that a
+  propositional sequent pays nothing and writes level 1. `symbols` are
+  `(name, arity)` in the order first used (one arity per name, and a name
+  is a predicate or a function symbol, never both: `Interner::symbol`
+  and `FirstOrder::check` refuse the rest); `terms` is a second arena of
+  `FoTerm` (`Bound(n)`, a de Bruijn index, the innermost binder `0`;
+  `App(Symbol, Args)`), topological and hash-consed; `args` and `lists`
+  are the argument lists as a flat vector with starts and lengths, each
+  distinct list once; `atoms` is parallel to the atom table (as long as
+  it, or empty), each atom's predicate and list; `binders` is the name
+  of every binder term's variable in ascending term order, for printing
+  only. The atom table's key stays the canonical text (`p(f(a), b)`,
+  an open atom `p(#0)`, `FirstOrder::atom_key`), so `atom_name` and
+  every caller keyed by names are unchanged, and ground first-order
+  atoms are propositional atoms with structured names. `check` runs
+  `FirstOrder::check` and the scope pass (per term how many binders it
+  needs above it; a root or cut formula needs none, else
+  `Error::LooseVariable`) only when the tables are not empty. `optimize`
+  moves the binders' names with their terms (the first name wins a
+  merge), `renumber_atoms` and `merge_atoms` keep `fo.atoms` parallel,
+  `pop_cut` drops the names of truncated terms, and `add` re-interns
+  both sides' tables (`join_first_order`: a name of another arity or role
+  gets `_` after it, a nullary atom of a propositional side its symbol).
 
 **A term only references subterms with a strictly smaller index**, so the
 arena is topologically sorted: one ascending pass sees every subterm before
@@ -77,17 +103,35 @@ read back by `Reading` (below); there is no second data model.
 
 ## Terms, kinds, fragments
 
-- `Term` (`sequents/term.rs`) is the full classical connective set; `Kind` is
+- `Term` (`sequents/term.rs`) is the full classical connective set with
+  the two binders `Forall(TermId)` and `Exists(TermId)` last; `Kind` is
   the same enum without payloads, for the forest's per-occurrence array and
   for tables keyed by connective. `Kind::polarity()` is `None` for literals
-  because a literal's polarity is the per-atom bias (below).
+  because a literal's polarity is the per-atom bias (below); `Forall` is
+  negative and `Exists` positive. A binder is unary (`arity` 1, its body
+  the one operand, so the forest puts it at `o + 1`), `dual` swaps the
+  two, and `Kind::is_binder` is the test the guards use
+  (`Forest::has_binders`).
 - There are no fragment-typed sequents. `Fragment` (`fragment.rs`) is a value:
-  five connective-class flags, the usual fragments as constants
-  (`MLL`, `MLL_WITH_UNITS`, `ADDITIVE`, `MALL`, `MELL`, `LL`; `ADDITIVE`
+  six connective-class flags (`QUANTIFIERS`, 32, set by a binder alone:
+  a ground atom sets nothing, so `p(a) |- p(a)` is `MLL` and every
+  engine decides it), the usual fragments as constants
+  (`MLL`, `MLL_WITH_UNITS`, `ADDITIVE`, `MALL`, `MELL`, `LL`, and `MLL1`
+  to `LL1` with the bit; `ADDITIVE`
   is additive-only and named `ALL`, `LL` is every propositional
   connective), `contains` as the subset order, and `Display` naming the
-  smallest named fragment containing the value. The empty fragment (atoms
-  only) prints as `MLL`. `NAMED` and `NAMES` are the named fragments and
+  smallest named fragment containing the value, a `1` after the acronym
+  with the bit (`MLL1 with units`). The empty fragment (atoms
+  only) prints as `MLL`. No engine's `admits` contains the bit, so the
+  dispatch finds no row (`Error::NoEngine`, "no engine for MLL1 in
+  classical mode yet") and a forced engine refuses by fragment; the
+  checker (`CheckError::Quantifiers`), `Interactive::within`, cut
+  elimination (`Error::Quantifiers`), the proof structures (`has_nets`
+  is false with the bit) and the Rocq export (`Unsupported::Quantifiers`)
+  refuse a forest with a binder before anything else, and
+  `Disproof::check` answers `NotApplicable`; the `unreachable!` arms on
+  `Kind::Forall | Kind::Exists` in the engines, the nets and the
+  refuters rest on those guards. `NAMED` and `NAMES` are the named fragments and
   their names, which `FromStr` reads with or without the intuitionistic
   `I`; `has_nets` is the one test of where proof structures exist, which
   `ProofStructure` and the command ask (an engine's `admits` keeps its
@@ -190,14 +234,42 @@ time and memory linear in the text. What the code relies on:
 - **Tokens depend on the state**: `par` is the connective where a
   connective can stand and an error where a formula starts (`|- par par
   par` is refused at the first); `bot` and `top` are constants only as
-  whole identifiers; `forall` and `exists` are refused where a formula
-  starts as reserved (`ParseError::reserved`, the word's span, `reserved`
-  set); `|-` is the turnstile only on the left side outside every
+  whole identifiers; `forall` and `exists` (and `∀`, `∃`) where a
+  formula starts open a binder (`Parser::binder`: the variables, then
+  the dot, then one `Pending::Binder` per variable, each counted as an
+  owed term like `!`, the names pushed on `Parser::scope`); `|-` is the
+  turnstile only on the left side outside every
   parenthesis, and anywhere else a `|` before a `-` that starts no
   formula. An identifier starts with `_` or `XID_Start` and goes on with
   `XID_Continue` (the `unicode-ident` crate's tables, a dependency of
   every build: names enter through JSON and `ordinary::Formulas::atom`
   as well).
+- **A binder binds loosest**: in `reduce` a `Pending::Binder` breaks the
+  reduction when a connective follows (`next.is_some()`, the connective
+  is inside the scope) and reduces at the scope's end (a `)`, a `,`, the
+  turnstile, the end), popping its name from `scope` and recording it
+  for the term pushed (`Parser::binders`); the negation pass carries a
+  flag through it as through `!`, `dual` making the other binder of the
+  same term, whose name stays. Printing brackets a binder's body when
+  it is binary and a binder inside another formula (`notation.rs`,
+  `bracketed`), so `∀x. (p(x) ⊗ q)` and `(∀x. p(x)) ⊗ q` read back as
+  themselves.
+- **A predicate's arguments** (`Parser::predicate`, after an identifier
+  that a `(` follows at once): terms on an explicit stack of open
+  applications, no recursion; an identifier in term position is the
+  bound variable of the innermost open binder of that name
+  (`FoTerm::Bound(index)`) or a symbol, interned through `fo::Interner`
+  (a name's first use fixes its arity and its role; a later use at
+  another arity or in the other role is a `ParseError` spanning that use
+  with a static hint, `ARITY` or `ROLE`); a keyword in term or variable
+  position is an error with the `KEYWORD` hint; a numeral is "expected a
+  term". The atom's key is `FirstOrder::atom_key`, interned in `names`
+  as a nullary name is. The text becomes first-order at its first
+  predicate with arguments or binder (`enter_first_order`): every atom
+  read before gets its nullary predicate then, and every nullary atom
+  read after gets one as it is read, so `fo.atoms` is parallel to the
+  table exactly when the text is first-order and a propositional text
+  touches none of it (the `read-text` journey).
 - **A name is read in NFC** (`name::normalized`, the
   `unicode-normalization` crate, a dependency of every build like
   `unicode-ident`): the parser keys its names by their NFC (`Cow`, an
@@ -207,8 +279,8 @@ time and memory linear in the text. What the code relies on:
   HD3), and a table's names are composed. A new reader of names
   composes them too.
 - **One check of an atom name** (`sequents/name.rs`, `name::check`):
-  an identifier that is no keyword (`par`, `top`, `bot`) and no reserved
-  word (`forall`, `exists`), else `Error::AtomName` (code `atom_name`,
+  an identifier that is no keyword (`par`, `top`, `bot`) and no
+  quantifier's keyword (`forall`, `exists`), else `Error::AtomName` (code `atom_name`,
   malformed); `check_ordinary` refuses `true` and `false` besides, since
   an ordinary atom keeps its name in the linear image, which may hold
   minimal logic's atom `false`. The JSON sequent reader and `mist::read`
@@ -283,10 +355,43 @@ of flags) are not read: a file in them is refused naming the key it
 lacks.
 
 `core/src/serialize/sequents.rs` uses a private serde proxy struct
-`{version, terms, roots, atoms, antecedents}` (`antecedents` written
+`{version, terms, roots, atoms, symbols, fo, antecedents, cuts}`
+(`antecedents` written
 whenever the sides are known, `0` included, and absent otherwise) with
-short tags (`V`, `D`, `⊗`, `⅋`, …) and `u32` indices; `Sequent::from`
+short tags (`V`, `D`, `⊗`, `⅋`, …, `∀` and `∃`, whose variables' names
+are the `binders` key, one per binder in the order of the terms, so that
+`Expression` stays `Copy` and three words) and `u32` indices; `Sequent::from`
 is the nested form, without `version`, which every other proxy holds.
+**Level 7 is the first-order sequent** (`wire::TERMS`,
+`level_of_sequent`, 7 whenever the tables or the binders' names are not
+empty): `symbols` and `fo` (`{"B": n}`, `{"F": [symbol, [terms]]}`) are
+written only when an atom is a predicate, and then every atom is
+`{"P": [symbol, [terms]]}` so that the tables read back equal; the
+binders' names are the `binders` key, one per `∀` or `∃` term in the
+order of the terms (`x` where one is missing), kept beside the terms
+and not inside them so that `Expression` stays `Copy` and three words;
+a propositional sequent's bytes are level 1's. `Atoms` reads the atoms
+as a plain list of strings (`Atoms::Names`, the propositional path
+exactly as before) and turns mixed (`AtomForm`, a string or `{"P": …}`,
+read without buffering) at the first predicate; `Tables::of` and
+`Tables::read` (shared with `serialize/ill.rs`, whose document takes the
+larger of level 5 and the sequent's) build the forms and the tables: the
+reader interns equal lists as the parser does, takes a plain name beside
+a predicate as the nullary symbol of that name, keeps a document of
+names and binders alone as names with its binders (so `fo.atoms` empty
+and `fo.binders` not is a state a JSON document can hold, never a
+parsed one), checks the tables (`FirstOrder::check`, then
+`Sequent::check` with the scope pass), counts the terms every atom
+unfolds to against `limits.occurrences` (shared terms could name a key
+of exponential length) and computes every atom's key;
+`core/tests/wire/level-7.txt` pins a one-sided, a ground and an
+intuitionistic document. The `read-text`, `read-json` and the render
+journeys of the ratchet are within 2 % of their ceilings only with the
+parser's and the printers' first-order paths out of line (`#[cold]`,
+`#[inline(never)]`: `binder`, `predicate`, `nullary`, `close_binder`,
+`write_predicate`, `Scope::enter`), the printers' scope made at the
+first binder and dropped only then (`Slot`, `close`), one map lookup per
+atom (`Parser::atom` through `entry`) and `Term`'s hash as one write.
 `serialize/proofs.rs` does the same for proofs: `{"version": 1,
 "sequent": …, "nodes": [node, …], "mode": …, "goal": […]}` (the last
 two where the proof records them), one object per node tagged `ax ⊗ ⅋ 1

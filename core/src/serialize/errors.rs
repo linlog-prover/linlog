@@ -116,6 +116,12 @@ impl Serialize for Details<'_> {
                 entries!(s; "fragment" => fragment; "mode" => mode)
             }
             OrderedMode { mode } => entries!(s; "mode" => mode),
+            Quantifiers { what } => entries!(s; "what" => what),
+            Symbol { name, fault } => entries!(s; "name" => name; "fault" => fault),
+            LooseVariable { term } => entries!(s; "term" => term),
+            Predicates { predicates, atoms } => {
+                entries!(s; "predicates" => predicates; "atoms" => atoms)
+            }
             EngineRefused { engine, because } => {
                 entries!(s; "engine" => engine; "because" => because)
             }
@@ -172,6 +178,7 @@ impl Serialize for CheckError {
                 "fault" => &e.fault;
                 "premises" => &e.premises),
             Self::Refused(e) => entries!(s; "node" => &e.node.get(); "refusal" => &e.refusal),
+            Self::Quantifiers => entries!(s; "what" => "the checker"),
         }
     }
 }
