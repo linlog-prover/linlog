@@ -139,6 +139,8 @@ impl Terms<'_> {
             if matches!(step, Step::Visit(_)) {
                 // What each premise's sequent gains from the rule.
                 let introduced: [[Option<OccId>; 2]; 2] = match rule {
+                    // A session holds no binder.
+                    Forall | Exists => unreachable!("no binder in a session"),
                     Ax | One | Top => {
                         #[expect(
                             clippy::wildcard_enum_match_arm,
@@ -179,6 +181,8 @@ impl Terms<'_> {
             }
             let mut premise = || done.pop().expect("a premise's term");
             let node = match rule {
+                // A session holds no binder.
+                Forall | Exists => unreachable!("no binder in a session"),
                 Par => Node::Par(o(), premise()),
                 Bot => Node::Bot(o(), premise()),
                 PlusLeft => Node::Plus(o(), Branch::Left, premise()),

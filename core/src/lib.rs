@@ -186,6 +186,12 @@ mod sealed {
         fn mode(&self) -> Option<crate::Mode> {
             None
         }
+
+        /// Returns the instance table of the members past the forest
+        /// that the owner's errors name.
+        fn instances(&self) -> Option<&crate::Instances> {
+            None
+        }
     }
 
     /// Seals [`Readable`](crate::wire::Readable): only the crate's forms
@@ -246,8 +252,8 @@ pub use nets::{
     Criterion, MellStructure, NetError, Parts, Placed, Placement, ProofStructure, VertexId,
 };
 pub use occurrences::{
-    ClassicalSequent, Forest, IllSequent, IllSyntax, InputOptions, Member, OccId, Reading,
-    ShapeError, Side, Sign, Written,
+    ClassicalSequent, Forest, FrameId, IllSequent, IllSyntax, InputOptions, Instances, Member,
+    OccId, Reading, ShapeError, Side, Sign, Written,
 };
 pub use proofs::{
     Branch, CheckError, ClassicalRule, ClassicalSides, Derivation, Division, InfId, Inference,
@@ -259,5 +265,5 @@ pub use search::{
     Bias, Counter, Disproof, Engine, Goal, NotTaken, Options, Outcome, Reason, Refutation,
     Statistics, Verdict, prove, prove_goal, prove_within,
 };
-pub use sequents::{Atom, Formula, Kind, Sequent, Term, TermId};
+pub use sequents::{Atom, Eigen, Formula, Kind, Sequent, Term, TermId};
 pub use settings::{Clock, Settings};

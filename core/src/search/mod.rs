@@ -323,7 +323,7 @@ fn on_own_forest(
         match carried.check_within(mode, limits, &mut *stop) {
             Ok(()) => {}
             Err(e @ CheckError::Invalid(_)) => return Err(Error::Rejected(Box::new(e))),
-            Err(e @ (CheckError::Refused(_) | CheckError::Quantifiers)) => {
+            Err(e @ CheckError::Refused(_)) => {
                 return Err(Error::Check(e));
             }
         }
@@ -999,7 +999,6 @@ fn conclude(
         Err(CheckError::Refused(refused)) => {
             Ok(Verdict::Unknown(unchecked(refused.refusal, limits)?))
         }
-        Err(e @ CheckError::Quantifiers) => Err(Error::Check(e)),
     }
 }
 

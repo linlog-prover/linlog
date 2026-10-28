@@ -350,6 +350,69 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   written form, `serialize/errors.rs`), and the test-only
   first implementation (`oracle.rs`) reports the same faults.
 
+## First-order proofs (`occurrences/instances.rs`, `check/frames.rs`)
+
+- **A member past the forest is an instance**: an occurrence under `n`
+  binders with a frame of `n` closed terms, the innermost binder's
+  first, numbered by the proof's `Instances` (members as `(OccId,
+  FrameId)`, frames as cons cells `(parent, term)`, the proof's terms
+  extending the sequent's arena by id, an eigenvariable `FoTerm::Eigen`).
+  A member below the forest's length is the occurrence with no frame,
+  which only an occurrence under no binder can be: one under a binder
+  named bare is `Fault::Instance`, the term's fault, not the table's.
+- **`Proof::with_instances` makes the table canonical and closed**
+  (`instances::canonical`): equal terms, lists, frames and members one
+  entry each (the sequent's own terms keep their ids, a duplicate of
+  the sequent's arena is mapped to its first), the nodes' members and
+  witnesses renumbered, and every member a rule derives from a named
+  one added (a named member's children under its frame, a `∀`/`∃`
+  step's body under its pushed frame, a cut member's dual, a copy's `?`
+  parent). So every member a check, a derivation or an error report
+  speaks of has a number of the proof's own, and the checker's lookups
+  never miss; a check compares instances by these numbers. `Proof::new`
+  on a forest with binders goes through it with an empty table.
+- **The frame pass** (`Framed::new`, reverse arena order) is the first
+  of the checker's two passes: it finds each `∀`/`∃` step's body
+  instance, the eigenvariables a witness or a cut's frame names, a
+  member under binders named bare, and a second introduction of an
+  eigenvariable (`Reintroduced`, the later node in arena order; the
+  first introduces). It derives no frame: a node names its members with
+  their frames, so the design's "a node reached from two parents must
+  receive equal frames" is the bottom-up pass's comparison by number (a
+  shared subproof under a `∀` step with another eigenvariable lacks the
+  body: `Missing`, pinned by `shared_apart`).
+- **The eigenvariable condition is a set carried to the root**, in a
+  side table of the pass (`Pass::eigens`, `flow`) that only the framed
+  instance has (`Instancing::FRAMED`, a const, so the propositional pass
+  compiles without it: in `State` it cost the `check-*` journeys 3 %):
+  a premise's set goes with its last reader and is copied for the
+  others, `∃` steps add their witness's eigenvariables, **a cut on an
+  instance adds its frame's** (the cut chooses those terms as a witness
+  does; without it a `∀` step beside the cut's dual, `cut_frame`, passed
+  with its eigenvariable in its conclusion), `∀` steps remove their own,
+  and a set left at the root is `Fault::Eigenvariable`, at the root.
+- **The axiom compares atoms' instances by hash-consed number**
+  (`Numbering`): every term of both arenas numbered by its symbol and
+  its arguments' numbers, an open atom's arguments substituted under
+  the frame on an explicit stack with a memo, so a shared term is
+  visited once and nothing is unfolded. Numbers are `u64`. An
+  eigenvariable is a constant no symbol equals.
+- **The first implementation has first-order rules of its own**
+  (`oracle.rs`, `Frames`): members by their occurrence and their frame
+  written out as text, atoms compared by their written instances, its
+  own eigenvariable sets; it reads only the table's data, not the
+  checker's lookups. `proofs/first_order.rs` holds the proofs written
+  by hand (each a file under `core/tests/first-order/`, blessed with
+  `BLESS=1`), the verdict and node of each, and runs the checker, the
+  oracle (on the proofs and on every mutant of eigenvariable, witness
+  and member), the size and the derivation on them.
+- **Bounds**: the table's ids, with what the closure adds (three
+  members, one frame, one term a node), must be `u32`s, else
+  `Refusal::Index` at construction; the builder's ids saturate until
+  then. The JSON reader refuses a table of more entries than
+  `limits.terms`. The pass does not count the frame pass's tables
+  (proportional to the proof's table, as the forest's are to it).
+
 ## Cut elimination (`proofs/cut/`)
 
 - **A step rewrites the arena copy-on-write**: the proof's nodes are kept

@@ -4,7 +4,8 @@
 //! The checker's one pass, its bounds and its observers.
 
 use super::error::{CheckError, Fault, Refused};
-use super::zones::{Bag, State, Zone};
+use super::frames::{Framed, Ground, Instancing};
+use super::zones::{Bag, Eigens, State, Zone};
 use crate::fragment::Mode;
 use crate::limits::{Limits, Phase, Progress, Refusal};
 use crate::occurrences::{Forest, Member, OccId, Reading, Side};
@@ -159,9 +160,36 @@ pub(crate) fn examine<O: Observer>(
     allowance: Allowance<'_>,
     observer: &mut O,
 ) -> Result<(), CheckError> {
+    match proof.instances() {
+        None => examine_with(proof, goal, mode, reading, allowance, observer, || Ground),
+        Some(table) => examine_with(proof, goal, mode, reading, allowance, observer, || {
+            Framed::new(proof, table)
+        }),
+    }
+}
+
+/// Checks a proof as [`examine`] does, whose members `instancing` (made
+/// anew for a second pass) knows.
+fn examine_with<O: Observer, I: Instancing>(
+    proof: &Proof,
+    goal: &[OccId],
+    mode: Mode,
+    reading: Option<&Reading>,
+    allowance: Allowance<'_>,
+    observer: &mut O,
+    instancing: impl Fn() -> I,
+) -> Result<(), CheckError> {
     let (memory, phase) = (allowance.memory, allowance.phase);
     afford(proof, observer.bytes(), memory, phase)?;
-    let mut pass = Pass::new(proof, goal.len(), mode, reading, allowance, observer);
+    let mut pass = Pass::new(
+        proof,
+        goal.len(),
+        mode,
+        reading,
+        allowance,
+        observer,
+        instancing(),
+    );
     let end = proof.nodes().len();
     let (node, halt) = match pass.run(end) {
         Err(failure) => failure,
@@ -193,7 +221,15 @@ pub(crate) fn examine<O: Observer>(
         phase,
         stop: &mut never,
     };
-    let mut pass = Pass::new(proof, goal.len(), mode, reading, again, &mut nobody);
+    let mut pass = Pass::new(
+        proof,
+        goal.len(),
+        mode,
+        reading,
+        again,
+        &mut nobody,
+        instancing(),
+    );
     let again = pass.run(node.index());
     debug_assert!(again.is_ok());
     let premises = rule
@@ -217,13 +253,13 @@ pub(crate) fn examine<O: Observer>(
 /// accept makes it a proof of cyclic MLL; the axiom and `⅋` need nothing,
 /// a link's two literals being neighbours in any order and the two
 /// operands of a `⅋` neighbours in the forest's.
-pub(super) fn arcs(forest: &Forest, o: OccId, left: &Bag, right: &Bag) -> bool {
+fn arcs(forest: &Forest, o: OccId, left: &Bag, right: &Bag, occ: impl Fn(Member) -> OccId) -> bool {
     // An occurrence's distance from `o` going round: below the forest's
     // length, which fits a `u32`, so no sum wraps in a `u64`.
     let n = forest.len() as u64;
     let from = |x: OccId| (u64::from(x.get()) + n - u64::from(o.get())) % n;
-    let last_right = right.counts().map(|(x, _)| from(x)).max();
-    let first_left = left.counts().map(|(x, _)| from(x)).min();
+    let last_right = right.counts().map(|(x, _)| from(occ(x))).max();
+    let first_left = left.counts().map(|(x, _)| from(occ(x))).min();
     // A member in both contexts belongs to no proof the commutative rules
     // accept, which concludes every occurrence once; it passes here as in
     // the oracle, which lists the right context first.
@@ -278,10 +314,11 @@ pub(crate) fn afford(
 /// What a caller of [`examine`] learns about every node of a correct
 /// proof, in arena order.
 pub(crate) trait Observer {
-    /// Returns the weight of an occurrence, which a [`State`] adds up over
-    /// its sequent. A `u32`, so that the sum over a zone fits a `u64`.
-    fn weight(&self, o: OccId) -> u32 {
-        let _ = o;
+    /// Returns the weight of a member `m`, which stands for the occurrence
+    /// `o`, that a [`State`] adds up over its sequent. A `u32`, so that the
+    /// sum over a zone fits a `u64`.
+    fn weight(&self, m: Member, o: OccId) -> u32 {
+        let _ = (m, o);
         0
     }
 
@@ -305,9 +342,9 @@ pub(crate) struct Facts<'a> {
     /// For a `?` step, whether a copy above uses its formula; for a copy,
     /// whether another copy above uses the same occurrence.
     pub(crate) used: bool,
-    /// For `⊗` and Mix, the unrestricted occurrences both premises need,
-    /// in no particular order.
-    pub(crate) shared: &'a [OccId],
+    /// For `⊗` and Mix, the unrestricted members both premises need, in
+    /// no particular order.
+    pub(crate) shared: &'a [Member],
     /// Whether a subformula the rule consumes was missing from its premise
     /// and absorbed by a `⊤` above: the left and the right one of `⅋`, `⊗`
     /// and `&`, and the first for a rule that consumes one.
@@ -318,7 +355,7 @@ pub(crate) struct Facts<'a> {
 }
 
 /// The pass over a proof's nodes.
-pub(super) struct Pass<'a, 's, O> {
+pub(super) struct Pass<'a, 's, O, I> {
     /// The proof.
     proof: &'a Proof,
     /// Its forest.
@@ -342,8 +379,13 @@ pub(super) struct Pass<'a, 's, O> {
     live: Vec<Option<Box<State>>>,
     /// Who is shown every node.
     observer: &'a mut O,
-    /// The unrestricted occurrences both premises of the current node need.
-    shared: Vec<OccId>,
+    /// The unrestricted members both premises of the current node need.
+    shared: Vec<Member>,
+    /// What the pass knows of the proof's members.
+    inst: I,
+    /// Per node a later node still reads, the eigenvariables its sequent
+    /// brings to the root ([`Eigens`]); empty for a proof without binders.
+    eigens: Vec<Option<Box<Eigens>>>,
     /// The most bytes the pass may hold, or none for any number.
     memory: Option<u64>,
     /// The most units of work the pass may do, or none for any number.
@@ -372,7 +414,7 @@ pub(super) struct Pass<'a, 's, O> {
     passed: u64,
 }
 
-impl<'a, 's, O: Observer> Pass<'a, 's, O> {
+impl<'a, 's, O: Observer, I: Instancing> Pass<'a, 's, O, I> {
     /// The pass before its first node, which [`afford`] has allowed its
     /// tables.
     fn new(
@@ -382,6 +424,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         reading: Option<&'a Reading<'a>>,
         allowance: Allowance<'s>,
         observer: &'a mut O,
+        inst: I,
     ) -> Self {
         let mut readers = vec![0; proof.nodes().len()];
         for node in proof.nodes() {
@@ -402,6 +445,14 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
             live,
             observer,
             shared: Vec::new(),
+            eigens: if I::FRAMED {
+                let mut eigens = Vec::new();
+                eigens.resize_with(proof.nodes().len(), || None);
+                eigens
+            } else {
+                Vec::new()
+            },
+            inst,
             memory: allowance.memory,
             work: allowance.work,
             phase: allowance.phase,
@@ -452,10 +503,13 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
             let mut facts = Facts::default();
             self.passed = 0;
             let state = self
-                .rule(self.proof.node(id), &mut facts)
+                .rule(id, self.proof.node(id), &mut facts)
                 .and_then(|state| self.within(id, state))
                 .and_then(|state| self.one_succedent(state))
                 .map_err(|problem| (id, problem))?;
+            if I::FRAMED {
+                self.flow(id).map_err(|problem| (id, problem))?;
+            }
             facts.shared = &self.shared;
             self.observer.derived(id, &state, &facts);
             // The premises' sequents are gone into the node's own. Each was
@@ -485,7 +539,16 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         let root = self.live[self.proof.root().index()]
             .as_deref()
             .expect("the root's sequent is kept");
-        let goal = Bag::of(goal.iter().copied());
+        // A root's eigenvariable remained: a witness or a cut's frame
+        // names it outside the `∀` step that introduces it.
+        let remained = self
+            .eigens
+            .get(self.proof.root().index())
+            .and_then(Option::as_deref);
+        if let Some(eigen) = remained.and_then(|e| e.set.iter().min().copied()) {
+            return Err(Halt::Fault(Fault::Eigenvariable { eigen }));
+        }
+        let goal = Bag::of(goal.iter().copied().map(Member::from));
         let concludes = if root.any {
             root.gamma.is_subset(&goal)
         } else {
@@ -526,21 +589,21 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         self.reading.is_some_and(|r| r.position(o) == Side::Output)
     }
 
-    /// Fails unless `o` has the kind the rule acts on.
-    fn expect(&self, o: OccId, kind: Kind) -> Result<(), Halt> {
+    /// Fails unless the member `m`, of the occurrence `o`, has the kind
+    /// the rule acts on.
+    fn expect(&self, m: Member, o: OccId, kind: Kind) -> Result<(), Halt> {
         if self.forest.kind(o) == kind {
             Ok(())
         } else {
-            Err(Halt::Fault(Fault::Kind {
-                member: Member::from(o),
-            }))
+            Err(Halt::Fault(Fault::Kind { member: m }))
         }
     }
 
-    /// Adds one copy of `o` to the linear zone of `d`.
-    fn put(&self, d: &mut State, o: OccId) {
-        d.gamma.insert(o);
-        let weight = u64::from(self.observer.weight(o));
+    /// Adds one copy of `m` to the linear zone of `d`.
+    fn put(&self, d: &mut State, m: Member) {
+        let o = self.inst.occ(m);
+        d.gamma.insert(m);
+        let weight = u64::from(self.observer.weight(m, o));
         d.linear = d.linear.saturating_add(weight);
         if self.is_output(o) {
             d.outputs = d.outputs.saturating_add(1);
@@ -548,14 +611,15 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         }
     }
 
-    /// Consumes one copy of `o` from the linear zone of `d`, the derived
+    /// Consumes one copy of `m` from the linear zone of `d`, the derived
     /// sequent of premise `premise`, and returns whether there was none: a
     /// `⊤` above stands in for a missing one, but never for a second goal.
-    fn take(&self, d: &mut State, o: OccId, premise: usize) -> Result<bool, Halt> {
-        if d.gamma.remove(o) {
-            // The premise's sums are exact and count `o`, which was a
+    fn take(&self, d: &mut State, m: Member, premise: usize) -> Result<bool, Halt> {
+        let o = self.inst.occ(m);
+        if d.gamma.remove(m) {
+            // The premise's sums are exact and count `m`, which was a
             // member: nothing goes below zero.
-            let weight = u64::from(self.observer.weight(o));
+            let weight = u64::from(self.observer.weight(m, o));
             d.linear -= weight;
             if self.is_output(o) {
                 d.outputs -= 1;
@@ -564,12 +628,9 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
             return Ok(false);
         }
         if !d.any {
-            return Err(Halt::Fault(Fault::Missing {
-                premise,
-                member: Member::from(o),
-            }));
+            return Err(Halt::Fault(Fault::Missing { premise, member: m }));
         }
-        // The premise's sequent holds `o` besides its zone: one goal at
+        // The premise's sequent holds `m` besides its zone: one goal at
         // most.
         if self.is_output(o) && d.outputs > 0 {
             return Err(Halt::Fault(Fault::Succedents { count: 2 }));
@@ -577,11 +638,13 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         Ok(true)
     }
 
-    /// The `?` formula an unrestricted occurrence stands for.
-    fn quest(&self, a: OccId) -> OccId {
-        self.forest
-            .parent(a)
-            .expect("an unrestricted occurrence is under a ?")
+    /// The weight of the `?` formula an unrestricted member stands for.
+    fn quest_weight(&self, a: Member) -> u64 {
+        let q = self
+            .forest
+            .parent(self.inst.occ(a))
+            .expect("an unrestricted occurrence is under a ?");
+        u64::from(self.observer.weight(self.inst.parent(a, q), q))
     }
 
     /// Checks that the linear zone node `id` derived is one the proof can
@@ -619,18 +682,20 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         Ok(d)
     }
 
-    /// The left subformula of `o`, which must have one.
-    fn left(&self, o: OccId) -> OccId {
-        self.forest.left(o).unwrap()
+    /// The member of the left subformula of `m`, of the occurrence `o`,
+    /// which must have one.
+    fn left(&self, m: Member, o: OccId) -> Member {
+        self.inst.child(m, self.forest.left(o).unwrap())
     }
 
-    /// The right subformula of `o`, which must have one.
-    fn right(&self, o: OccId) -> OccId {
-        self.forest.right(o).unwrap()
+    /// The member of the right subformula of `m`, of the occurrence `o`,
+    /// which must have one.
+    fn right(&self, m: Member, o: OccId) -> Member {
+        self.inst.child(m, self.forest.right(o).unwrap())
     }
 
-    /// The sequent with only the given occurrences in its linear zone.
-    fn just(&self, ids: impl IntoIterator<Item = OccId>, any: bool) -> Box<State> {
+    /// The sequent with only the given members in its linear zone.
+    fn just(&self, ids: impl IntoIterator<Item = Member>, any: bool) -> Box<State> {
         let mut d = Box::new(State {
             theta: Zone::default(),
             gamma: Bag::default(),
@@ -640,14 +705,14 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
             goal: 0,
             any,
         });
-        for o in ids {
-            self.put(&mut d, o);
+        for m in ids {
+            self.put(&mut d, m);
         }
         d
     }
 
     /// Unites the unrestricted zone of `r` into that of `l`, the smaller
-    /// set into the larger, and notes the occurrences both hold.
+    /// set into the larger, and notes the members both hold.
     fn unite(&mut self, l: &mut State, r: &mut State) {
         if r.theta.len() > l.theta.len() {
             std::mem::swap(&mut l.theta, &mut r.theta);
@@ -655,7 +720,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         }
         for a in r.theta.members.drain() {
             if l.theta.insert(a) {
-                l.unrestricted += u64::from(self.observer.weight(self.quest(a)));
+                l.unrestricted += self.quest_weight(a);
             } else {
                 self.shared.push(a);
             }
@@ -675,9 +740,65 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         l
     }
 
-    /// Applies a node's rule to what its premises derived, noting in
+    /// Carries the eigenvariables to node `id` from its premises, whose
+    /// sets go with their last reader and are copied for the others:
+    /// those a `∀` step introduces stay behind, those an `∃` step's
+    /// witness or a cut's frame names come in.
+    fn flow(&mut self, id: NodeId) -> Result<(), Halt> {
+        let node = self.proof.node(id);
+        let mut set: Option<Box<Eigens>> = None;
+        for p in node.premises() {
+            let theirs = if self.readers[p.index()] == 0 {
+                self.eigens[p.index()].take()
+            } else {
+                let copy = self.eigens[p.index()].clone();
+                if let Some(copy) = &copy {
+                    self.charge(copy.bytes())?;
+                }
+                copy
+            };
+            match (&mut set, theirs) {
+                (Some(ours), Some(theirs)) => {
+                    // Both were counted; what is left is the one they make.
+                    let before = ours.bytes().saturating_add(theirs.bytes());
+                    ours.add(*theirs);
+                    let after = ours.bytes();
+                    if after > before {
+                        self.charge(after - before)?;
+                    } else {
+                        self.held = self.held.saturating_sub(before - after);
+                    }
+                }
+                (None, theirs) => set = theirs,
+                (Some(_), None) => {}
+            }
+        }
+        if let Node::Forall(_, a, _) = node
+            && let Some(set) = &mut set
+        {
+            set.set.remove(&a);
+        }
+        let brought = self.inst.eigens(id);
+        if !brought.is_empty() {
+            let set = set.get_or_insert_with(|| Box::new(Eigens::default()));
+            let before = set.bytes();
+            for &a in brought {
+                set.insert(a);
+            }
+            let after = set.bytes();
+            self.charge(after.saturating_sub(before))?;
+        }
+        if self.readers[id.index()] > 0 || id == self.proof.root() {
+            self.eigens[id.index()] = set;
+        } else if let Some(set) = set {
+            self.held = self.held.saturating_sub(set.bytes());
+        }
+        Ok(())
+    }
+
+    /// Applies node `id`'s rule to what its premises derived, noting in
     /// `facts` how it applied.
-    fn rule(&mut self, node: Node, facts: &mut Facts<'_>) -> Result<Box<State>, Halt> {
+    fn rule(&mut self, id: NodeId, node: Node, facts: &mut Facts<'_>) -> Result<Box<State>, Halt> {
         use Node::*;
         let f = self.forest;
         self.shared.clear();
@@ -685,68 +806,67 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         if self.mode.is_ordered() && !matches!(node, Ax(..) | Par(..) | Tensor(..)) {
             return Err(Halt::Fault(Fault::Forbidden));
         }
+        if let Some(fault) = self.inst.fault(id) {
+            return Err(Halt::Fault(fault));
+        }
         match node {
             Ax(a, b) => {
-                let (a, b) = (a.occ(), b.occ());
-                for o in [a, b] {
-                    if !f.is_literal(o) {
-                        return Err(Halt::Fault(Fault::Kind {
-                            member: Member::from(o),
-                        }));
+                for m in [a, b] {
+                    if !f.is_literal(self.inst.occ(m)) {
+                        return Err(Halt::Fault(Fault::Kind { member: m }));
                     }
                 }
-                if !f.dual_literals(a, b) {
+                if !self.inst.dual_literals(f, a, b) {
                     return Err(Halt::Fault(Fault::NotDual));
                 }
                 Ok(self.just([a, b], false))
             }
-            One(o) => {
-                let o = o.occ();
-                self.expect(o, Kind::One)?;
-                Ok(self.just([o], false))
+            One(m) => {
+                self.expect(m, self.inst.occ(m), Kind::One)?;
+                Ok(self.just([m], false))
             }
-            Top(o) => {
-                let o = o.occ();
-                self.expect(o, Kind::Top)?;
-                Ok(self.just([o], true))
+            Top(m) => {
+                self.expect(m, self.inst.occ(m), Kind::Top)?;
+                Ok(self.just([m], true))
             }
-            Bot(o, p) => {
-                let o = o.occ();
-                self.expect(o, Kind::Bot)?;
+            Bot(m, p) => {
+                self.expect(m, self.inst.occ(m), Kind::Bot)?;
                 let mut d = self.premise(p)?;
-                self.put(&mut d, o);
+                self.put(&mut d, m);
                 Ok(d)
             }
-            Par(o, p) => {
-                let o = o.occ();
-                self.expect(o, Kind::Par)?;
+            Par(m, p) => {
+                let o = self.inst.occ(m);
+                self.expect(m, o, Kind::Par)?;
                 let mut d = self.premise(p)?;
-                facts.absent[0] = self.take(&mut d, self.left(o), 0)?;
-                facts.absent[1] = self.take(&mut d, self.right(o), 0)?;
-                self.put(&mut d, o);
+                facts.absent[0] = self.take(&mut d, self.left(m, o), 0)?;
+                facts.absent[1] = self.take(&mut d, self.right(m, o), 0)?;
+                self.put(&mut d, m);
                 Ok(d)
             }
-            Tensor(o, l, r) => {
-                let o = o.occ();
-                self.expect(o, Kind::Tensor)?;
+            Tensor(m, l, r) => {
+                let o = self.inst.occ(m);
+                self.expect(m, o, Kind::Tensor)?;
                 let (mut dl, mut dr) = (self.premise(l)?, self.premise(r)?);
                 facts.needs = [dl.theta.len(), dr.theta.len()];
-                facts.absent[0] = self.take(&mut dl, self.left(o), 0)?;
-                facts.absent[1] = self.take(&mut dr, self.right(o), 1)?;
-                if self.mode.is_ordered() && !arcs(self.forest, o, &dl.gamma, &dr.gamma) {
+                facts.absent[0] = self.take(&mut dl, self.left(m, o), 0)?;
+                facts.absent[1] = self.take(&mut dr, self.right(m, o), 1)?;
+                if self.mode.is_ordered()
+                    && !arcs(self.forest, o, &dl.gamma, &dr.gamma, |x| self.inst.occ(x))
+                {
                     return Err(Halt::Fault(Fault::Order));
                 }
                 let mut d = self.join(dl, dr);
-                self.put(&mut d, o);
+                self.put(&mut d, m);
                 Ok(d)
             }
-            With(o, l, r) => {
-                let o = o.occ();
-                self.expect(o, Kind::With)?;
+            With(m, l, r) => {
+                let o = self.inst.occ(m);
+                self.expect(m, o, Kind::With)?;
                 let (mut dl, mut dr) = (self.premise(l)?, self.premise(r)?);
                 facts.needs = [dl.theta.len(), dr.theta.len()];
-                facts.absent[0] = self.take(&mut dl, self.left(o), 0)?;
-                facts.absent[1] = self.take(&mut dr, self.right(o), 1)?;
+                facts.absent[0] = self.take(&mut dl, self.left(m, o), 0)?;
+                facts.absent[1] = self.take(&mut dr, self.right(m, o), 1)?;
                 // The conclusion's context is what both premises can prove
                 // it under: an absorbing premise adapts to the other one.
                 let mut d = match (dl.any, dr.any) {
@@ -764,65 +884,63 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                     _ => return Err(Halt::Fault(Fault::Differ)),
                 };
                 self.shared.clear();
-                self.put(&mut d, o);
+                self.put(&mut d, m);
                 Ok(d)
             }
-            Plus(o, side, p) => {
-                let o = o.occ();
-                self.expect(o, Kind::Plus)?;
+            Plus(m, side, p) => {
+                let o = self.inst.occ(m);
+                self.expect(m, o, Kind::Plus)?;
                 let mut d = self.premise(p)?;
                 let chosen = match side {
-                    Branch::Left => self.left(o),
-                    Branch::Right => self.right(o),
+                    Branch::Left => self.left(m, o),
+                    Branch::Right => self.right(m, o),
                 };
                 facts.absent[0] = self.take(&mut d, chosen, 0)?;
-                self.put(&mut d, o);
+                self.put(&mut d, m);
                 Ok(d)
             }
-            Bang(o, p) => {
-                let o = o.occ();
-                self.expect(o, Kind::Bang)?;
+            Bang(m, p) => {
+                let o = self.inst.occ(m);
+                self.expect(m, o, Kind::Bang)?;
                 let mut d = self.premise(p)?;
-                facts.absent[0] = self.take(&mut d, self.left(o), 0)?;
+                facts.absent[0] = self.take(&mut d, self.left(m, o), 0)?;
                 if !d.gamma.is_empty() {
                     return Err(Halt::Fault(Fault::NotEmpty));
                 }
                 // Promotion fixes the linear zone: a ⊤ above cannot absorb
                 // past it.
                 d.any = false;
-                self.put(&mut d, o);
+                self.put(&mut d, m);
                 Ok(d)
             }
-            Quest(o, p) => {
-                let o = o.occ();
-                self.expect(o, Kind::Quest)?;
+            Quest(m, p) => {
+                let o = self.inst.occ(m);
+                self.expect(m, o, Kind::Quest)?;
                 let mut d = self.premise(p)?;
-                if d.theta.remove(self.left(o)) {
+                if d.theta.remove(self.left(m, o)) {
                     // What the member added when it came in.
                     facts.used = true;
-                    d.unrestricted -= u64::from(self.observer.weight(o));
+                    d.unrestricted -= u64::from(self.observer.weight(m, o));
                 }
-                self.put(&mut d, o);
+                self.put(&mut d, m);
                 Ok(d)
             }
             Copy(a, p) => {
-                let a = a.occ();
-                if f.parent(a).map(|q| f.kind(q)) != Some(Kind::Quest) {
-                    return Err(Halt::Fault(Fault::NotUnderQuest {
-                        member: Member::from(a),
-                    }));
+                let o = self.inst.occ(a);
+                if f.parent(o).map(|q| f.kind(q)) != Some(Kind::Quest) {
+                    return Err(Halt::Fault(Fault::NotUnderQuest { member: a }));
                 }
                 let mut d = self.premise(p)?;
                 facts.absent[0] = self.take(&mut d, a, 0)?;
                 if d.theta.insert(a) {
-                    d.unrestricted += u64::from(self.observer.weight(self.quest(a)));
+                    d.unrestricted += self.quest_weight(a);
                 } else {
                     facts.used = true;
                 }
                 Ok(d)
             }
-            Weaken(o, p) => {
-                let o = o.occ();
+            Weaken(m, p) => {
+                let o = self.inst.occ(m);
                 // Weakening a `?` formula is a rule of every mode; the goal
                 // is never weakened.
                 if !self.mode.affine && f.kind(o) != Kind::Quest {
@@ -832,7 +950,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                     return Err(Halt::Fault(Fault::Succedents { count: 0 }));
                 }
                 let mut d = self.premise(p)?;
-                self.put(&mut d, o);
+                self.put(&mut d, m);
                 Ok(d)
             }
             Mix(l, r) => {
@@ -848,20 +966,35 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
             Cut(a, l, r) => {
                 // The ordered modes refused it above: the dual of an
                 // ordered cut formula is not of one shape with it.
-                let a = a.occ();
-                let dual = match f.dual(a) {
-                    Some(dual) if a < dual => dual,
-                    _ => {
-                        return Err(Halt::Fault(Fault::NotACut {
-                            member: Member::from(a),
-                        }));
-                    }
+                let o = self.inst.occ(a);
+                let dual = match self.inst.dual(f, a) {
+                    Some(dual) if o < self.inst.occ(dual) => dual,
+                    _ => return Err(Halt::Fault(Fault::NotACut { member: a })),
                 };
                 let (mut dl, mut dr) = (self.premise(l)?, self.premise(r)?);
                 facts.needs = [dl.theta.len(), dr.theta.len()];
                 facts.absent[0] = self.take(&mut dl, a, 0)?;
                 facts.absent[1] = self.take(&mut dr, dual, 1)?;
+                // A cut on an instance chooses its frame's terms, as an `∃`
+                // step its witness: the frame pass found them, and `flow`
+                // brings them in.
                 Ok(self.join(dl, dr))
+            }
+            Forall(m, _, p) => {
+                self.expect(m, self.inst.occ(m), Kind::Forall)?;
+                let mut d = self.premise(p)?;
+                facts.absent[0] = self.take(&mut d, self.inst.body(id), 0)?;
+                // Every witness above that names its eigenvariable is
+                // inside this step, which `flow` sees to.
+                self.put(&mut d, m);
+                Ok(d)
+            }
+            Exists(m, _, p) => {
+                self.expect(m, self.inst.occ(m), Kind::Exists)?;
+                let mut d = self.premise(p)?;
+                facts.absent[0] = self.take(&mut d, self.inst.body(id), 0)?;
+                self.put(&mut d, m);
+                Ok(d)
             }
         }
     }
@@ -879,9 +1012,10 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         let (mut outputs, mut linear, mut goal) = (0usize, 0u64, 0u64);
         for (o, n) in d.gamma.counts() {
             // Two factors below 2³².
-            let weight = u64::from(self.observer.weight(o)) * u64::from(n);
+            let occ = self.inst.occ(o);
+            let weight = u64::from(self.observer.weight(o, occ)) * u64::from(n);
             linear = linear.saturating_add(weight);
-            if self.is_output(o) {
+            if self.is_output(occ) {
                 outputs = outputs.saturating_add(n as usize);
                 goal = goal.saturating_add(weight);
             }

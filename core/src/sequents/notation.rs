@@ -8,6 +8,7 @@
 //! and a spelling in each table, never a printer of its own.
 
 use crate::hash::HashMap;
+use crate::occurrences::instances::Framing;
 use crate::occurrences::written::{self, Written};
 use crate::occurrences::{Forest, IllConnective, Member, OccId, Reading, Side};
 use crate::ordinary::{Formulas, NodeId, Symbols};
@@ -144,6 +145,44 @@ pub(crate) struct Scope<'a> {
     open: HashMap<Cow<'a, str>, u32>,
     /// The sequent's symbol names, filled at the first binder.
     symbols: Option<std::collections::HashSet<&'a str>>,
+    /// The terms of an instance's frame as written, its innermost
+    /// binder's first: what the bound variables the names do not reach
+    /// stand for. Empty but for an instance.
+    frame: Vec<String>,
+}
+
+/// What a sequent of a proof with instances is written under: the
+/// reading of a two-sided one, the proof's instances, and the marks
+/// around every formula.
+struct Sides<'r, 'f> {
+    /// The reading, of a two-sided sequent.
+    reading: Option<&'r Reading<'r>>,
+    /// The instances.
+    framing: &'f Framing<'f>,
+    /// What stands before and after every formula.
+    marks: (&'static str, &'static str),
+}
+
+/// A writer that passes everything on to the one it holds: a type of its
+/// own for the walks an instance makes.
+struct Apart<'w, W: ?Sized>(&'w mut W);
+
+impl<W: Write + ?Sized> Write for Apart<'_, W> {
+    fn write_str(&mut self, s: &str) -> FmtResult {
+        self.0.write_str(s)
+    }
+
+    fn write_char(&mut self, c: char) -> FmtResult {
+        self.0.write_char(c)
+    }
+}
+
+/// What a bound variable is written as.
+enum Bound<'s> {
+    /// The name of a binder of the formula.
+    Name(&'s str),
+    /// A term of an instance's frame, written in the target's markup.
+    Term(&'s str),
 }
 
 impl<'a> Scope<'a> {
@@ -186,13 +225,33 @@ impl<'a> Scope<'a> {
         }
     }
 
-    /// Returns the name of the bound variable `index` binders up, if the
-    /// scope reaches it.
-    fn name(&self, index: u32) -> Option<&str> {
-        self.names
-            .len()
-            .checked_sub(index as usize + 1)
-            .map(|at| self.names[at].as_ref())
+    /// Returns what the bound variable `index` binders up is written as,
+    /// if the scope or the frame reaches it.
+    fn name(&self, index: u32) -> Option<Bound<'_>> {
+        match self.names.len().checked_sub(index as usize + 1) {
+            Some(at) => Some(Bound::Name(self.names[at].as_ref())),
+            None => self
+                .frame
+                .get(index as usize - self.names.len())
+                .map(|t| Bound::Term(t)),
+        }
+    }
+
+    /// Returns the scope of an instance whose frame's terms are written
+    /// as `frame`, the innermost binder's first, where `taken` (the
+    /// eigenvariables' names) are open, so that no binder of the formula
+    /// is written with one of them.
+    pub(crate) fn framed(frame: Vec<String>, taken: impl Iterator<Item = &'a str>) -> Self {
+        let mut open = HashMap::default();
+        for name in taken {
+            open.insert(Cow::Borrowed(name), 1);
+        }
+        Self {
+            names: Vec::new(),
+            open,
+            symbols: None,
+            frame,
+        }
     }
 }
 
@@ -265,7 +324,8 @@ impl Notation {
                 t,
                 &mut |out, name| self.atom.write(out, name),
                 &mut |out, index| match scope.and_then(|scope| scope.name(index)) {
-                    Some(name) => self.atom.write(out, name),
+                    Some(Bound::Name(name)) => self.atom.write(out, name),
+                    Some(Bound::Term(term)) => out.write_str(term),
                     None => write!(out, "#{index}"),
                 },
             )?;
@@ -308,6 +368,48 @@ impl Notation {
     ) -> FmtResult {
         let mut slot: Slot<'_> = std::mem::ManuallyDrop::new(None);
         let written = self.term_in(out, sequent, id, brackets, &mut slot);
+        close(slot);
+        written
+    }
+
+    /// Writes the formula of the instance `member` of a proof's `framing`
+    /// as [`term`](Self::term) writes an occurrence's, or under a reading
+    /// as [`ill`](Self::ill) does: its bound variables that no binder of
+    /// it binds written as the terms of its frame.
+    #[cold]
+    #[inline(never)]
+    pub(crate) fn instance<W: Write>(
+        &self,
+        out: &mut W,
+        forest: &Forest,
+        reading: Option<&Reading>,
+        framing: &Framing<'_>,
+        member: Member,
+    ) -> FmtResult {
+        let (o, frame) = framing
+            .table
+            .instance(member)
+            .expect("a member of the proof's table");
+        let frame = framing
+            .table
+            .frame_terms(frame)
+            .into_iter()
+            .map(|t| {
+                let mut text = String::new();
+                framing
+                    .write_term(&mut text, t, &mut |out, name| self.atom.write(out, name))
+                    .map(|()| text)
+            })
+            .collect::<Result<Vec<String>, _>>()?;
+        let scope = Scope::framed(frame, framing.names());
+        let mut slot: Slot<'_> = std::mem::ManuallyDrop::new(Some(Box::new(scope)));
+        // A writer of its own type, so that the walks a propositional
+        // print makes stay instantiated once, with the iterator inside.
+        let mut out = Apart(out);
+        let written = match reading {
+            Some(reading) => self.ill_in(&mut out, reading, o, false, &mut slot),
+            None => self.term_in(&mut out, forest.sequent(), forest.term(o), false, &mut slot),
+        };
         close(slot);
         written
     }
@@ -689,16 +791,30 @@ impl Notation {
     /// order it writes them before the turnstile and the goal after it, which `aligned`
     /// lines up with the turnstiles above and below. With `marks`, every
     /// formula stands between the two characters `'\u{2}'` and `'\u{3}'`.
+    /// A member past the forest is an instance of the proof's `framing`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the sides, the instances and the two switches are what every target passes"
+    )]
     pub(crate) fn sequent<W: Write>(
         &self,
         out: &mut W,
         forest: &Forest,
         reading: Option<&Reading>,
+        framing: Option<&Framing<'_>>,
         sequent: &[Member],
         aligned: bool,
         marks: bool,
     ) -> FmtResult {
         let (open, close) = if marks { ("\u{2}", "\u{3}") } else { ("", "") };
+        if let Some(framing) = framing {
+            let sides = Sides {
+                reading,
+                framing,
+                marks: (open, close),
+            };
+            return self.framed(out, forest, &sides, sequent, aligned);
+        }
         let Some(reading) = reading else {
             out.write_str(self.turnstile)?;
             for (i, o) in sequent.iter().map(|m| m.occ()).enumerate() {
@@ -716,6 +832,85 @@ impl Notation {
             .map(|p| sequent[p].occ())
             .filter(|&o| !output(o));
         self.two_sided(out, reading, hypotheses, goal, aligned, (open, close))
+    }
+
+    /// Writes a sequent of a derivation as [`sequent`](Self::sequent) does,
+    /// whose members past the forest are instances of `sides.framing`: out
+    /// of line, so that a sequent of occurrences is written as it always
+    /// was.
+    #[cold]
+    #[inline(never)]
+    fn framed<W: Write>(
+        &self,
+        out: &mut W,
+        forest: &Forest,
+        sides: &Sides<'_, '_>,
+        sequent: &[Member],
+        aligned: bool,
+    ) -> FmtResult {
+        let (open, close) = sides.marks;
+        let framing = sides.framing;
+        let Some(reading) = sides.reading else {
+            out.write_str(self.turnstile)?;
+            for (i, &m) in sequent.iter().enumerate() {
+                out.write_str(if i == 0 { " " } else { ", " })?;
+                out.write_str(open)?;
+                self.member(out, forest, None, framing, m)?;
+                out.write_str(close)?;
+            }
+            return Ok(());
+        };
+        let occ = |m: Member| framing.occurrence(m);
+        let output = |m: Member| reading.position(occ(m)) == Side::Output;
+        let goal = sequent.iter().copied().rfind(|&m| output(m));
+        let mut any = false;
+        for m in reading
+            .written_by(sequent, occ)
+            .map(|p| sequent[p])
+            .filter(|&m| !output(m))
+        {
+            if any {
+                out.write_str(", ")?;
+            }
+            out.write_str(open)?;
+            self.member(out, forest, Some(reading), framing, m)?;
+            out.write_str(close)?;
+            any = true;
+        }
+        if any {
+            out.write_char(' ')?;
+        }
+        if aligned {
+            out.write_str(self.align)?;
+        }
+        out.write_str(self.turnstile)?;
+        if let Some(goal) = goal {
+            out.write_char(' ')?;
+            out.write_str(open)?;
+            self.member(out, forest, Some(reading), framing, goal)?;
+            out.write_str(close)?;
+        }
+        Ok(())
+    }
+
+    /// Writes the member `m` of a proof with instances: an occurrence as
+    /// [`term`](Self::term) or [`ill`](Self::ill) writes it, an instance as
+    /// [`instance`](Self::instance) does.
+    fn member<W: Write>(
+        &self,
+        out: &mut W,
+        forest: &Forest,
+        reading: Option<&Reading>,
+        framing: &Framing<'_>,
+        m: Member,
+    ) -> FmtResult {
+        if m.index() >= forest.len() {
+            return self.instance(out, forest, reading, framing, m);
+        }
+        match reading {
+            Some(reading) => self.ill(out, reading, m.occ(), false),
+            None => self.term(out, forest.sequent(), forest.term(m.occ()), false),
+        }
     }
 
     /// Writes the sequent a reading reads two-sided: its hypotheses in the

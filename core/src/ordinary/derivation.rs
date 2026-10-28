@@ -862,6 +862,12 @@ impl Image {
                     };
                     push(&mut out, &members, at, rule, premises)
                 }
+                // An image of ordinary propositional logic has no binder.
+                Linear::Forall | Linear::Exists => {
+                    return Err(fail(
+                        "a quantifier, which the read-back has no rule for".to_owned(),
+                    ));
+                }
                 // An ordinary derivation of the image read back is
                 // cut-free, as every proof the search finds is.
                 Linear::Cut => {

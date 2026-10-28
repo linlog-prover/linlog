@@ -12,6 +12,7 @@
 use super::derivation::{Derivation, InfId};
 use super::style::{Drawn, Labels, OpenGoal, RUN, plain};
 use crate::Error;
+use crate::occurrences::instances::Framing;
 use crate::occurrences::{Forest, Member, Reading};
 use crate::sequents::notation::TEXT;
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
@@ -209,9 +210,10 @@ pub(super) fn write_sequent(
     out: &mut impl Write,
     forest: &Forest,
     reading: Option<&Reading>,
+    framing: Option<&Framing<'_>>,
     sequent: &[Member],
 ) -> FmtResult {
-    TEXT.sequent(out, forest, reading, sequent, false, false)
+    TEXT.sequent(out, forest, reading, framing, sequent, false, false)
 }
 
 /// Lays a tree out: the premises of an inference side by side,

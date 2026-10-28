@@ -93,10 +93,10 @@ bound by an enclosing quantifier is its variable, any other a constant
 or, before a bracket, a function symbol; a symbol has one arity
 throughout, a name is a predicate or a function symbol, not both, and no
 variable is free. A sequent with a quantifier is read, printed and
-written as JSON (wire level 7) and nothing more yet: `prove`, `check`,
-`interact` and the net and Rocq outputs refuse it with an error (exit
-status 2), while a sequent with arguments and no quantifier is
-propositional and decided by every engine.
+written as JSON (wire level 7), and `check` checks its proofs (section
+9), but `prove`, `interact` and the net and Rocq outputs refuse it with
+an error (exit status 2), while a sequent with arguments and no
+quantifier is propositional and decided by every engine.
 
 ```console
 $ linlog seq print "forall x. p(x) -o q(x), p(a) |- exists y. q(y)"
@@ -439,6 +439,24 @@ $ linlog prove --format json "A |- A" | linlog check --quiet
 valid proof of ⊢ ~A, A (classical)
 $ linlog prove --format json "A |- A" | linlog check --format json
 {"version":1,"verdict":"valid","mode":"classical"}
+```
+
+A proof of a first-order sequent (wire level 7) adds the steps
+`{"∀": [member, eigenvariable, premise]}` and `{"∃": [member, term,
+premise]}` and the key `instances`: `members`, each `[occurrence,
+frame]` for a member past the sequent's occurrences (an occurrence
+under quantifiers with the terms they were opened with), `frames`, each
+`[parent, term]` with the innermost quantifier's term first and `null`
+past the outermost, and `terms`, the proof's own terms after the
+sequent's `fo`, an eigenvariable as `{"E": k}`. `check` holds such a
+proof to the eigenvariable condition: every eigenvariable is introduced
+by one `∀` step and named by witnesses above it alone; the error names
+the one that is not (`eigenvariable a occurs outside the ∀ step that
+introduces it`).
+
+```console
+$ echo '{"version":7,"sequent":{"terms":[{"D":0},{"∃":0},{"V":1}],"roots":[1,2],"atoms":[{"P":[0,[0]]},{"P":[0,[2]]}],"symbols":[["p",1],["a",0],["f",1]],"fo":[{"B":0},{"F":[1,[]]},{"F":[2,[1]]}],"binders":["x"],"antecedents":1},"nodes":[{"ax":[3,2]},{"∃":[0,2,0]}],"instances":{"members":[[1,0]],"frames":[[null,2]],"terms":[]}}' | linlog check --quiet
+valid proof of ⊢ ∃x. ~p(x), p(f(a)) (classical)
 ```
 
 ## 10. Step by step: `interact`

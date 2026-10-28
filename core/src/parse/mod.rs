@@ -181,7 +181,8 @@ struct Parser<'a> {
 }
 
 /// Reads `text` as a sequent for a calculus of `order`, refused past
-/// `limit` terms, and where `written` is given fills it with how every
+/// `limit` terms or past `terms` first-order terms in its atoms
+/// ([`Sequent::fo_size`]), and where `written` is given fills it with how every
 /// occurrence of the sequent's forest was written. The one place a parser
 /// is made and run: every reader calls it, so the parser is a local of
 /// this function and its loop, with what the loop calls, has one caller
@@ -190,12 +191,33 @@ struct Parser<'a> {
 fn read(
     text: &str,
     limit: Option<u64>,
+    terms: Option<u64>,
     order: Order,
     written: Option<&mut Vec<Written>>,
 ) -> Result<Sequent, Error> {
     let mut parser = Parser::new(text, limit, order);
     parser.recording = written.is_some();
-    parser.sequent(written)
+    let sequent = parser.sequent(written)?;
+    if sequent.fo.atoms.is_empty() {
+        return Ok(sequent);
+    }
+    first_order_within(sequent, terms)
+}
+
+/// Returns a first-order `sequent`, or the refusal of one whose atoms
+/// unfold to more than `terms` terms. A text writes every term it holds,
+/// so this bounds no more than its length does; it is the bound every
+/// reader applies.
+#[cold]
+#[inline(never)]
+fn first_order_within(sequent: Sequent, terms: Option<u64>) -> Result<Sequent, Error> {
+    match terms {
+        Some(limit) if sequent.fo_size() > limit => Err(Error::Refused(Refusal::Terms {
+            terms: sequent.fo_size(),
+            limit,
+        })),
+        _ => Ok(sequent),
+    }
 }
 
 /// Reads `text` as a sequent of the commutative calculus within `limits`,
@@ -206,6 +228,7 @@ pub(crate) fn written(text: &str, limits: &Limits) -> Result<(Sequent, Vec<Writt
     let sequent = read(
         text,
         limits.occurrences,
+        limits.terms,
         Order::Commutative,
         Some(&mut writing),
     )?;
@@ -905,7 +928,13 @@ impl Sequent {
     /// past the bound, and [`Refusal::Index`] for more terms than a forest
     /// indexes, whatever the bound.
     pub fn parse_within(text: &str, limits: &Limits) -> Result<Self, Error> {
-        read(text, limits.occurrences, Order::Commutative, None)
+        read(
+            text,
+            limits.occurrences,
+            limits.terms,
+            Order::Commutative,
+            None,
+        )
     }
 
     /// Parses a sequent as [`parse_within`](Self::parse_within) does, for
@@ -939,7 +968,7 @@ impl Sequent {
     /// # Ok::<(), linlog::Error>(())
     /// ```
     pub fn parse_ordered(text: &str, order: Order, limits: &Limits) -> Result<Self, Error> {
-        read(text, limits.occurrences, order, None)
+        read(text, limits.occurrences, limits.terms, order, None)
     }
 }
 

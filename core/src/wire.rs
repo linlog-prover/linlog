@@ -81,7 +81,15 @@
 //!   for a proof of a goal off the roots, see [`Proof`](crate::Proof). A
 //!   proof with cuts is written at level 6: its sequent holds `"cuts": […]`
 //!   and a cut node is `{"cut": [a, l, r]}`, `a` the occurrence of the cut
-//!   formula.
+//!   formula. A proof of a first-order sequent is written at level 7, as
+//!   its sequent is: the nodes `{"∀": [m, a, p]}` (a member, its
+//!   eigenvariable, the premise) and `{"∃": [m, w, p]}` (a member, its
+//!   witness, a term, the premise), and `"instances": {"members":
+//!   [[occurrence, frame], …], "frames": [[parent, term], …], "terms":
+//!   […]}`, the members past the forest, the frames with the innermost
+//!   binder's term first and `null` past the outermost, and the proof's
+//!   terms numbered on from the sequent's `fo`, an eigenvariable `{"E":
+//!   k}`; see [`Instances`](crate::Instances).
 //! - **Disproof**: `{"version": 1, "sequent": {…}, "mode": "classical",
 //!   "refutation": {"kind": "unbalanced", "atom": 0, "least": 2, "most":
 //!   2}}`, with `goal` for a goal off the roots, see

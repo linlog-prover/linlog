@@ -546,6 +546,7 @@ mod tests {
                     &mut printed,
                     proof.forest(),
                     Some(reading),
+                    None,
                     inference.sequent(),
                     false,
                     false,

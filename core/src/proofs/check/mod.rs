@@ -33,10 +33,13 @@
 //! one-sided sequent, so nothing else is intuitionistic about a proof.
 
 mod error;
+/// What the pass knows of a proof's members, and the frame pass.
+mod frames;
 mod pass;
 mod zones;
 
 pub use error::{CheckError, Dyadic, Fault, Invalid, Refused};
+pub(crate) use frames::{Framed, Ground, Instancing};
 pub(crate) use pass::{Allowance, Facts, Observer, afford, check, check_within, examine, reading};
 pub(crate) use zones::State;
 
@@ -709,12 +712,12 @@ mod tests {
     fn a_member_twice_grows_no_table() {
         let mut zone = Zone::default();
         for id in 0..14 {
-            assert!(zone.insert(o(id).occ()));
+            assert!(zone.insert(o(id)));
         }
         let (bytes, room) = (zone.bytes(), zone.members.capacity());
         assert_eq!((bytes, room), (16 * 5 + 16, 14));
         for id in 0..14 {
-            assert!(!zone.insert(o(id).occ()));
+            assert!(!zone.insert(o(id)));
         }
         assert_eq!((zone.bytes(), zone.members.capacity()), (bytes, room));
     }

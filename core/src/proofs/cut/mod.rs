@@ -507,7 +507,9 @@ impl Observer for Record {
             let zone = Multiset::of(
                 state
                     .linear()
-                    .flat_map(|(o, n)| std::iter::repeat_n(o, n as usize)),
+                    // Cut elimination takes no proof with binders, whose
+                    // members are its occurrences.
+                    .flat_map(|(o, n)| std::iter::repeat_n(o.occ(), n as usize)),
             );
             let bytes = (zone.as_slice().len() as u64).saturating_mul(4);
             self.held = self.held.saturating_add(Self::ENTRY).saturating_add(bytes);

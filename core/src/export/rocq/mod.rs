@@ -645,6 +645,8 @@ impl Script<'_> {
             script.goals[inference.premises[0].index()] = up;
         };
         match rule {
+            // The export refuses a sequent with binders.
+            Rule::Forall | Rule::Exists => unreachable!("no binder in a certificate"),
             Rule::One => self.line("apply one_r_ext."),
             Rule::Top => self.apply("top_r_ext", &[prefix], true),
             Rule::Bot => {
@@ -955,6 +957,7 @@ fn nanoyalla(
             Rule::Mix => return Err(Unsupported::Mix.into()),
             Rule::AffineWeakening => return Err(Unsupported::AffineWeakening.into()),
             Rule::Cut => return Err(Unsupported::Cut.into()),
+            Rule::Forall | Rule::Exists => return Err(Unsupported::Quantifiers.into()),
             Rule::Ax
             | Rule::Tensor
             | Rule::Par

@@ -804,3 +804,16 @@ for NanoYalla. What the code relies on:
   flake's `rocq` check against the kernel built from the `nanoyalla`
   input; the kernel needs Rocq 9 with `rocq-stdlib` (its `From Coq
   Require Import Lia`, deprecated but accepted) and nothing of Yalla.
+
+## Quantifier rules (step 42b)
+
+- `Rule::Forall` and `Rule::Exists` follow `Cut` in `Rule::ALL` (the
+  one-sided rules keep `index() == rule as usize`, which `Named::index`
+  now takes directly), and `Named::ALL` gains them and `∀R`, `∃L`, `∃R`,
+  `∀L` before `open`; the label tables follow. The LaTeX and Typst label
+  symbols map `∀` and `∃`. `every_label` pins the first-order
+  derivations `first_order_swap` (one-sided) and `first_order_swap_ill`
+  (two-sided), read from `core/tests/first-order/`.
+- The Rocq export still refuses a sequent with binders; its arms for the
+  quantifier rules are unreachable behind that guard.
+

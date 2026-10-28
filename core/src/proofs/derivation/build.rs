@@ -10,7 +10,7 @@ use crate::fragment::Mode;
 use crate::hash::HashMap;
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
 use crate::occurrences::{Forest, Member, OccId, Reading, Side};
-use crate::proofs::check::{self, Allowance, Facts, Observer, State};
+use crate::proofs::check::{self, Allowance, Facts, Framed, Ground, Instancing, Observer, State};
 use crate::proofs::multiset::Multiset;
 use crate::proofs::size::{self, Size};
 use crate::proofs::{Branch, Node, NodeId, Proof, Rule};
@@ -85,31 +85,82 @@ pub(super) fn unfold(
             Some(Budget { most, error })
         }
     };
-    let mut record = Record::new(proof);
-    let allowance = Allowance::new(limits, Phase::View, stop);
-    check::examine(proof, goal, mode, reading, allowance, &mut record)?;
-    let mut build = Build {
-        proof,
-        record: &record,
+    let made = Made {
+        goal,
+        mode,
         reading,
-        // As many as the size says, which fit a `usize` since they fit a
-        // `u32` (`Derivation::MOST`), on a 32-bit target too; a compact
-        // view has fewer.
-        inferences: match compact {
-            None => Vec::with_capacity(size.inferences as usize),
-            Some(_) => Vec::new(),
-        },
-        tasks: Vec::new(),
-        done: Vec::new(),
-        stop,
-        compact: compact.map(|budget| Held {
-            weights: size::weights(proof.forest()),
-            bytes: 0,
-            budget,
-        }),
+        limits,
+        size: &size,
+        compact,
     };
-    build.run(proof.root(), Multiset::of(goal.iter().copied()))?;
-    Ok(build.inferences)
+    match proof.instances() {
+        None => made.unfold(proof, &Ground, stop),
+        Some(table) => made.unfold(proof, &Framed::new(proof, table), stop),
+    }
+}
+
+/// What [`unfold`] has settled before it unfolds the proof.
+struct Made<'g> {
+    /// The goal.
+    goal: &'g [OccId],
+    /// The mode.
+    mode: Mode,
+    /// The reading, for a two-sided derivation.
+    reading: Option<&'g Reading<'g>>,
+    /// The limits.
+    limits: &'g Limits,
+    /// The size the derivation was measured at.
+    size: &'g Size,
+    /// The bound of a compact view, or `None` for every rule shown.
+    compact: Option<Budget>,
+}
+
+impl Made<'_> {
+    /// Unfolds the proof, whose members `inst` knows.
+    fn unfold<I: Instancing>(
+        self,
+        proof: &Proof,
+        inst: &I,
+        stop: &mut dyn FnMut(Progress) -> bool,
+    ) -> Result<Vec<Inference>, Error> {
+        let Self {
+            goal,
+            mode,
+            reading,
+            limits,
+            size,
+            compact,
+        } = self;
+        let mut record = Record::new(proof, inst);
+        let allowance = Allowance::new(limits, Phase::View, stop);
+        check::examine(proof, goal, mode, reading, allowance, &mut record)?;
+        let mut build = Build {
+            proof,
+            inst,
+            record: &record,
+            reading,
+            // As many as the size says, which fit a `usize` since they fit a
+            // `u32` (`Derivation::MOST`), on a 32-bit target too; a compact
+            // view has fewer.
+            inferences: match compact {
+                None => Vec::with_capacity(size.inferences as usize),
+                Some(_) => Vec::new(),
+            },
+            tasks: Vec::new(),
+            done: Vec::new(),
+            stop,
+            compact: compact.map(|budget| Held {
+                weights: size::Weights::of(proof),
+                bytes: 0,
+                budget,
+            }),
+        };
+        build.run(
+            proof.root(),
+            Multiset::of(goal.iter().copied().map(Member::from)),
+        )?;
+        Ok(build.inferences)
+    }
 }
 
 /// Returns the length of a list of distinct nodes or occurrences, which
@@ -138,8 +189,8 @@ pub(super) struct Budget {
 
 /// What a compact view holds so far, by the estimate of [`Size::bytes`].
 pub(super) struct Held {
-    /// The characters of every occurrence's formula and its separator.
-    pub(super) weights: Vec<u32>,
+    /// The characters of every member's formula and its separator.
+    pub(super) weights: size::Weights,
     /// The bytes of the inferences made so far; it saturates.
     pub(super) bytes: u64,
     /// The bound.
@@ -152,7 +203,7 @@ impl Held {
         sequent
             .iter()
             .fold(0u64, |sum, o| {
-                sum.saturating_add(u64::from(self.weights[o.index()]))
+                sum.saturating_add(u64::from(self.weights.get(*o)))
             })
             .saturating_mul(Size::BYTES_PER_CHARACTER)
             .saturating_add(Size::BYTES_PER_INFERENCE)
@@ -162,9 +213,11 @@ impl Held {
 /// What the translation reads off the checker's pass: for every node a
 /// flag or two, and the sequent of the nodes where a context is split or
 /// padded, which the derivation shows anyway.
-pub(super) struct Record<'a> {
+pub(super) struct Record<'a, I> {
     /// The forest.
     forest: &'a Forest,
+    /// What is known of the proof's members.
+    inst: &'a I,
     /// Whether a `⊤` in a node's subproof absorbs any context.
     absorbs: Vec<bool>,
     /// For a `?` step, whether a copy above uses its formula; for a copy,
@@ -175,17 +228,17 @@ pub(super) struct Record<'a> {
     kept: Vec<bool>,
     /// The standard sequents of the kept nodes: `?Θ` and `Γ` as the
     /// checker found them.
-    pub(super) standard: HashMap<NodeId, Multiset>,
-    /// For a `⊗`, Mix or cut, the unrestricted occurrences both premises need,
+    pub(super) standard: HashMap<NodeId, Multiset<Member>>,
+    /// For a `⊗`, Mix or cut, the unrestricted members both premises need,
     /// ascending, where there are any.
-    pub(super) shared: HashMap<NodeId, Vec<OccId>>,
+    pub(super) shared: HashMap<NodeId, Vec<Member>>,
     /// The bytes of the sequents and lists kept so far, at
     /// [`ENTRY`](Self::ENTRY) each and eight for every member; it
     /// saturates.
     held: u64,
 }
 
-impl<'a> Record<'a> {
+impl<'a, I: Instancing> Record<'a, I> {
     /// What a kept sequent or list takes besides its members: its place in
     /// the table and its allocation.
     pub(super) const ENTRY: u64 = 96;
@@ -198,7 +251,7 @@ impl<'a> Record<'a> {
     }
 
     /// The record of a proof the checker has yet to pass over.
-    pub(super) fn new(proof: &'a Proof) -> Self {
+    pub(super) fn new(proof: &'a Proof, inst: &'a I) -> Self {
         let len = proof.nodes().len();
         let mut kept = vec![false; len];
         for id in proof.ids() {
@@ -217,6 +270,7 @@ impl<'a> Record<'a> {
         }
         Self {
             forest: proof.forest(),
+            inst,
             absorbs: vec![false; len],
             used: vec![false; len],
             kept,
@@ -227,7 +281,7 @@ impl<'a> Record<'a> {
     }
 }
 
-impl Observer for Record<'_> {
+impl<I: Instancing> Observer for Record<'_, I> {
     fn bytes(&self) -> u64 {
         // Three flags for each of fewer than 2³² nodes, and what is kept.
         self.held.saturating_add(self.kept.len() as u64 * 3)
@@ -237,7 +291,9 @@ impl Observer for Record<'_> {
         self.absorbs[id.index()] = state.absorbs();
         self.used[id.index()] = facts.used;
         if self.kept[id.index()] {
-            let quests = state.unrestricted().map(|a| self.forest.parent(a).unwrap());
+            let quests = state
+                .unrestricted()
+                .map(|a| quest(self.forest, self.inst, a));
             let linear = state
                 .linear()
                 .flat_map(|(o, n)| std::iter::repeat_n(o, n as usize));
@@ -260,52 +316,54 @@ impl Observer for Record<'_> {
 pub(super) enum Task {
     /// Unfold the subproof at a node under a conclusion: the standard
     /// sequent it derives plus whatever a `⊤` in it absorbs.
-    Unfold(NodeId, Multiset),
+    Unfold(NodeId, Multiset<Member>),
     /// Unfold the subproof at a node under a conclusion that may hold `?`
     /// formulas the subproof does not use, weakening them above it unless
     /// a `⊤` in it absorbs them.
-    Pad(NodeId, Multiset),
+    Pad(NodeId, Multiset<Member>),
     /// Conclude a sequent by a rule from the subtrees finished last, as
     /// many as the rule has premises.
     Infer {
         /// The conclusion.
-        sequent: Multiset,
+        sequent: Multiset<Member>,
         /// The rule.
         rule: Rule,
         /// The formula it introduces.
-        principal: Option<OccId>,
+        principal: Option<Member>,
         /// How many premises it has.
         premises: usize,
         /// How many applications of the rule it stands for.
         times: u32,
-        /// For a cut, the occurrence of the cut formula it cuts.
-        cut: Option<OccId>,
+        /// For a cut, the member of the cut formula it cuts.
+        cut: Option<Member>,
         /// The node whose rule it shows.
         node: NodeId,
     },
     /// Weaken `?` formulas one by one below the subtree finished last.
     Weaken {
         /// The conclusion of the subtree.
-        sequent: Multiset,
+        sequent: Multiset<Member>,
         /// The formulas to add, in ascending order.
-        unused: Multiset,
+        unused: Multiset<Member>,
     },
     /// Contract, below the subtree finished last, the `?` formulas that
     /// both premises of the `⊗` or Mix at a node use.
     Contract {
         /// The conclusion of the subtree, which holds each of them twice.
-        sequent: Multiset,
+        sequent: Multiset<Member>,
         /// The node.
         id: NodeId,
     },
 }
 
 /// The translation in progress.
-pub(super) struct Build<'a> {
+pub(super) struct Build<'a, I> {
     /// The proof being unfolded.
     proof: &'a Proof,
+    /// What is known of the proof's members.
+    inst: &'a I,
     /// What the checker derived for the nodes.
-    record: &'a Record<'a>,
+    record: &'a Record<'a, I>,
     /// The intuitionistic reading, for a two-sided derivation.
     reading: Option<&'a Reading<'a>>,
     /// The inferences made so far.
@@ -322,20 +380,25 @@ pub(super) struct Build<'a> {
     compact: Option<Held>,
 }
 
-impl<'a> Build<'a> {
+impl<'a, I: Instancing> Build<'a, I> {
     /// The forest.
     fn forest(&self) -> &'a Forest {
         self.proof.forest()
     }
 
-    /// The `?` formula an unrestricted-zone occurrence stands for.
-    fn quest(&self, a: OccId) -> OccId {
-        self.forest().parent(a).unwrap()
+    /// The `?` formula an unrestricted-zone member stands for.
+    fn quest(&self, a: Member) -> Member {
+        quest(self.forest(), self.inst, a)
+    }
+
+    /// The occurrence a member stands for.
+    fn occ(&self, m: Member) -> OccId {
+        self.inst.occ(m)
     }
 
     /// The standard sequent a subproof derives: `?Θ` and `Γ` as the checker
     /// found them.
-    fn standard(&self, id: NodeId) -> Multiset {
+    fn standard(&self, id: NodeId) -> Multiset<Member> {
         self.record.standard[&id].clone()
     }
 
@@ -346,13 +409,13 @@ impl<'a> Build<'a> {
 
     /// The unrestricted occurrences both premises of the `⊗` or Mix at
     /// `id` need, ascending.
-    fn shared(&self, id: NodeId) -> &'a [OccId] {
+    fn shared(&self, id: NodeId) -> &'a [Member] {
         self.record.shared.get(&id).map_or(&[], Vec::as_slice)
     }
 
     /// Unfolds the subproof at `root`, whose conclusion is `conclusion`,
     /// into the inferences, unless the caller's condition stops it.
-    fn run(&mut self, root: NodeId, conclusion: Multiset) -> Result<(), Error> {
+    fn run(&mut self, root: NodeId, conclusion: Multiset<Member>) -> Result<(), Error> {
         self.tasks.push(Task::Unfold(root, conclusion));
         while let Some(task) = self.tasks.pop() {
             // A task adds one inference at most to a compact view, so a
@@ -386,7 +449,7 @@ impl<'a> Build<'a> {
                     let premises = self.done.split_off(self.done.len() - premises);
                     let inference = self.infer(sequent, rule, principal, premises, times);
                     let made = &mut self.inferences[inference.index()];
-                    made.cut = cut.map(Member::from);
+                    made.cut = cut;
                     // A run's node is its lowest application's, as its
                     // principal formula is.
                     made.node = Some(node);
@@ -434,14 +497,16 @@ impl<'a> Build<'a> {
     /// premise is a run of the same rule extends that run instead.
     fn infer(
         &mut self,
-        sequent: Multiset,
+        sequent: Multiset<Member>,
         rule: Rule,
-        principal: Option<OccId>,
+        principal: Option<Member>,
         premises: Vec<InfId>,
         times: u32,
     ) -> InfId {
         let rule = match (self.reading, principal) {
-            (Some(reading), Some(o)) => crate::proofs::Named::applied(rule, Some(reading), o),
+            (Some(reading), Some(o)) => {
+                crate::proofs::Named::applied(rule, Some(reading), self.occ(o))
+            }
             _ => rule.into(),
         };
         let principal = principal.map(|o| sequent.position(o).unwrap());
@@ -497,7 +562,13 @@ impl<'a> Build<'a> {
     }
 
     /// Adds an inference without premises: a subtree of its own.
-    fn leaf(&mut self, id: NodeId, sequent: Multiset, rule: Rule, principal: Option<OccId>) {
+    fn leaf(
+        &mut self,
+        id: NodeId,
+        sequent: Multiset<Member>,
+        rule: Rule,
+        principal: Option<Member>,
+    ) {
         let inference = self.infer(sequent, rule, principal, vec![], 1);
         self.inferences[inference.index()].node = Some(id);
         self.done.push(inference);
@@ -505,7 +576,7 @@ impl<'a> Build<'a> {
 
     /// Adds an inference of `times` applications on `principal` below the
     /// subtree finished last.
-    fn below(&mut self, sequent: Multiset, rule: Rule, principal: OccId, times: u32) {
+    fn below(&mut self, sequent: Multiset<Member>, rule: Rule, principal: Member, times: u32) {
         let premise = self.done.pop().expect("a subtree is finished");
         let inference = self.infer(sequent, rule, Some(principal), vec![premise], times);
         self.done.push(inference);
@@ -516,11 +587,11 @@ impl<'a> Build<'a> {
     fn from(
         &mut self,
         id: NodeId,
-        sequent: Multiset,
+        sequent: Multiset<Member>,
         rule: Rule,
-        principal: OccId,
+        principal: Member,
         p: NodeId,
-        up: Multiset,
+        up: Multiset<Member>,
     ) {
         self.tasks.push(Task::Infer {
             sequent,
@@ -538,15 +609,16 @@ impl<'a> Build<'a> {
     /// standard sequent it derives plus whatever a `⊤` in it absorbs. A
     /// leaf is concluded at once; any other rule leaves its premises and
     /// then its own inference as steps to take.
-    fn unfold(&mut self, id: NodeId, actual: Multiset) {
+    fn unfold(&mut self, id: NodeId, actual: Multiset<Member>) {
         use Node::*;
         let f = self.forest();
+        let inst = self.inst;
         let (left, right) = (
-            |o: OccId| f.left(o).unwrap(),
-            |o: OccId| f.right(o).unwrap(),
+            |m: Member| inst.child(m, f.left(inst.occ(m)).unwrap()),
+            |m: Member| inst.child(m, f.right(inst.occ(m)).unwrap()),
         );
         // The premise's conclusion when the rule adds or removes formulas.
-        let above = |actual: &Multiset, removed: &[OccId], added: &[OccId]| {
+        let above = |actual: &Multiset<Member>, removed: &[Member], added: &[Member]| {
             let mut up = actual.clone();
             for &o in removed {
                 let present = up.remove(o);
@@ -564,20 +636,17 @@ impl<'a> Build<'a> {
         }
         match self.proof.node(id) {
             Ax(..) => self.leaf(id, actual, Rule::Ax, None),
-            One(o) => self.leaf(id, actual, Rule::One, Some(o.occ())),
-            Top(o) => self.leaf(id, actual, Rule::Top, Some(o.occ())),
+            One(o) => self.leaf(id, actual, Rule::One, Some(o)),
+            Top(o) => self.leaf(id, actual, Rule::Top, Some(o)),
             Bot(o, p) => {
-                let o = o.occ();
                 let up = above(&actual, &[o], &[]);
                 self.from(id, actual, Rule::Bot, o, p, up);
             }
             Par(o, p) => {
-                let o = o.occ();
                 let up = above(&actual, &[o], &[left(o), right(o)]);
                 self.from(id, actual, Rule::Par, o, p, up);
             }
             Plus(o, side, p) => {
-                let o = o.occ();
                 let (chosen, rule) = match side {
                     Branch::Left => (left(o), Rule::PlusLeft),
                     Branch::Right => (right(o), Rule::PlusRight),
@@ -586,13 +655,11 @@ impl<'a> Build<'a> {
                 self.from(id, actual, rule, o, p, up);
             }
             Bang(o, p) => {
-                let o = o.occ();
                 let up = above(&actual, &[o], &[left(o)]);
                 self.from(id, actual, Rule::Promotion, o, p, up);
             }
             Weaken(o, p) => {
-                let o = o.occ();
-                let rule = if f.kind(o) == Kind::Quest {
+                let rule = if f.kind(inst.occ(o)) == Kind::Quest {
                     Rule::Weakening
                 } else {
                     Rule::AffineWeakening
@@ -601,7 +668,6 @@ impl<'a> Build<'a> {
                 self.from(id, actual, rule, o, p, up);
             }
             Quest(o, p) => {
-                let o = o.occ();
                 if self.record.used[id.index()] {
                     // Used above: `?A` in Γ becomes `?A` in Θ, which the
                     // standard sequent does not distinguish.
@@ -612,7 +678,6 @@ impl<'a> Build<'a> {
                 }
             }
             Copy(a, p) => {
-                let a = a.occ();
                 let q = self.quest(a);
                 if self.record.used[id.index()] {
                     // Used again above: derelict the copy, then contract it
@@ -634,23 +699,15 @@ impl<'a> Build<'a> {
                     self.from(id, actual, Rule::Dereliction, q, p, up);
                 }
             }
-            Tensor(o, l, r) => self.split(
-                id,
-                actual,
-                Join::Tensor(o.occ(), left(o.occ()), right(o.occ())),
-                l,
-                r,
-            ),
+            Tensor(o, l, r) => self.split(id, actual, Join::Tensor(o, left(o), right(o)), l, r),
             Mix(l, r) => self.split(id, actual, Join::Mix, l, r),
             Cut(a, l, r) => {
-                let a = a.occ();
                 // The checker took the cut on an occurrence of a cut
                 // formula, which has its dual.
-                let dual = f.dual(a).unwrap();
+                let dual = inst.dual(f, a).unwrap();
                 self.split(id, actual, Join::Cut(a, dual), l, r);
             }
             With(o, l, r) => {
-                let o = o.occ();
                 let up_l = above(&actual, &[o], &[left(o)]);
                 let up_r = above(&actual, &[o], &[right(o)]);
                 self.tasks.push(Task::Infer {
@@ -665,6 +722,14 @@ impl<'a> Build<'a> {
                 self.tasks.push(Task::Pad(r, up_r));
                 self.tasks.push(Task::Pad(l, up_l));
             }
+            Forall(o, _, p) => {
+                let up = above(&actual, &[o], &[inst.body(id)]);
+                self.from(id, actual, Rule::Forall, o, p, up);
+            }
+            Exists(o, _, p) => {
+                let up = above(&actual, &[o], &[inst.body(id)]);
+                self.from(id, actual, Rule::Exists, o, p, up);
+            }
         }
     }
 
@@ -672,7 +737,7 @@ impl<'a> Build<'a> {
     /// context is split as the premises derived it, an absorbing premise
     /// taking what the `⊤` absorbs, and the `?` formulas both premises use
     /// are contracted below the rule.
-    fn split(&mut self, id: NodeId, actual: Multiset, join: Join, l: NodeId, r: NodeId) {
+    fn split(&mut self, id: NodeId, actual: Multiset<Member>, join: Join, l: NodeId, r: NodeId) {
         let extra = actual.difference(&self.standard(id));
         let (mut up_l, mut up_r) = (self.standard(l), self.standard(r));
         if let Join::Tensor(_, a, b) | Join::Cut(a, b) = join {
@@ -685,9 +750,10 @@ impl<'a> Build<'a> {
         {
             // Two-sided: the goal among the absorbed formulas goes to the
             // premise that has none, the hypotheses to the left one.
-            let left_has_goal = reading.outputs(up_l.as_slice().iter().copied()) > 0;
+            let outputs = reading.outputs(up_l.as_slice().iter().map(|&m| self.occ(m)));
+            let left_has_goal = outputs > 0;
             for &o in extra.as_slice() {
-                if reading.position(o) == Side::Output && left_has_goal {
+                if reading.position(self.occ(o)) == Side::Output && left_has_goal {
                     up_r.insert(o);
                 } else {
                     up_l.insert(o);
@@ -754,13 +820,13 @@ impl<'a> Build<'a> {
     /// Returns the formula the node at `id` weakens and the rule, if it is
     /// a weakening: a `?` step whose formula is not used above or a
     /// weakening of a `?` formula (`?w`), or an affine weakening (`wk`).
-    fn weakened(&self, id: NodeId) -> Option<(OccId, Rule)> {
+    fn weakened(&self, id: NodeId) -> Option<(Member, Rule)> {
         match self.proof.node(id) {
-            Node::Quest(o, _) if !self.record.used[id.index()] => Some((o.occ(), Rule::Weakening)),
-            Node::Weaken(o, _) if self.forest().kind(o.occ()) == Kind::Quest => {
-                Some((o.occ(), Rule::Weakening))
+            Node::Quest(o, _) if !self.record.used[id.index()] => Some((o, Rule::Weakening)),
+            Node::Weaken(o, _) if self.forest().kind(self.occ(o)) == Kind::Quest => {
+                Some((o, Rule::Weakening))
             }
-            Node::Weaken(o, _) => Some((o.occ(), Rule::AffineWeakening)),
+            Node::Weaken(o, _) => Some((o, Rule::AffineWeakening)),
             _ => None,
         }
     }
@@ -771,9 +837,9 @@ impl<'a> Build<'a> {
     /// down the chain of nodes, through the `?` steps whose formula is
     /// used above, which are no inference, without a sequent per step (a
     /// chain of `wk` took a sequent per node, quadratic in the chain).
-    fn weaken_run(&mut self, id: NodeId, o: OccId, rule: Rule, actual: Multiset) {
-        let named = |o: OccId, rule: Rule| match (rule, self.reading) {
-            (Rule::Weakening, Some(reading)) => Rule::Weakening.on(reading.position(o)),
+    fn weaken_run(&mut self, id: NodeId, o: Member, rule: Rule, actual: Multiset<Member>) {
+        let named = |o: Member, rule: Rule| match (rule, self.reading) {
+            (Rule::Weakening, Some(reading)) => Rule::Weakening.on(reading.position(self.occ(o))),
             (rule, _) => rule.into(),
         };
         let first = named(o, rule);
@@ -808,7 +874,7 @@ impl<'a> Build<'a> {
     /// Plans the subproof at `id` under a conclusion that may hold `?`
     /// formulas the subproof does not use, weakening them above it unless
     /// a `⊤` in it absorbs them.
-    fn pad(&mut self, id: NodeId, actual: Multiset) {
+    fn pad(&mut self, id: NodeId, actual: Multiset<Member>) {
         if self.absorbs(id) {
             self.tasks.push(Task::Unfold(id, actual));
             return;
@@ -829,10 +895,16 @@ impl<'a> Build<'a> {
 /// What a rule of two premises that [`Build::split`] plans joins them by.
 #[derive(Clone, Copy, Debug)]
 enum Join {
-    /// A `⊗` on its occurrence, with its left and right subformula.
-    Tensor(OccId, OccId, OccId),
+    /// A `⊗` on its member, with its left and right subformula.
+    Tensor(Member, Member, Member),
     /// Mix.
     Mix,
-    /// A cut on an occurrence of a cut formula, with its dual.
-    Cut(OccId, OccId),
+    /// A cut on a member of a cut formula, with its dual.
+    Cut(Member, Member),
+}
+
+/// Returns the `?` formula the unrestricted-zone member `a` stands for.
+fn quest(forest: &Forest, inst: &impl Instancing, a: Member) -> Member {
+    let q = forest.parent(inst.occ(a)).unwrap();
+    inst.parent(a, q)
 }

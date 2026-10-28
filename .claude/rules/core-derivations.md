@@ -646,3 +646,30 @@ step. What the code relies on:
   `⊕` and dereliction invertible saw the test fail in every mode where
   `expand` lets them through.
 
+## Instances in the views (step 42b)
+
+- `Build`, `Record` and the size's `Measure` are generic over
+  `check::Instancing` like the pass (`Ground` for a proof without
+  binders, `Framed` with one): the propositional instance is what it
+  was. A derivation's sequents hold members; `Derivation` keeps the
+  proof's `Framing` (`occurrences::instances`), and `Notation::sequent`
+  takes it: a sequent of a proof with instances goes to `framed`, out of
+  line, so the propositional writer kept its shape (the `render-*` and
+  `derivation-*` journeys rose 5 % to 28 % before).
+- An instance is printed by `Notation::instance`: a `Scope` made with
+  the frame's terms written in the target's markup and the
+  eigenvariables' names open, so a binder of the formula with such a
+  name is renamed. It writes through `Apart`, a writer type of its own,
+  so that `term_in`'s walk stays instantiated once for a propositional
+  print with its iterator inlined.
+- The size counts an instance at most (`Weights`, one vector by member:
+  the occurrence's characters plus, per bound variable its atoms hold,
+  the widest term of its frame); `exact` is false for a proof with
+  instances.
+- An eigenvariable is written `a`, `b`, … `z`, `a_1`, … in the order of
+  its number, skipping every symbol's name (`instances::eigen_names`),
+  so a derivation's sequent reads as a sequent with those constants.
+- The classical two-sided view refuses a sequent with binders
+  (`Error::Quantifiers`); its rules for the quantifiers are a later
+  session's.
+

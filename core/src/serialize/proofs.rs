@@ -1,7 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use super::sequents::Sequent;
+use super::sequents::{FoExpression, Sequent};
 use crate::fragment::Mode;
 use crate::limits::Limits;
 use crate::occurrences::{Forest, Member};
@@ -60,6 +60,99 @@ pub(super) enum Step {
     /// The cut on an occurrence of a cut formula, from two premises.
     #[serde(rename = "cut")]
     Cut(u32, u32, u32),
+    /// `∀` on a member, with its eigenvariable, from a premise.
+    #[serde(rename = "∀")]
+    Forall(u32, u32, u32),
+    /// `∃` on a member, with its witness, a term, from a premise.
+    #[serde(rename = "∃")]
+    Exists(u32, u32, u32),
+}
+
+/// The serialized form of a proof's instance table: per member past the
+/// forest its occurrence and frame, per frame its parent (`null` for an
+/// outermost binder's) and term, and the proof's terms, numbered on from
+/// the sequent's `fo` terms, an eigenvariable `{"E": k}`.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Instances {
+    /// The members, each `[occurrence, frame]`.
+    members: Vec<(u32, u32)>,
+    /// The frames, each `[parent, term]`.
+    frames: Vec<(Option<u32>, u32)>,
+    /// The proof's terms.
+    terms: Vec<FoExpression>,
+}
+
+impl Instances {
+    /// The form of the table of a proof over `forest`.
+    fn of(table: &crate::Instances, forest: &Forest) -> Self {
+        use crate::sequents::FoTerm;
+        let terms = crate::occurrences::instances::Terms {
+            fo: &forest.sequent().fo,
+            table,
+        };
+        let fo = |t: &FoTerm| match *t {
+            FoTerm::Bound(i) => FoExpression::Bound(i),
+            FoTerm::Eigen(a) => FoExpression::Eigen(a.get()),
+            FoTerm::App(f, args) => {
+                FoExpression::App(f.get(), terms.list(args).iter().map(|t| t.get()).collect())
+            }
+        };
+        Self {
+            members: table
+                .members
+                .iter()
+                .map(|&(o, f)| (o.get(), f.get()))
+                .collect(),
+            frames: table
+                .frames
+                .iter()
+                .map(|&(p, t)| (p.map(crate::FrameId::get), t.get()))
+                .collect(),
+            terms: table.terms().iter().map(fo).collect(),
+        }
+    }
+
+    /// Returns the table of a proof over `forest` the form holds, within
+    /// `limits.terms`; whether it is well formed is the proof's
+    /// constructor's question.
+    fn within(self, forest: &Forest, limits: &Limits) -> Result<crate::Instances, crate::Error> {
+        use crate::occurrences::{FrameId, OccId};
+        use crate::sequents::{Eigen, FoTerm, FoTermId, Symbol};
+        let entries = (self.members.len() as u64)
+            .saturating_add(self.frames.len() as u64)
+            .saturating_add(self.terms.len() as u64);
+        if let Some(limit) = limits.terms
+            && entries > limit
+        {
+            return Err(crate::Error::Refused(crate::limits::Refusal::Terms {
+                terms: entries,
+                limit,
+            }));
+        }
+        let mut table = crate::Instances::new(forest);
+        for term in self.terms {
+            match term {
+                FoExpression::Bound(i) => {
+                    table.push_term(FoTerm::Bound(i));
+                }
+                FoExpression::Eigen(k) => {
+                    table.eigen(Eigen::new(k));
+                }
+                FoExpression::App(f, items) => {
+                    let items: Vec<FoTermId> = items.into_iter().map(FoTermId::new).collect();
+                    table.apply(Symbol::new(f), &items);
+                }
+            }
+        }
+        for (parent, term) in self.frames {
+            table.frame(parent.map(FrameId::new), FoTermId::new(term));
+        }
+        for (o, f) in self.members {
+            table.member(OccId::new(o), FrameId::new(f));
+        }
+        Ok(table)
+    }
 }
 
 /// The serialized form of a proof: its level at the top of a document,
@@ -84,6 +177,9 @@ pub(super) struct Proof {
     /// The goal the root concludes, absent for the sequent's roots.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     goal: Option<Vec<u32>>,
+    /// The instance table of a proof whose sequent has binders.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    instances: Option<Instances>,
 }
 
 impl From<Node> for Step {
@@ -108,6 +204,8 @@ impl From<Node> for Step {
             Weaken(x, p) => S::Weaken(o(x), n_(p)),
             Mix(l, r) => S::Mix(n_(l), n_(r)),
             Cut(a, l, r) => S::Cut(o(a), n_(l), n_(r)),
+            Forall(x, a, p) => S::Forall(o(x), a.get(), n_(p)),
+            Exists(x, w, p) => S::Exists(o(x), w.get(), n_(p)),
         }
     }
 }
@@ -134,6 +232,8 @@ impl From<Step> for Node {
             Weaken(x, p) => N::Weaken(o(x), n(p)),
             Mix(l, r) => N::Mix(n(l), n(r)),
             Cut(a, l, r) => N::Cut(o(a), n(l), n(r)),
+            Forall(x, a, p) => N::Forall(o(x), crate::Eigen::new(a), n(p)),
+            Exists(x, w, p) => N::Exists(o(x), crate::sequents::FoTermId::new(w), n(p)),
         }
     }
 }
@@ -148,6 +248,7 @@ impl Proof {
             nodes: p.nodes().iter().copied().map(Step::from).collect(),
             mode: None,
             goal: p.goal().map(|goal| goal.iter().map(|m| m.get()).collect()),
+            instances: p.instances().map(|table| Instances::of(table, p.forest())),
         }
     }
 
@@ -175,9 +276,19 @@ impl Proof {
             }));
         };
         let root = NodeId::new(root);
-        let proof = match self.goal {
-            None => Prf::new(forest, nodes, root)?,
-            Some(goal) => {
+        let proof = match (self.goal, self.instances) {
+            (None, Some(instances)) => {
+                let table = instances.within(&forest, limits)?;
+                Prf::with_instances(forest, table, nodes, root)?
+            }
+            (Some(_), Some(_)) => {
+                return Err(crate::Error::Json {
+                    form: "proof",
+                    message: "a proof of a goal off the roots has no instance table".to_owned(),
+                });
+            }
+            (None, None) => Prf::new(forest, nodes, root)?,
+            (Some(goal), None) => {
                 let goal: Vec<Member> = goal.into_iter().map(Member::new).collect();
                 Prf::new_of_goal(forest, &goal, nodes, root)?
             }

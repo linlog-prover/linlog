@@ -55,15 +55,16 @@ const LABELLED: usize = Named::ALL.len() + Named::DIVISIONS.len();
 /// [`Named::ALL`], then `\L`, `\R`, `/L` and `/R`.
 const UPRIGHT: [&str; LABELLED] = [
     "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "cut",
-    "⊸L", "⊸R", "⊗L", "⊗R", "&L_1", "&L_2", "&R", "⊕L", "⊕R_1", "⊕R_2", "1L", "1R", "0L", "⊤R",
-    "!L", "!R", "!c", "!w", "", "\\L", "\\R", "/L", "/R",
+    "∀", "∃", "⊸L", "⊸R", "⊗L", "⊗R", "&L_1", "&L_2", "&R", "⊕L", "⊕R_1", "⊕R_2", "1L", "1R", "0L",
+    "⊤R", "!L", "!R", "!c", "!w", "∀R", "∃L", "∃R", "∀L", "", "\\L", "\\R", "/L", "/R",
 ];
 
 /// The labels of the subscript convention, in the order of [`UPRIGHT`].
 const SUBSCRIPT: [&str; LABELLED] = [
     "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?_d", "?_c", "?_w", "mix", "wk", "cut",
-    "⊸_L", "⊸_R", "⊗_L", "⊗_R", "&_{L1}", "&_{L2}", "&_R", "⊕_L", "⊕_{R1}", "⊕_{R2}", "1_L", "1_R",
-    "0_L", "⊤_R", "!_L", "!_R", "!_c", "!_w", "", "\\_L", "\\_R", "/_L", "/_R",
+    "∀", "∃", "⊸_L", "⊸_R", "⊗_L", "⊗_R", "&_{L1}", "&_{L2}", "&_R", "⊕_L", "⊕_{R1}", "⊕_{R2}",
+    "1_L", "1_R", "0_L", "⊤_R", "!_L", "!_R", "!_c", "!_w", "∀_R", "∃_L", "∃_R", "∀_L", "", "\\_L",
+    "\\_R", "/_L", "/_R",
 ];
 
 impl Labels {
@@ -99,7 +100,29 @@ pub(crate) enum Part<'a> {
 
 /// Whether a character of a label is a symbol.
 fn symbol(c: char) -> bool {
-    "⊗⅋&⊕⊸\\/!?⊤⊥01*∧∨→¬↔".contains(c)
+    matches!(
+        c,
+        '⊗' | '⅋'
+            | '&'
+            | '⊕'
+            | '⊸'
+            | '\\'
+            | '/'
+            | '!'
+            | '?'
+            | '⊤'
+            | '⊥'
+            | '0'
+            | '1'
+            | '*'
+            | '∧'
+            | '∨'
+            | '→'
+            | '¬'
+            | '↔'
+            | '∀'
+            | '∃'
+    )
 }
 
 /// Returns the parts of a label's markup in order. A `_` at the end, or
@@ -259,6 +282,7 @@ impl Drawn for Derivation<'_> {
             out,
             self.forest(),
             self.reading(),
+            self.framing(),
             &self.inference(id).sequent,
         )
     }
@@ -274,7 +298,15 @@ impl Drawn for Derivation<'_> {
     ) {
         let sequent = &self.inference(id).sequent;
         notation
-            .sequent(out, self.forest(), self.reading(), sequent, aligned, marks)
+            .sequent(
+                out,
+                self.forest(),
+                self.reading(),
+                self.framing(),
+                sequent,
+                aligned,
+                marks,
+            )
             .unwrap();
     }
 

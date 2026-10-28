@@ -6,12 +6,14 @@
 
 /// Sequents of intuitionistic linear logic as written.
 pub mod ill;
+pub mod instances;
 pub mod reading;
 /// Bitsets over occurrence ids.
 pub(crate) mod set;
 pub mod written;
 
 pub use ill::{IllSequent, IllSyntax, InputOptions};
+pub use instances::{FrameId, Instances};
 pub use reading::{IllConnective, IllFormula, Reading, ShapeError, Side};
 pub(crate) use set::OccSet;
 pub use written::{ClassicalSequent, Written};

@@ -6,7 +6,8 @@
 
 use super::error::Dyadic;
 use crate::hash::{HashMap, HashSet};
-use crate::occurrences::{Member, OccId};
+use crate::occurrences::Member;
+use crate::sequents::Eigen;
 
 /// Returns the bytes of a hash table whose entries take `entry` bytes and
 /// which held `most` of them when it was fullest. The standard library's
@@ -30,11 +31,11 @@ pub(super) fn table_bytes(most: usize, entry: usize) -> u64 {
     slots * (entry as u64 + 1) + 16
 }
 
-/// The unrestricted zone: a set of occurrences.
+/// The unrestricted zone: a set of members.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Zone {
     /// The members.
-    pub(super) members: HashSet<OccId>,
+    pub(super) members: HashSet<Member>,
     /// The most members the table has held, which its memory follows:
     /// distinct occurrence ids, so 2³² at most, and a table's length on a
     /// 32-bit target, so below 2³² there.
@@ -53,12 +54,12 @@ impl Zone {
     }
 
     /// Returns the members, in no particular order.
-    pub(super) fn iter(&self) -> impl Iterator<Item = OccId> + '_ {
+    pub(super) fn iter(&self) -> impl Iterator<Item = Member> + '_ {
         self.members.iter().copied()
     }
 
     /// Adds `o` and returns whether it was not a member.
-    pub(super) fn insert(&mut self, o: OccId) -> bool {
+    pub(super) fn insert(&mut self, o: Member) -> bool {
         // The table makes room before it looks a member up, so adding one
         // that is there already would double a full table, which the
         // count of its bytes would not see.
@@ -71,13 +72,13 @@ impl Zone {
     }
 
     /// Removes `o` and returns whether it was a member.
-    pub(super) fn remove(&mut self, o: OccId) -> bool {
+    pub(super) fn remove(&mut self, o: Member) -> bool {
         self.members.remove(&o)
     }
 
     /// Returns the bytes the table takes.
     pub(super) fn bytes(&self) -> u64 {
-        table_bytes(self.most, size_of::<OccId>())
+        table_bytes(self.most, size_of::<Member>())
     }
 }
 
@@ -92,7 +93,7 @@ pub(super) struct Bag {
     /// The copies of every member, never zero. A count saturates at
     /// `u32::MAX`, and then the zone has that many members at least, more
     /// than [`MOST`](Self::MOST): a count that a rule reads is exact.
-    pub(super) counts: HashMap<OccId, u32>,
+    pub(super) counts: HashMap<Member, u32>,
     /// The number of members, with repeats. The sum of two zones within
     /// [`MOST`](Self::MOST) is below 2³³, so on a 64-bit target it is
     /// exact until the pass refuses it; where a `usize` has 32 bits it
@@ -121,7 +122,7 @@ impl Bag {
     pub(super) const MOST: usize = (u32::MAX - 1) as usize;
 
     /// Returns the multiset of the given ids.
-    pub(super) fn of(ids: impl IntoIterator<Item = OccId>) -> Self {
+    pub(super) fn of(ids: impl IntoIterator<Item = Member>) -> Self {
         let mut bag = Self::default();
         for o in ids {
             bag.insert(o);
@@ -136,13 +137,13 @@ impl Bag {
 
     /// Returns the members with their numbers of copies, in no particular
     /// order.
-    pub(super) fn counts(&self) -> impl Iterator<Item = (OccId, u32)> + '_ {
+    pub(super) fn counts(&self) -> impl Iterator<Item = (Member, u32)> + '_ {
         self.counts.iter().map(|(&o, &n)| (o, n))
     }
 
     /// Returns the members in ascending order, with repeats.
-    pub(super) fn sorted(&self) -> Vec<OccId> {
-        let mut ids: Vec<OccId> = self
+    pub(super) fn sorted(&self) -> Vec<Member> {
+        let mut ids: Vec<Member> = self
             .counts()
             .flat_map(|(o, n)| std::iter::repeat_n(o, n as usize))
             .collect();
@@ -151,7 +152,7 @@ impl Bag {
     }
 
     /// Adds one copy of `o`.
-    pub(super) fn insert(&mut self, o: OccId) {
+    pub(super) fn insert(&mut self, o: Member) {
         let n = self.counts.entry(o).or_insert(0);
         *n = n.saturating_add(1);
         self.len = self.len.saturating_add(1);
@@ -159,7 +160,7 @@ impl Bag {
     }
 
     /// Removes one copy of `o` and returns whether there was one.
-    pub(super) fn remove(&mut self, o: OccId) -> bool {
+    pub(super) fn remove(&mut self, o: Member) -> bool {
         let Some(n) = self.counts.get_mut(&o) else {
             return false;
         };
@@ -205,7 +206,7 @@ impl Bag {
 
     /// Returns the bytes the table takes.
     pub(super) fn bytes(&self) -> u64 {
-        table_bytes(self.most, size_of::<(OccId, u32)>())
+        table_bytes(self.most, size_of::<(Member, u32)>())
     }
 
     /// Returns whether no id has more copies here than in `other`.
@@ -261,6 +262,42 @@ pub(crate) struct State {
     pub(super) any: bool,
 }
 
+/// A set of eigenvariables, as the pass carries it from a node to the
+/// root: those the witnesses and cut frames above name and no `∀` step
+/// above introduces.
+#[derive(Clone, Debug, Default)]
+pub(super) struct Eigens {
+    /// The members.
+    pub(super) set: HashSet<Eigen>,
+    /// The most members the table has held, which its memory follows:
+    /// fewer than a proof's terms, so a table's length.
+    pub(super) most: usize,
+}
+
+impl Eigens {
+    /// Adds `a`.
+    pub(super) fn insert(&mut self, a: Eigen) {
+        if self.set.insert(a) {
+            self.most = self.most.max(self.set.len());
+        }
+    }
+
+    /// Adds every member of `other`, the smaller set poured into the
+    /// larger.
+    pub(super) fn add(&mut self, mut other: Self) {
+        if other.set.len() > self.set.len() {
+            std::mem::swap(self, &mut other);
+        }
+        self.set.extend(other.set);
+        self.most = self.most.max(self.set.len());
+    }
+
+    /// Returns the bytes the set takes: its table and its box.
+    pub(super) fn bytes(&self) -> u64 {
+        table_bytes(self.most, size_of::<Eigen>()) + size_of::<Self>() as u64 + 16
+    }
+}
+
 impl State {
     /// What a sequent takes besides its tables: the value, and what the
     /// allocator keeps for it.
@@ -283,24 +320,24 @@ impl State {
 
     /// Returns the sequent as ids for an error report.
     pub(super) fn to_dyadic(&self) -> Dyadic {
-        let mut theta: Vec<Member> = self.theta.iter().map(Member::from).collect();
+        let mut theta: Vec<Member> = self.theta.iter().collect();
         theta.sort_unstable();
         Dyadic {
             theta,
-            gamma: self.gamma.sorted().into_iter().map(Member::from).collect(),
+            gamma: self.gamma.sorted(),
             any: self.any,
         }
     }
 
     /// Returns the unrestricted occurrences the subproof needs, in no
     /// particular order.
-    pub(crate) fn unrestricted(&self) -> impl Iterator<Item = OccId> + '_ {
+    pub(crate) fn unrestricted(&self) -> impl Iterator<Item = Member> + '_ {
         self.theta.iter()
     }
 
     /// Returns the linear zone's members with their numbers of copies, in
     /// no particular order.
-    pub(crate) fn linear(&self) -> impl Iterator<Item = (OccId, u32)> + '_ {
+    pub(crate) fn linear(&self) -> impl Iterator<Item = (Member, u32)> + '_ {
         self.gamma.counts()
     }
 

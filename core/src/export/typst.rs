@@ -389,6 +389,8 @@ fn label(out: &mut String, markup: &str) {
                 '→' => "→",
                 '¬' => "¬",
                 '↔' => "↔",
+                '∀' => "forall",
+                '∃' => "exists",
                 _ => "0",
             }),
             Part::Text(t) => {

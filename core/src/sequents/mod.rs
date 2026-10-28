@@ -19,7 +19,7 @@ pub mod term;
 pub use fmt::Formula;
 pub(crate) use fmt::{Stop, Stops};
 pub use fmt::{Visit, Walk};
-pub use fo::{Args, FoTerm, FoTermId, Symbol, SymbolFault};
+pub use fo::{Args, Eigen, FoTerm, FoTermId, Symbol, SymbolFault};
 pub use term::{Atom, Kind, Term, TermId};
 
 use crate::hash::HashMap;
@@ -277,6 +277,12 @@ impl Sequent {
                         let fresh = TermId::new(self.terms.len() as u32);
                         known.insert(term, fresh);
                         self.terms.push(term);
+                        // A dual binder's variable is its binder's; the
+                        // fresh term is the last, so the names ascend.
+                        if let Some(name) = self.fo.binder_name(t) {
+                            let name = name.to_owned();
+                            self.fo.binders.push((fresh, name));
+                        }
                         fresh
                     }
                 };
@@ -377,6 +383,24 @@ impl Sequent {
     /// For an atom of another sequent, past the table's end.
     pub fn atom_predicate(&self, atom: Atom) -> Option<(Symbol, Args)> {
         self.fo.atoms.get(atom.index()).copied()
+    }
+
+    /// Returns how many first-order terms the atoms' arguments unfold to,
+    /// written out as trees: a term that several atoms or terms share
+    /// counts once for each place, saturating. What
+    /// [`Limits::terms`](crate::Limits::terms) bounds; `0` for a
+    /// propositional sequent.
+    pub fn fo_size(&self) -> u64 {
+        if self.fo.atoms.is_empty() {
+            return 0;
+        }
+        let unfolded = self.fo.unfolded();
+        self.fo.atoms.iter().fold(0u64, |sum, &(_, args)| {
+            self.fo
+                .list(args)
+                .iter()
+                .fold(sum, |sum, t| sum.saturating_add(unfolded[t.index()]))
+        })
     }
 
     /// Returns whether an argument of `atom` holds a bound variable, which
@@ -813,6 +837,7 @@ impl Sequent {
             for term in &tables.terms {
                 let term = match *term {
                     FoTerm::Bound(i) => FoTerm::Bound(i),
+                    FoTerm::Eigen(a) => FoTerm::Eigen(a),
                     FoTerm::App(f, args) => FoTerm::App(
                         symbols[f.index()],
                         join_list(&mut interner, tables, &terms, &mut lists, args),

@@ -31,15 +31,44 @@ second number (0.1.x to 0.2.0), anything else the third.
   printer writes the binders and the predicates, a bound name that a
   symbol or an enclosing binder takes written with `_` after it. A
   sequent with a quantifier is refused by every engine by its fragment
-  (`Error::NoEngine`, or `EngineRefused` for a forced one) and by the
-  checker (`CheckError::Quantifiers`), interactive proving, cut
-  elimination (`Error::Quantifiers`), the proof structures (by the
-  fragment) and the Rocq export (`Unsupported::Quantifiers`);
+  (`Error::NoEngine`, or `EngineRefused` for a forced one) and by
+  interactive proving, cut elimination (`Error::Quantifiers`), the
+  classical two-sided view, the proof structures (by the fragment) and
+  the Rocq export (`Unsupported::Quantifiers`);
   `Forest::has_binders` says whether one has a binder. A sequent whose
   atoms have arguments but whose formulas have no quantifier is
   propositional and decided by every engine. `Error::Symbol`,
   `Error::LooseVariable` and `Error::Predicates` refuse the tables a
   file cannot hold; `Space::Symbol` names their index space.
+
+- First-order proofs: `Node::Forall(member, eigenvariable, premise)` and
+  `Node::Exists(member, witness, premise)`, an eigenvariable an `Eigen`
+  and a witness a closed term (`FoTermId`) of the sequent's arena or the
+  proof's; the instance table `Instances` (and `FrameId`) that numbers
+  every member under binders as an occurrence with a frame of terms,
+  the proof's own terms extending the sequent's (`FoTerm::Eigen`), built
+  for a forest (`Instances::new`, `eigen`, `apply`, `frame`, `member`)
+  and owned by `Proof::with_instances`, which checks it and keeps it
+  canonical, and read by `Proof::instances`, `Proof::occurrence` and
+  `Proof::formula`. The checker checks such proofs: a frame pass gives
+  every `∀` and `∃` step its body's instance and finds a member under
+  binders named without one (`Fault::Instance`) and an eigenvariable a
+  second `∀` step introduces (`Fault::Reintroduced`), and the bottom-up
+  pass compares instances by number, the axiom on two literals whose
+  atoms are equal under their frames, and carries every eigenvariable a
+  witness or a cut's frame names to the root unless the `∀` step below
+  introduces it (`Fault::Eigenvariable`). `Rule::Forall` and
+  `Rule::Exists`, named `∀R`, `∃L`, `∃R` and `∀L` two-sided; the
+  derivation, its size, its text and its LaTeX, Typst and SVG drawings
+  write every instance with its frame's terms, an eigenvariable by a
+  letter no symbol takes. A cut formula with binders names its dual's
+  variables as its own. The JSON form of a proof (wire level 7) adds the
+  steps `∀` and `∃` and the key `instances`. `Limits::terms` (default
+  `Limits::DEFAULT_TERMS`, settings key `limits.terms`) bounds the terms
+  a sequent's atoms unfold to (`Sequent::fo_size`) on every reader, and
+  a proof's instance table, refused with `Refusal::Terms` (code
+  `too_many_terms`); the JSON readers counted them against
+  `limits.occurrences` before.
 
 - `IllSequent`, a sequent of intuitionistic linear logic as written: its
   hypotheses in the order written and exactly one goal, every formula
@@ -373,7 +402,11 @@ second number (0.1.x to 0.2.0), anything else the third.
   in `binders`; the intuitionistic sequent's form takes the same keys
   and tags. A document
   whose sequent is first-order is written at level 7; a propositional
-  sequent's bytes are as before.
+  sequent's bytes are as before. A proof of a first-order sequent adds
+  the steps `{"∀": [member, eigenvariable, premise]}` and `{"∃":
+  [member, term, premise]}` and `"instances": {"members": [[occurrence,
+  frame]], "frames": [[parent, term]], "terms": […]}`, the proof's terms
+  in `fo`'s form with an eigenvariable as `{"E": k}`, still at level 7.
 
 - Level 2: the refutation kind `classical`, `{"kind": "classical",
   "assignment": [true, false, …]}`, the modes `"cyclic"`, `"lambek"`

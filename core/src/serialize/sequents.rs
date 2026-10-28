@@ -20,6 +20,10 @@ pub(super) enum FoExpression {
     /// index in `fo`, each before this one.
     #[serde(rename = "F")]
     App(u32, Vec<u32>),
+    /// An eigenvariable by its number: only in a proof's extension of the
+    /// arena, never in a sequent's.
+    #[serde(rename = "E")]
+    Eigen(u32),
 }
 
 /// The serialized form of an atom: its name alone in a propositional
@@ -202,6 +206,7 @@ impl Tables {
                 .map(|term| match *term {
                     FoTerm::Bound(i) => FoExpression::Bound(i),
                     FoTerm::App(f, args) => FoExpression::App(f.get(), list(args)),
+                    FoTerm::Eigen(a) => FoExpression::Eigen(a.get()),
                 })
                 .collect(),
             atoms: Atoms::Mixed(
@@ -266,6 +271,12 @@ impl Tables {
                     let args = list(&mut tables, items);
                     FoTerm::App(Symbol::new(f), args)
                 }
+                FoExpression::Eigen(_) => {
+                    return Err(crate::Error::Json {
+                        form: "sequent",
+                        message: "an eigenvariable stands only in a proof's terms".to_owned(),
+                    });
+                }
             };
             tables.terms.push(term);
         }
@@ -293,19 +304,16 @@ impl Tables {
         // their unfolded size is within the limit.
         tables.check(tables.atoms.len())?;
         let unfolded = tables.unfolded();
-        let occurrences = tables.atoms.iter().fold(0u64, |sum, &(_, args)| {
+        let terms = tables.atoms.iter().fold(0u64, |sum, &(_, args)| {
             tables
                 .list(args)
                 .iter()
                 .fold(sum, |sum, t| sum.saturating_add(unfolded[t.index()]))
         });
-        if let Some(limit) = limits.occurrences
-            && occurrences > limit
+        if let Some(limit) = limits.terms
+            && terms > limit
         {
-            return Err(crate::Error::Refused(Refusal::Occurrences {
-                occurrences,
-                limit,
-            }));
+            return Err(crate::Error::Refused(Refusal::Terms { terms, limit }));
         }
         for &(p, args) in &tables.atoms {
             names.push(tables.atom_key(p, args));

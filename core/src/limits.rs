@@ -63,6 +63,12 @@ pub struct Limits {
     /// the bound), as if it had that many occurrences.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub occurrences: Option<u64>,
+    /// The most first-order terms a sequent's atoms may unfold to
+    /// ([`Sequent::fo_size`](crate::Sequent::fo_size)), and the most
+    /// entries a proof's instance table may hold, on every reader: a short
+    /// document of shared terms can name an atom of exponential length.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
+    pub terms: Option<u64>,
     /// The most bytes a derivation, or the drawing of a net or a sequent,
     /// may be estimated at; past it nothing is made.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
@@ -94,6 +100,9 @@ impl Limits {
     /// problem of the LLTP library (27.8 million); a forest takes about
     /// 25 bytes an occurrence.
     pub const DEFAULT_OCCURRENCES: u64 = 50_000_000;
+    /// The default bound on first-order terms: as many as occurrences, so
+    /// that a sequent's terms take no more than its forest.
+    pub const DEFAULT_TERMS: u64 = 50_000_000;
     /// The default bound on a derivation's estimated size: 64 mebibytes.
     pub const DEFAULT_DERIVATION_BYTES: u64 = 64 << 20;
     /// The default recursion depth: 2048 levels, which fit a main
@@ -105,6 +114,7 @@ impl Limits {
     pub const UNBOUNDED: Self = Self {
         memory_bytes: None,
         occurrences: None,
+        terms: None,
         derivation_bytes: None,
         work: None,
         recursion_depth: Self::DEFAULT_RECURSION_DEPTH,
@@ -158,6 +168,13 @@ impl Limits {
         self
     }
 
+    /// Returns the limits with another bound on first-order terms.
+    #[must_use]
+    pub const fn with_terms(mut self, terms: Option<u64>) -> Self {
+        self.terms = terms;
+        self
+    }
+
     /// Returns the limits with another bound on a derivation's size.
     #[must_use]
     pub const fn with_derivation_bytes(mut self, derivation_bytes: Option<u64>) -> Self {
@@ -186,6 +203,7 @@ impl Default for Limits {
         Self {
             memory_bytes: Some(Self::DEFAULT_MEMORY_BYTES),
             occurrences: Some(Self::DEFAULT_OCCURRENCES),
+            terms: Some(Self::DEFAULT_TERMS),
             derivation_bytes: Some(Self::DEFAULT_DERIVATION_BYTES),
             work: None,
             recursion_depth: Self::DEFAULT_RECURSION_DEPTH,
@@ -396,6 +414,16 @@ pub enum Refusal {
         /// The bound, [`Limits::occurrences`].
         limit: u64,
     },
+    /// A sequent's atoms unfold to more first-order terms than the bound,
+    /// or a proof's instance table holds more entries: the count, or a
+    /// number of them at which the count stopped.
+    #[non_exhaustive]
+    Terms {
+        /// How many terms or entries, or a number past the bound.
+        terms: u64,
+        /// The bound, [`Limits::terms`].
+        limit: u64,
+    },
     /// An output is estimated past its bound; nothing was made.
     #[non_exhaustive]
     Output {
@@ -452,6 +480,7 @@ impl Refusal {
             Self::Stopped { .. } => "stopped",
             Self::Memory { .. } => "memory_limit",
             Self::Occurrences { .. } => "too_many_occurrences",
+            Self::Terms { .. } => "too_many_terms",
             Self::Output { .. } => "output_too_large",
             Self::Work { .. } => "work_limit",
             Self::Pixels { .. } => "too_many_pixels",
@@ -466,6 +495,7 @@ impl Refusal {
         match self {
             Self::Memory { .. } => Some("limits.memory_bytes"),
             Self::Occurrences { .. } => Some("limits.occurrences"),
+            Self::Terms { .. } => Some("limits.terms"),
             Self::Output { .. } => Some("limits.derivation_bytes"),
             Self::Work { .. } => Some("limits.work"),
             Self::Pixels { .. } => Some("styles.png.pixels"),
@@ -521,6 +551,11 @@ impl Display for Refusal {
                     "subformula occurrence",
                     "subformula occurrences"
                 )
+            ),
+            Self::Terms { terms, limit } => write!(
+                f,
+                "the first-order terms unfold to at least {}, more than the limit of {limit}",
+                counted(*terms, "term", "terms")
             ),
             Self::Output {
                 what,

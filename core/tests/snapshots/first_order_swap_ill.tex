@@ -1,0 +1,13 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{p(a, b) &\vdash p(a, b)}
+\infer1[$\exists\mathrm{R}$]{p(a, b) &\vdash \exists x.\,p(x, b)}
+\infer1[$\forall\mathrm{L}$]{\forall y.\,p(a, y) &\vdash \exists x.\,p(x, b)}
+\infer1[$\forall\mathrm{R}$]{\forall y.\,p(a, y) &\vdash \forall y.\,(\exists x.\,p(x, y))}
+\infer1[$\exists\mathrm{L}$]{\exists x.\,(\forall y.\,p(x, y)) &\vdash \forall y.\,(\exists x.\,p(x, y))}
+\end{prooftree}
+\end{document}

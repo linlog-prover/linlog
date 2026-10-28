@@ -18,6 +18,9 @@
 pub mod check;
 pub mod cut;
 pub mod derivation;
+/// First-order proofs written by hand, and their tests.
+#[cfg(all(test, feature = "parse"))]
+mod first_order;
 /// Text rendering of derivations.
 pub(crate) mod fmt;
 #[cfg(feature = "interactive")]
@@ -32,6 +35,7 @@ mod rule;
 pub mod size;
 pub mod style;
 
+use crate::occurrences::{Instances, instances};
 pub use check::{CheckError, Dyadic, Fault, Invalid, Refused};
 pub use derivation::{
     ClassicalRule, ClassicalSides, Compact, Derivation, InfId, Inference, Sides, TwoSided,
@@ -48,7 +52,7 @@ use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Progress};
 use crate::occurrences::{Forest, Member, OccId, Reading};
-use crate::sequents::Sequent;
+use crate::sequents::{Eigen, FoTermId, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// A number of bytes, written in the largest binary unit that divides it:
@@ -156,6 +160,20 @@ pub enum Node {
     /// and `Δ, A ⊢ C` give `Γ, Δ ⊢ C`, whichever premise has the cut
     /// formula in output position.
     Cut(Member, NodeId, NodeId),
+    /// `⊢ Θ ; Γ, ∀x.A` from `⊢ Θ ; Γ, A[a/x]`, on the occurrence of
+    /// `∀x.A`, with the eigenvariable `a`, which the proof's instance
+    /// table ([`Instances`](crate::Instances)) names: `a` must occur
+    /// nowhere in the conclusion, which the checker sees to by a
+    /// condition on the whole proof (every eigenvariable introduced by
+    /// one such node, and found in witnesses above it alone). The premise
+    /// consumes the body's instance under the frame of `∀x.A` with `a`
+    /// added.
+    Forall(Member, Eigen, NodeId),
+    /// `⊢ Θ ; Γ, ∃x.A` from `⊢ Θ ; Γ, A[t/x]`, on the occurrence of
+    /// `∃x.A`, with the witness `t`, a closed term of the sequent's arena
+    /// or of the proof's extension of it. The premise consumes the body's
+    /// instance under the frame of `∃x.A` with `t` added.
+    Exists(Member, FoTermId, NodeId),
 }
 
 /// A node is a tag, an occurrence and two node indices at most.
@@ -170,14 +188,15 @@ impl Node {
     /// another language matches, one constructor each.
     pub const NAMES: &'static [&'static str] = &[
         "Ax", "Tensor", "Par", "One", "Bot", "With", "Plus", "Top", "Bang", "Quest", "Copy",
-        "Weaken", "Mix", "Cut",
+        "Weaken", "Mix", "Cut", "Forall", "Exists",
     ];
 
     /// The rules' tags in a proof's JSON form and their names
     /// ([`name`](Self::name)): one per variant, and two for `Plus`, whose
     /// branch is in its tag.
     pub const TAGS: &'static [&'static str] = &[
-        "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?", "copy", "wk", "mix", "cut",
+        "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?", "copy", "wk", "mix", "cut", "∀",
+        "∃",
     ];
 
     /// Returns the member the rule acts on: `None` for Mix and the cut,
@@ -196,7 +215,9 @@ impl Node {
             | Bang(o, _)
             | Quest(o, _)
             | Copy(o, _)
-            | Weaken(o, _) => Some(o),
+            | Weaken(o, _)
+            | Forall(o, ..)
+            | Exists(o, ..) => Some(o),
             Mix(..) | Cut(..) => None,
         }
     }
@@ -208,7 +229,7 @@ impl Node {
         let second = match self {
             Ax(_, b) | Cut(b, ..) => Some(b),
             Tensor(..) | Par(..) | One(_) | Bot(..) | With(..) | Plus(..) | Top(_) | Bang(..)
-            | Quest(..) | Copy(..) | Weaken(..) | Mix(..) => None,
+            | Quest(..) | Copy(..) | Weaken(..) | Mix(..) | Forall(..) | Exists(..) => None,
         };
         self.principal().into_iter().chain(second)
     }
@@ -235,6 +256,8 @@ impl Node {
             Weaken(o, p) => Weaken(rename(o)?, p),
             Mix(l, r) => Mix(l, r),
             Cut(a, l, r) => Cut(rename(a)?, l, r),
+            Forall(o, a, p) => Forall(rename(o)?, a, p),
+            Exists(o, w, p) => Exists(rename(o)?, w, p),
         })
     }
 
@@ -252,13 +275,15 @@ impl Node {
             | Bang(_, p)
             | Quest(_, p)
             | Copy(_, p)
-            | Weaken(_, p) => (Some(p), None),
+            | Weaken(_, p)
+            | Forall(_, _, p)
+            | Exists(_, _, p) => (Some(p), None),
         };
         first.into_iter().chain(second)
     }
 
     /// Returns the rule's name: `ax`, `⊗`, `⅋`, `1`, `⊥`, `&`, `⊕₁`, `⊕₂`,
-    /// `⊤`, `!`, `?`, `copy`, `wk`, `mix` or `cut`.
+    /// `⊤`, `!`, `?`, `copy`, `wk`, `mix`, `cut`, `∀` or `∃`.
     pub const fn name(self) -> &'static str {
         use Node::*;
         match self {
@@ -277,6 +302,8 @@ impl Node {
             Weaken(..) => "wk",
             Mix(..) => "mix",
             Cut(..) => "cut",
+            Forall(..) => "∀",
+            Exists(..) => "∃",
         }
     }
 }
@@ -358,7 +385,9 @@ impl Display for Node {
 /// Reading rebuilds the forest within the limits and checks the indices
 /// and their order; whether the proof is one is [`Proof::check`]'s
 /// question, in the mode the caller names. The command's `check` reads
-/// this form, and the output of `prove --format json` holds it.
+/// this form, and the output of `prove --format json` holds it. A proof
+/// of a first-order sequent adds `{"∀": [m, a, p]}` and `{"∃": [m, w,
+/// p]}` and its `instances` ([`wire`](crate::wire)).
 #[derive(Clone, Debug)]
 pub struct Proof {
     /// The forest of the sequent the proof is of.
@@ -370,6 +399,9 @@ pub struct Proof {
     goal: Option<Box<[Member]>>,
     /// The mode the proof is meant for: a claim, which only a check tests.
     mode: Option<Mode>,
+    /// What the members past the forest's length stand for, canonical:
+    /// `None` for a proof whose sequent has no binder.
+    instances: Option<Box<Instances>>,
 }
 
 impl Proof {
@@ -387,7 +419,50 @@ impl Proof {
     /// [`Refusal::Index`](crate::Refusal::Index) for more nodes than a proof
     /// holds.
     pub fn new(forest: Forest, nodes: Vec<Node>, root: NodeId) -> Result<Self, Error> {
+        if forest.has_binders() {
+            let instances = Instances::new(&forest);
+            return Self::with_instances(forest, instances, nodes, root);
+        }
         Self::build(forest, nodes, root, &mut || false)
+    }
+
+    /// Builds a proof as [`new`](Self::new) does, whose members past the
+    /// forest's length are those `instances` numbers: occurrences under
+    /// binders with the terms the binders were opened with. The table is
+    /// checked against the forest and kept canonical, so that equal
+    /// instances are one member: the nodes' members and witnesses are
+    /// renumbered into it, which changes no instance they name, and every
+    /// member a check derives from one a node names (a subformula's
+    /// instance, a binder's body under its eigenvariable or witness, a
+    /// cut's dual) is added to it.
+    ///
+    /// # Errors
+    ///
+    /// As [`new`](Self::new) does, where a member is in range when the
+    /// table numbers it and a witness when it is a term of the sequent or
+    /// of the table; [`Error::Json`] (form `instance table`) for a table
+    /// made for another sequent or not well formed, or a witness with a
+    /// loose bound variable.
+    pub fn with_instances(
+        forest: Forest,
+        instances: Instances,
+        nodes: Vec<Node>,
+        root: NodeId,
+    ) -> Result<Self, Error> {
+        let members = (forest.len() as u64).saturating_add(instances.len() as u64);
+        let mut proof = Self::reach(forest, nodes, root, members, &mut || false)?;
+        let mut nodes = std::mem::take(&mut proof.nodes).into_vec();
+        let table = instances::canonical(&proof.forest, &instances, &mut nodes)?;
+        proof.nodes = nodes.into_boxed_slice();
+        proof.instances = (proof.forest.has_binders() || table != Instances::new(&proof.forest))
+            .then(|| Box::new(table));
+        Ok(proof)
+    }
+
+    /// Returns the proof's instance table: `None` for a proof whose
+    /// sequent has no binder.
+    pub fn instances(&self) -> Option<&Instances> {
+        self.instances.as_deref()
     }
 
     /// Builds a proof as [`new`](Self::new) does, in the nodes' own
@@ -400,8 +475,21 @@ impl Proof {
     /// search's phase once `stopped` answers true.
     pub(crate) fn build(
         forest: Forest,
+        nodes: Vec<Node>,
+        root: NodeId,
+        stopped: &mut dyn FnMut() -> bool,
+    ) -> Result<Self, Error> {
+        let members = forest.len() as u64;
+        Self::reach(forest, nodes, root, members, stopped)
+    }
+
+    /// Builds a proof as [`build`](Self::build) does, whose members are
+    /// in range below `members`.
+    fn reach(
+        forest: Forest,
         mut nodes: Vec<Node>,
         root: NodeId,
+        members: u64,
         stopped: &mut dyn FnMut() -> bool,
     ) -> Result<Self, Error> {
         /// The index of a node the root does not reach.
@@ -433,11 +521,11 @@ impl Proof {
                 continue;
             }
             for o in nodes[i].members() {
-                if o.index() >= forest.len() {
+                if u64::from(o.get()) >= members {
                     return Err(Error::IndexOutOfBounds {
                         space: crate::limits::Space::Occurrence,
                         index: o.index(),
-                        len: forest.len(),
+                        len: usize::try_from(members).unwrap_or(usize::MAX),
                     });
                 }
             }
@@ -484,6 +572,7 @@ impl Proof {
             nodes: nodes.into_boxed_slice(),
             goal: None,
             mode: None,
+            instances: None,
         })
     }
 
@@ -543,7 +632,10 @@ impl Proof {
 
     /// Returns the occurrence a member of the proof stands for.
     pub fn occurrence(&self, member: Member) -> OccId {
-        member.occ()
+        match self.instances.as_deref().and_then(|t| t.instance(member)) {
+            Some((o, _)) => o,
+            None => member.occ(),
+        }
     }
 
     /// Returns the formula a member of the proof stands for: of a proof
@@ -747,9 +839,6 @@ impl Proof {
     /// [`CheckError::Refused`] when the default memory bound refused the
     /// pass.
     pub fn check(&self, mode: Mode) -> Result<(), CheckError> {
-        if self.forest().has_binders() {
-            return Err(CheckError::Quantifiers);
-        }
         check::check(self, mode)
     }
 
@@ -777,9 +866,6 @@ impl Proof {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<(), CheckError> {
-        if self.forest().has_binders() {
-            return Err(CheckError::Quantifiers);
-        }
         check::check_within(self, mode, limits, &mut stop)
     }
 
@@ -870,6 +956,8 @@ impl Node {
             Weaken(o, p) => Weaken(o, f(p)),
             Mix(l, r) => Mix(f(l), f(r)),
             Cut(o, l, r) => Cut(o, f(l), f(r)),
+            Forall(o, a, p) => Forall(o, a, f(p)),
+            Exists(o, w, p) => Exists(o, w, f(p)),
             leaf @ (Ax(..) | One(_) | Top(_)) => leaf,
         }
     }
@@ -899,6 +987,8 @@ mod tests {
             Node::Weaken(m, n),
             Node::Mix(n, n),
             Node::Cut(m, n, n),
+            Node::Forall(m, Eigen::new(0), n),
+            Node::Exists(m, FoTermId::new(0), n),
         ];
         let names: Vec<String> = nodes
             .iter()

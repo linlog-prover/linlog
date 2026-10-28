@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="289.76" height="134.592" viewBox="0 0 18110 8412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ ∀x. (∃y. p(x, y)⊥), ∀y. (∃x. p(x, y))</title>
+<desc>1. ⊢ ~p(a, b), p(a, b), by ax.
+2. ⊢ ∃x. p(x, b), ~p(a, b), by ∃ from 1.
+3. ⊢ ∃y. ~p(a, y), ∃x. p(x, b), by ∃ from 2.
+4. ⊢ ∀y. (∃x. p(x, y)), ∃y. ~p(a, y), by ∀ from 3.
+5. ⊢ ∀x. (∃y. ~p(x, y)), ∀y. (∃x. p(x, y)), by ∀ from 4.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M300 6812H17090"/>
+<path d="M1480 5312H15911"/>
+<path d="M2737 3812H14654"/>
+<path d="M3666 2312H13725"/>
+<path d="M4517 812H12873"/>
+</g>
+<g id="i4">
+<text x="300" y="7902" textLength="7972" lengthAdjust="spacing">⊢ ∀𝑥. (∃𝑦. 𝑝(𝑥, 𝑦)</text>
+<text x="8272" y="7502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="8883" y="7902" textLength="8207" lengthAdjust="spacing">), ∀𝑦. (∃𝑥. 𝑝(𝑥, 𝑦))</text>
+</g>
+<text x="17290" y="7012" textLength="520" lengthAdjust="spacing" font-size="800">∀</text>
+<g id="i3">
+<text x="1480" y="6402" textLength="13820" lengthAdjust="spacing">⊢ ∀𝑦. (∃𝑥. 𝑝(𝑥, 𝑦)), ∃𝑦. 𝑝(𝑎, 𝑦)</text>
+<text x="15300" y="6002" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="16111" y="5512" textLength="520" lengthAdjust="spacing" font-size="800">∀</text>
+<g id="i2">
+<text x="2737" y="4902" textLength="5941" lengthAdjust="spacing">⊢ ∃𝑦. 𝑝(𝑎, 𝑦)</text>
+<text x="8678" y="4502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="9289" y="4902" textLength="5365" lengthAdjust="spacing">, ∃𝑥. 𝑝(𝑥, 𝑏)</text>
+</g>
+<text x="14854" y="4012" textLength="520" lengthAdjust="spacing" font-size="800">∃</text>
+<g id="i1">
+<text x="3666" y="3402" textLength="9448" lengthAdjust="spacing">⊢ ∃𝑥. 𝑝(𝑥, 𝑏), 𝑝(𝑎, 𝑏)</text>
+<text x="13114" y="3002" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="13925" y="2512" textLength="520" lengthAdjust="spacing" font-size="800">∃</text>
+<g id="i0">
+<text x="4517" y="1902" textLength="4083" lengthAdjust="spacing">⊢ 𝑝(𝑎, 𝑏)</text>
+<text x="8600" y="1502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="9211" y="1902" textLength="3662" lengthAdjust="spacing">, 𝑝(𝑎, 𝑏)</text>
+</g>
+<text x="13073" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

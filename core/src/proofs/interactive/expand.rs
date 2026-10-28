@@ -69,9 +69,8 @@ impl Interactive {
                 needs: match rule {
                     Tensor | Mix => Needs::Split,
                     Ax | Par | One | Bot | With | PlusLeft | PlusRight | Top | Promotion
-                    | Dereliction | Contraction | Weakening | AffineWeakening | Cut | Open => {
-                        Needs::Nothing
-                    }
+                    | Dereliction | Contraction | Weakening | AffineWeakening | Cut | Forall
+                    | Exists | Open => Needs::Nothing,
                 },
             })
             .collect())
@@ -170,6 +169,9 @@ impl Interactive {
         // The rule acts on the connective, and on the right side of ⊢.
         let acts = match classical {
             Ax => kind.is_literal(),
+            // A session holds no binder, so this is false.
+            Forall => kind == Kind::Forall,
+            Exists => kind == Kind::Exists,
             Tensor => kind == Kind::Tensor,
             Par => kind == Kind::Par,
             One => kind == Kind::One,
@@ -196,6 +198,8 @@ impl Interactive {
             One | Bot | With | PlusLeft | PlusRight | Top | Promotion | Dereliction
             | Contraction | Weakening => !self.mode.is_ordered(),
             Ax | Tensor | Par | Cut | Open => true,
+            // A session holds no binder: its rule did not act above.
+            Forall | Exists => false,
         };
         if !allowed {
             return Err(StepError::Mode {
@@ -249,6 +253,8 @@ impl Interactive {
             premise
         };
         let premises = match classical {
+            // A session holds no binder: its rule did not act above.
+            Forall | Exists => unreachable!("no binder in a session"),
             Ax => {
                 let [x, y] = sequent else {
                     return Err(StepError::NotAlone { rule, position });

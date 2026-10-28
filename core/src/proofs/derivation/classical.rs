@@ -240,6 +240,8 @@ impl ClassicalRule {
         let left = written.side() == Side::Input;
         let pick = |input, output| if left { input } else { output };
         match rule {
+            // The view refuses a sequent with binders.
+            Rule::Forall | Rule::Exists => unreachable!("no binder in the classical view"),
             Rule::Ax => Axiom,
             Rule::Tensor if written.is_implication() => LollipopLeft,
             Rule::Tensor => pick(ParLeft, TensorRight),
@@ -392,6 +394,11 @@ impl<'a> TwoSided<'a> {
         let forest = derivation.forest();
         if let Some(fault) = written::fault(forest, writing) {
             panic!("the record is not one of the derivation's sequent: {fault}");
+        }
+        if forest.has_binders() {
+            return Err(Error::Quantifiers {
+                what: "the classical two-sided view",
+            });
         }
         let view = Self {
             derivation,
@@ -825,6 +832,8 @@ fn difference(larger: &[Member], smaller: &[Member]) -> Vec<usize> {
 /// and none for every other rule.
 fn exposed(forest: &Forest, rule: Rule, p: OccId, j: usize) -> [Option<OccId>; 2] {
     match (rule, j) {
+        // The view refuses a sequent with binders.
+        (Rule::Forall | Rule::Exists, _) => unreachable!("no binder in the classical view"),
         (Rule::Par, _) => [forest.left(p), forest.right(p)],
         (Rule::Tensor | Rule::With, 1) | (Rule::PlusRight, _) => [forest.right(p), None],
         (Rule::Tensor | Rule::With | Rule::PlusLeft | Rule::Promotion | Rule::Dereliction, _) => {

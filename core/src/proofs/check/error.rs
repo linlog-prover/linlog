@@ -9,6 +9,7 @@ use crate::errors::{Described, Owner, Subject};
 use crate::limits::Refusal;
 use crate::occurrences::{Member, ShapeError, Side};
 use crate::proofs::{Node, NodeId};
+use crate::sequents::Eigen;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// A dyadic sequent as the checker derived it, by members: the
@@ -42,7 +43,7 @@ impl Dyadic {
             for (i, &o) in ids.enumerate() {
                 let written =
                     std::fmt::Write::write_str(&mut budget, if i == 0 { " " } else { ", " })
-                        .and_then(|()| occurrence(&mut budget, names, o.occ()));
+                        .and_then(|()| occurrence(&mut budget, names, o));
                 if written.is_err() && budget.cut {
                     return write!(budget.f, "… ({len} formulas)");
                 }
@@ -54,8 +55,14 @@ impl Dyadic {
             |f: &mut Formatter<'_>, empty: bool| f.write_str(if empty { " …" } else { ", …" });
         // Two-sided under a reading: `Θ ; Γ ⊢ C`, the unrestricted zone
         // being hypotheses under a `!`.
-        if let Some(reading) = names.and_then(|n| n.reading) {
-            let side = |side: Side| move |o: &&Member| reading.position(o.occ()) == side;
+        if let Some(Names {
+            reading: Some(reading),
+            framing,
+            ..
+        }) = names
+        {
+            let occ = move |m: Member| framing.map_or(m.occ(), |f| f.occurrence(m));
+            let side = |side: Side| move |o: &&Member| reading.position(occ(**o)) == side;
             let inputs = self.gamma.iter().filter(side(Side::Input)).count();
             if !self.theta.is_empty() {
                 list(f, &mut self.theta.iter(), self.theta.len())?;
@@ -102,9 +109,6 @@ pub enum CheckError {
     /// The check was given up without a verdict on the term: a bound or the
     /// caller's stop.
     Refused(Refused),
-    /// The proof's sequent has a quantifier, which the checker takes no
-    /// rule for yet: no verdict on the term.
-    Quantifiers,
 }
 
 /// What makes a term no proof: the node at fault, what the checker had
@@ -203,6 +207,29 @@ pub enum Fault {
     /// concludes the sequent. Only a term no engine builds gets here, and
     /// over unbounded counts it would fail at the root instead.
     Surplus,
+    /// The member is an occurrence under binders named without an
+    /// instance: a term for each binder above it, which only a member of
+    /// the proof's instance table has.
+    #[non_exhaustive]
+    Instance {
+        /// The member the node names.
+        member: Member,
+    },
+    /// The eigenvariable occurs outside the `∀` step that introduces it:
+    /// a witness or a cut's frame below that step, or beside it, names it,
+    /// or no `∀` step introduces it. Found at the root, where it remains.
+    #[non_exhaustive]
+    Eigenvariable {
+        /// The eigenvariable.
+        eigen: Eigen,
+    },
+    /// A second `∀` step introduces the eigenvariable: every one has its
+    /// own.
+    #[non_exhaustive]
+    Reintroduced {
+        /// The eigenvariable.
+        eigen: Eigen,
+    },
     /// The root derives this sequent, which is not the proof's conclusion:
     /// its linear zone differs from the conclusion's formulas, or its
     /// unrestricted zone holds a copied member that no `?` rule below
@@ -233,7 +260,6 @@ impl CheckError {
         match self {
             Self::Invalid(invalid) => invalid.node,
             Self::Refused(refused) => refused.node,
-            Self::Quantifiers => NodeId::new(0),
         }
     }
 
@@ -241,7 +267,7 @@ impl CheckError {
     pub fn fault(&self) -> Option<&Fault> {
         match self {
             Self::Invalid(invalid) => Some(&invalid.fault),
-            Self::Refused(_) | Self::Quantifiers => None,
+            Self::Refused(_) => None,
         }
     }
 
@@ -287,11 +313,6 @@ impl CheckError {
                     refused.refusal
                 );
             }
-            Self::Quantifiers => {
-                return f.write_str(
-                    "the checker takes no quantifiers yet: no verdict on a proof of a sequent with ∀ or ∃",
-                );
-            }
         };
         invalid.write(f, names, limit)
     }
@@ -302,10 +323,20 @@ impl Invalid {
     /// instead of ids when a forest is given.
     fn write(&self, f: &mut Formatter<'_>, names: Option<Names<'_>>, limit: Limit) -> FmtResult {
         let reading = names.and_then(|n| n.reading);
-        write!(f, "node {} ({}", self.node.get(), name(self.rule, reading))?;
+        let occ = |m: Member| {
+            names
+                .and_then(|n| n.framing)
+                .map_or(m.occ(), |framing| framing.occurrence(m))
+        };
+        write!(
+            f,
+            "node {} ({}",
+            self.node.get(),
+            name(self.rule, reading, occ)
+        )?;
         for (i, o) in self.rule.members().enumerate() {
             f.write_str(if i == 0 { " on " } else { ", " })?;
-            cut(f, names, o.occ(), limit)?;
+            cut(f, names, o, limit)?;
         }
         for (i, p) in self.rule.premises().enumerate() {
             write!(f, "{}{}", if i == 0 { " from " } else { ", " }, p.get())?;
@@ -331,7 +362,7 @@ impl Invalid {
                 if names.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                cut(f, names, (*o).occ(), limit)?;
+                cut(f, names, *o, limit)?;
                 f.write_str(" is not what the rule acts on")
             }
             NotDual => f.write_str(if reading.is_some() {
@@ -344,7 +375,7 @@ impl Invalid {
                 if names.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                cut(f, names, (*o).occ(), limit)
+                cut(f, names, *o, limit)
             }
             NotEmpty => f.write_str("the linear zone is not empty"),
             Differ => f.write_str("the premises differ"),
@@ -356,14 +387,14 @@ impl Invalid {
                 if names.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                cut(f, names, (*o).occ(), limit)?;
+                cut(f, names, *o, limit)?;
                 f.write_str(" is not in a cut formula")
             }
             NotUnderQuest { member: o } => {
                 if names.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                cut(f, names, (*o).occ(), limit)?;
+                cut(f, names, *o, limit)?;
                 // An input `?` is a hypothesis under a `!`.
                 f.write_str(if reading.is_some() {
                     " is not under a hypothesis's !"
@@ -374,6 +405,23 @@ impl Invalid {
             Surplus => f.write_str(
                 "the linear zone holds more formulas than the rest of the proof can consume",
             ),
+            Instance { member: o } => {
+                if names.is_none() {
+                    f.write_str("occurrence ")?;
+                }
+                cut(f, names, *o, limit)?;
+                f.write_str(" stands under a binder and is named without its instance")
+            }
+            Eigenvariable { eigen } => {
+                f.write_str("eigenvariable ")?;
+                eigenvariable(f, names, *eigen)?;
+                f.write_str(" occurs outside the ∀ step that introduces it")
+            }
+            Reintroduced { eigen } => {
+                f.write_str("eigenvariable ")?;
+                eigenvariable(f, names, *eigen)?;
+                f.write_str(" is introduced by a second ∀ step")
+            }
             Conclusion { derived: d } => {
                 f.write_str("the proof concludes ")?;
                 d.write(f, names, limit)?;
@@ -388,7 +436,11 @@ impl std::error::Error for CheckError {}
 /// Returns the name of a node's rule: its tag, or under a reading the
 /// two-sided name of the rule on its principal formula (`⊸L` for a `⊗` on
 /// a hypothesis).
-fn name(node: Node, reading: Option<&crate::Reading<'_>>) -> &'static str {
+fn name(
+    node: Node,
+    reading: Option<&crate::Reading<'_>>,
+    occ: impl Fn(Member) -> crate::OccId,
+) -> &'static str {
     use crate::proofs::{Branch, Named, Rule};
     let (Some(reading), Some(o)) = (reading, node.principal()) else {
         return node.name();
@@ -404,10 +456,21 @@ fn name(node: Node, reading: Option<&crate::Reading<'_>>) -> &'static str {
         Node::Top(_) => Rule::Top,
         Node::Bang(..) => Rule::Promotion,
         Node::Quest(..) => Rule::Dereliction,
+        Node::Forall(..) => Rule::Forall,
+        Node::Exists(..) => Rule::Exists,
         // Their tags name no connective.
         Node::Ax(..) | Node::Copy(..) | Node::Weaken(..) | Node::Mix(..) | Node::Cut(..) => {
             return node.name();
         }
     };
-    Named::applied(rule, Some(reading), o.occ()).name()
+    Named::applied(rule, Some(reading), occ(o)).name()
+}
+
+/// Writes an eigenvariable by the name its proof's derivation writes it
+/// with where the names are given, else by its number.
+fn eigenvariable(f: &mut Formatter<'_>, names: Option<Names<'_>>, eigen: Eigen) -> FmtResult {
+    match names.and_then(|n| n.framing) {
+        Some(framing) => f.write_str(framing.name(eigen)),
+        None => write!(f, "{}", eigen.get()),
+    }
 }

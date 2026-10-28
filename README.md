@@ -1601,9 +1601,10 @@ MELL
 A sequent whose atoms have arguments but whose formulas have no
 quantifier is propositional, with structured atoms, and every engine
 decides it; a sequent with a quantifier is read, printed, written as
-JSON and drawn two-sided, and nothing more yet: no engine proves it, and
-the checker, interactive proving, the proof nets and the exports to Rocq
-refuse it, each saying so. The exit status is 2, the error's:
+JSON and drawn two-sided, and its proofs are checked (below), but no
+engine proves it yet, and interactive proving, the proof nets and the
+exports to Rocq refuse it, each saying so. The exit status is 2, the
+error's:
 
 <!-- readme-check: machine -->
 ```console
@@ -1633,6 +1634,30 @@ order of the terms:
 ```console
 $ linlog seq json "forall x. p(x) |- p(a)"
 {"version":7,"terms":[{"D":0},{"∃":0},{"V":1}],"roots":[1,2],"atoms":[{"P":[0,[0]]},{"P":[0,[1]]}],"symbols":[["p",1],["a",0]],"fo":[{"B":0},{"F":[1,[]]}],"binders":["x"],"antecedents":1}
+```
+
+A proof of a first-order sequent names, for every member under
+quantifiers, the terms its quantifiers were opened with: a `∀` step its
+eigenvariable, a fresh constant the proof numbers, as `{"∀": [member,
+eigenvariable, premise]}`, and a `∃` step its witness, a closed term, as
+`{"∃": [member, term, premise]}`. The proof's `instances` list each
+member past the sequent's occurrences as `[occurrence, frame]`, each
+frame as `[parent, term]` (the innermost quantifier's term first, `null`
+past the outermost), and the proof's own terms after the sequent's `fo`
+(an eigenvariable `{"E": k}`). `check` checks such a proof, with the
+eigenvariable condition: every eigenvariable is introduced by one `∀`
+step and named by witnesses above it alone. The derivation writes every
+instance with its terms, the eigenvariables named after letters no
+symbol takes:
+
+<!-- readme-check: machine -->
+```console
+$ echo '{"version":7,"sequent":{"terms":[{"D":0},{"∃":0},{"V":1}],"roots":[1,2],"atoms":[{"P":[0,[0]]},{"P":[0,[2]]}],"symbols":[["p",1],["a",0],["f",1]],"fo":[{"B":0},{"F":[1,[]]},{"F":[2,[1]]}],"binders":["x"],"antecedents":1},"nodes":[{"ax":[3,2]},{"∃":[0,2,0]}],"instances":{"members":[[1,0]],"frames":[[null,2]],"terms":[]}}' | linlog check
+valid proof of ⊢ ∃x. ~p(x), p(f(a)) (classical)
+─────────────────── ax
+⊢ p(f(a)), ~p(f(a))
+──────────────────── ∃
+⊢ ∃x. ~p(x), p(f(a))
 ```
 
 ### Ordinary logic
@@ -2063,6 +2088,10 @@ Built:
   printed one- and two-sided and written as JSON; a sequent with
   arguments but no quantifier is decided by every engine as a
   propositional one.
+- First-order proofs: `∀` and `∃` steps with eigenvariables and
+  witnesses, checked with the eigenvariable condition, written as JSON,
+  their derivations printed one- and two-sided (`∀R`, `∀L`, `∃R`, `∃L`)
+  and drawn in LaTeX, Typst and SVG with every instance written out.
 - Detection of the fragment a sequent lives in (MLL, MLL with units, ALL,
   MALL, MELL, LL, and their intuitionistic counterparts IMLL to ILL) and
   the modes classical, affine, intuitionistic and Mix as user choices.
@@ -2331,11 +2360,10 @@ Planned, in roughly this order:
   countermodels of the other logics, failure certificates of the
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
-- First-order linear logic beyond its syntax: proof search with
-  unification, witnesses and eigenvariables in proofs and the checker,
-  the quantifier rules in interactive proving, the exports, certificates
-  in the Rocq library, first-order problem families and the comparison
-  with LinearOne.
+- First-order linear logic beyond its syntax and its proofs: proof
+  search with unification, the quantifier rules in interactive proving,
+  cut elimination at first order, certificates in the Rocq library,
+  first-order problem families and the comparison with LinearOne.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.

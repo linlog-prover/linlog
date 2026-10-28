@@ -117,7 +117,15 @@ pub(crate) fn math(
             let reading = crate::occurrences::Reading::of_mode(&forest, mode)
                 .map_err(crate::Error::NotIntuitionistic)?;
             let roots = forest.root_members();
-            notation.sequent(&mut out, &forest, Some(&reading), &roots, false, false)
+            notation.sequent(
+                &mut out,
+                &forest,
+                Some(&reading),
+                None,
+                &roots,
+                false,
+                false,
+            )
         }
     }
     .map_err(|_| crate::Error::WriteFailed)?;

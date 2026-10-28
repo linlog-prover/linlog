@@ -309,6 +309,8 @@ impl<'a> Writer<'a> {
         }
         let is_quest = |o: OccId| matches!(forest.sequent().term(forest.term(o)), Term::Quest(_));
         match inference.rule.rule {
+            // The export refuses a sequent with binders.
+            Rule::Forall | Rule::Exists => unreachable!("no binder in a certificate"),
             Rule::Ax => {
                 let literal = inference.sequent[0].occ();
                 self.separate();
@@ -373,6 +375,8 @@ impl<'a> Writer<'a> {
         let inference = self.derivation.inference(id);
         let side = inference.rule.side;
         let constructor = match (inference.rule.rule, side) {
+            // The export refuses a sequent with binders.
+            (Rule::Forall | Rule::Exists, _) => unreachable!("no binder in a certificate"),
             (Rule::Ax, _) => {
                 let literal = inference.sequent[0].occ();
                 self.separate();

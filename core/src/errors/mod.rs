@@ -617,6 +617,7 @@ impl Error {
         "stopped",
         "memory_limit",
         "too_many_occurrences",
+        "too_many_terms",
         "output_too_large",
         "work_limit",
         "too_many_pixels",
@@ -660,7 +661,6 @@ impl Error {
             Self::InconsistentSession { .. } => Malformed,
             Self::Check(CheckError::Invalid(_)) => Invalid,
             Self::Check(CheckError::Refused(refused)) => refusal_kind(&refused.refusal),
-            Self::Check(CheckError::Quantifiers) => Unsupported,
             Self::Refutation(crate::search::RefutationFault::Uncertified { .. }) => Unsupported,
             Self::Refutation(_) => Invalid,
             Self::Net(error) => error.kind(),
@@ -729,7 +729,6 @@ impl Error {
             Self::InconsistentSession { .. } => "inconsistent_session",
             Self::Check(CheckError::Invalid(_)) => "invalid_proof",
             Self::Check(CheckError::Refused(refused)) => refused.refusal.code(),
-            Self::Check(CheckError::Quantifiers) => "quantifiers",
             Self::Refutation(crate::search::RefutationFault::Uncertified { .. }) => "uncertified",
             Self::Refutation(_) => "invalid_refutation",
             Self::Net(error) => error.code(),
@@ -870,7 +869,7 @@ fn not_topological(space: Space, index: usize, parent: usize) -> String {
 fn check_message(error: &CheckError) -> String {
     match error {
         CheckError::Invalid(_) => format!("{INVALID_PROOF}{error}"),
-        CheckError::Refused(_) | CheckError::Quantifiers => error.to_string(),
+        CheckError::Refused(_) => error.to_string(),
     }
 }
 
@@ -954,6 +953,7 @@ mod tests {
                 occurrences: 2,
                 limit: 1,
             },
+            Refusal::Terms { terms: 2, limit: 1 },
             Refusal::Output {
                 what: "derivation",
                 estimate_bytes: 2,
@@ -1279,6 +1279,7 @@ mod tests {
             Refusal::Stopped { .. }
             | Refusal::Memory { .. }
             | Refusal::Occurrences { .. }
+            | Refusal::Terms { .. }
             | Refusal::Output { .. }
             | Refusal::Work { .. }
             | Refusal::Pixels { .. }

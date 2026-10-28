@@ -566,3 +566,23 @@ the commit that lands it rewrites that bullet.
   through the reading), so one order, the forest's, serves both ordered
   modes, and its two-sided reading is `Reading::of_mode`. Without the
   reversing dual, `|- ~(a * b), a, b` would be unprovable in cyclic mode.
+
+## Terms bound, cut formulas with binders (step 42b)
+
+- `Limits::terms` (`DEFAULT_TERMS`) bounds `Sequent::fo_size`, the terms
+  the atoms' arguments unfold to, on every reader: the text parser after
+  its loop (`first_order_within`, cold, so the propositional parser is
+  unchanged), the JSON sequent reader before any key is built, and a
+  proof's instance table by its entries. 42a's readers counted against
+  `limits.occurrences`; the refusal is now `Refusal::Terms`.
+- `FoTerm::Eigen` exists only in a proof's extension: no reader of a
+  sequent makes one (the JSON reader refuses `{"E": k}` in a sequent),
+  so `FirstOrder::write` takes it as unreachable.
+- `push_cuts` names a dual binder's variable as its binder's: without
+  it a sequent with a cut formula with binders wrote fewer `binders`
+  than it has binders and read back shifted.
+- The JSON reader numbers argument lists in another order than the
+  parser (equal texts, equal JSON, different `lists`), so a parsed and a
+  read sequent compare unequal by `==`: a follow-up, which the tests
+  avoid by comparing texts.
+

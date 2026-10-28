@@ -1,0 +1,13 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{\vdash p(a, b)^\bot, p(a, b)}
+\infer1[$\exists$]{\vdash \exists x.\,p(x, b), p(a, b)^\bot}
+\infer1[$\exists$]{\vdash \exists y.\,p(a, y)^\bot, \exists x.\,p(x, b)}
+\infer1[$\forall$]{\vdash \forall y.\,(\exists x.\,p(x, y)), \exists y.\,p(a, y)^\bot}
+\infer1[$\forall$]{\vdash \forall x.\,(\exists y.\,p(x, y)^\bot), \forall y.\,(\exists x.\,p(x, y))}
+\end{prooftree}
+\end{document}

@@ -539,9 +539,7 @@ pub(crate) fn derivation(
     let invalid = |e: linlog::CheckError| {
         anyhow!(
             "the proof is invalid: {}",
-            e.describe(proof.forest())
-                .in_mode(mode)
-                .abbreviated(show.abbreviate)
+            e.describe(proof).in_mode(mode).abbreviated(show.abbreviate)
         )
     };
     let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));

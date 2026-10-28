@@ -80,11 +80,35 @@ impl Args {
     }
 }
 
-/// A first-order term of a sequent: a bound variable or a function
-/// symbol applied to arguments, which refers to its arguments by arena
-/// index. Every term of a sequent's arena is bound or ground: the free
-/// variables of a search and the eigenvariables of a proof live in their
-/// own extension of the arena.
+/// An eigenvariable of a proof: the fresh constant a `∀` inference
+/// introduces, by its number in the proof. It is never bound in the term:
+/// the proof's instance table names it wherever a witness or a frame
+/// holds it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(transparent)
+)]
+pub struct Eigen(u32);
+
+impl Eigen {
+    /// Wraps a raw eigenvariable number.
+    pub const fn new(number: u32) -> Self {
+        Self(number)
+    }
+
+    /// Returns the raw eigenvariable number.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
+
+/// A first-order term: a bound variable or a function symbol applied to
+/// arguments, which refers to its arguments by arena index, or in a
+/// proof's extension of the arena an eigenvariable. Every term of a
+/// sequent's own arena is bound or ground: the free variables of a search
+/// and the eigenvariables of a proof live in their own extension of it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FoTerm {
     /// A bound variable, as the number of binders between it and the one
@@ -92,6 +116,9 @@ pub enum FoTerm {
     Bound(u32),
     /// A function symbol applied to its arguments, a constant to none.
     App(Symbol, Args),
+    /// An eigenvariable, which only a proof's extension of the arena
+    /// holds ([`Instances`](crate::Instances)).
+    Eigen(Eigen),
 }
 
 /// A term is a tag and two indices at most: every arena and every table
@@ -178,6 +205,9 @@ impl FirstOrder {
                             open.push((args, 0));
                         }
                     }
+                    // Every way to a sequent builds its arena of bound and
+                    // ground terms alone.
+                    FoTerm::Eigen(_) => unreachable!("a sequent's arena holds no eigenvariable"),
                 }
             }
             let Some(&mut (args, ref mut i)) = open.last_mut() else {
@@ -237,12 +267,11 @@ impl FirstOrder {
     /// Returns, per term of the arena, how many terms it unfolds to when
     /// written out as a tree, itself included, saturating: a term that
     /// several terms share counts once for each.
-    #[cfg(feature = "serialize")]
     pub(crate) fn unfolded(&self) -> Vec<u64> {
         let mut unfolded = vec![0u64; self.terms.len()];
         for (n, term) in self.terms.iter().enumerate() {
             unfolded[n] = match *term {
-                FoTerm::Bound(_) => 1,
+                FoTerm::Bound(_) | FoTerm::Eigen(_) => 1,
                 FoTerm::App(_, args) => self
                     .list(args)
                     .iter()
@@ -259,6 +288,7 @@ impl FirstOrder {
         for (n, term) in self.terms.iter().enumerate() {
             loose[n] = match *term {
                 FoTerm::Bound(index) => index.saturating_add(1),
+                FoTerm::Eigen(_) => 0,
                 FoTerm::App(_, args) => self
                     .list(args)
                     .iter()

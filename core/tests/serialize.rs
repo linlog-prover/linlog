@@ -1113,7 +1113,8 @@ fn first_order_round_trip() {
     let mut document = serde_json::Deserializer::from_str(&json);
     let error =
         linlog::wire::upgrade::<Sequent, _>(&mut document, &linlog::Limits::default()).unwrap_err();
-    assert_eq!(error.code(), "too_many_occurrences", "{error}");
+    assert_eq!(error.code(), "too_many_terms", "{error}");
+    assert_eq!(error.setting(), Some("limits.terms"));
     // What a file cannot hold: a loose variable, a symbol at two arities,
     // an argument past the terms, predicates for some atoms only, a name
     // as predicate and function.

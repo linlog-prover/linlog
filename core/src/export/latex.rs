@@ -324,6 +324,8 @@ fn label(out: &mut String, markup: &str) {
                 '→' => NOTATION.ordinary.implies,
                 '¬' => r"\lnot",
                 '↔' => NOTATION.ordinary.iff,
+                '∀' => r"\forall",
+                '∃' => r"\exists",
                 _ => NOTATION.zero,
             }),
             Part::Text(t) => text(out, t),

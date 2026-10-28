@@ -529,7 +529,7 @@ mod tests {
                     size::measured(&proof, &conclusion, view_mode, reading.as_ref(), allowance)
                         .unwrap();
                 let held = Held {
-                    weights: size::weights(proof.forest()),
+                    weights: size::Weights::of(&proof),
                     bytes: 0,
                     budget: Budget {
                         most: None,
@@ -817,7 +817,7 @@ mod tests {
                 Quest(o(0), n(4)),
             ],
         );
-        let mut record = Record::new(&p);
+        let mut record = Record::new(&p, &check::Ground);
         let roots = p.forest().roots();
         let mut never = |_| false;
         let allowance = check::Allowance::new(&crate::Limits::UNBOUNDED, Phase::View, &mut never);
@@ -835,9 +835,12 @@ mod tests {
             .map(|id| record.standard[&n(id)].as_slice().len())
             .into();
         assert_eq!((sequents, record.standard.len()), (vec![2, 2, 2], 3));
-        assert_eq!(record.shared[&n(4)], [o(1).occ()]);
+        assert_eq!(record.shared[&n(4)], [o(1)]);
         // Three flags for each of six nodes, four lists of seven members.
-        assert_eq!(record.bytes(), 6 * 3 + 4 * Record::ENTRY + 7 * 8);
+        assert_eq!(
+            record.bytes(),
+            6 * 3 + 4 * Record::<check::Ground>::ENTRY + 7 * 8
+        );
     }
 
     /// The inferences carry the sequents as ids with repeats, the rule, the

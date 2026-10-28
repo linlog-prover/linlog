@@ -178,7 +178,6 @@ impl Serialize for CheckError {
                 "fault" => &e.fault;
                 "premises" => &e.premises),
             Self::Refused(e) => entries!(s; "node" => &e.node.get(); "refusal" => &e.refusal),
-            Self::Quantifiers => entries!(s; "what" => "the checker"),
         }
     }
 }
@@ -212,6 +211,15 @@ impl Serialize for Fault {
                 entries!(s; "kind" => "not_under_quest"; "member" => &member.get())
             }
             Self::Surplus => entries!(s; "kind" => "surplus"),
+            Self::Instance { member } => {
+                entries!(s; "kind" => "instance"; "member" => &member.get())
+            }
+            Self::Eigenvariable { eigen } => {
+                entries!(s; "kind" => "eigenvariable"; "eigen" => &eigen.get())
+            }
+            Self::Reintroduced { eigen } => {
+                entries!(s; "kind" => "reintroduced"; "eigen" => &eigen.get())
+            }
             Self::Conclusion { derived } => {
                 entries!(s; "kind" => "conclusion"; "derived" => derived)
             }

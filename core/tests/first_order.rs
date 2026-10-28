@@ -8,10 +8,11 @@
 //! propositional and refused by none.
 #![cfg(all(feature = "parse", feature = "serialize", feature = "interactive"))]
 
+use linlog::proofs::Fault;
 use linlog::search::Engine;
 use linlog::{
     CheckError, Criterion, CutFormula, Disproof, Error, Forest, InputOptions, Interactive, Limits,
-    Mode, Options, Proof, ProofStructure, Sequent, Verdict,
+    Member, Mode, Options, Proof, ProofStructure, Sequent, Verdict,
 };
 
 /// Every engine refuses a quantified goal, the dispatch finding none,
@@ -51,18 +52,24 @@ fn every_engine_refuses_a_quantified_goal() {
     assert_eq!(outcome.fragment.to_string(), "MLL");
 }
 
-/// The checker, interactive proving, the proof structures and the
-/// refutations' checks refuse a sequent with a quantifier by name.
+/// Interactive proving, the proof structures and the refutations' checks
+/// refuse a sequent with a quantifier by name; the checker gives a
+/// verdict, here on an axiom that names an open atom without its instance.
 #[test]
-fn the_checker_and_the_views_refuse_a_quantified_sequent() {
+fn the_views_refuse_a_quantified_sequent_and_the_checker_judges_it() {
     let sequent: Sequent = "forall x. p(x) |- p(a)".parse().unwrap();
     let json = format!(
         r#"{{"version":7,"sequent":{},"nodes":[{{"ax":[1,2]}}],"mode":"classical"}}"#,
         serde_json::to_string(&sequent).unwrap()
     );
     let proof: Proof = serde_json::from_str(&json).unwrap();
-    assert_eq!(proof.check(Mode::CLASSICAL), Err(CheckError::Quantifiers));
-    assert_eq!(Error::from(CheckError::Quantifiers).code(), "quantifiers");
+    let Err(CheckError::Invalid(invalid)) = proof.check(Mode::CLASSICAL) else {
+        panic!("an open atom named bare is no instance");
+    };
+    assert!(
+        matches!(invalid.fault, Fault::Instance { member, .. } if member == Member::new(1)),
+        "{invalid:?}"
+    );
     let error = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap_err();
     assert!(
         matches!(
@@ -147,4 +154,92 @@ fn adding_sequents_joins_their_tables() {
             .unwrap()
             .starts_with(r#"{"version":7,"#)
     );
+}
+
+/// The proofs written by hand under `tests/first-order/`, read through
+/// the wire: those the library's own tests accept are proofs in the mode
+/// they record, and the others are no proofs, with a fault whose message
+/// names formulas and instances.
+#[test]
+fn the_written_proofs_read_back_and_are_judged() {
+    let accepted = [
+        "apart",
+        "cut",
+        "cut_ill",
+        "cut_instance",
+        "swap",
+        "swap_ill",
+        "witness",
+        "witness_ill",
+    ];
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/first-order");
+    let mut read = 0;
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_stem().unwrap().to_str().unwrap().to_owned();
+        let json = std::fs::read_to_string(&path).unwrap();
+        let proof: Proof = serde_json::from_str(&json).unwrap();
+        let mode = proof.mode().unwrap_or(Mode::CLASSICAL);
+        let mode = if name.starts_with("apart") || name.starts_with("shared") {
+            mode.with_affine()
+        } else {
+            mode
+        };
+        let result = proof.check(mode);
+        if accepted.contains(&name.as_str()) {
+            assert_eq!(result, Ok(()), "{name}");
+        } else {
+            let error = result.expect_err(&name);
+            assert!(matches!(error, CheckError::Invalid(_)), "{name}: {error}");
+            let message = error.describe(&proof).to_string();
+            assert!(message.starts_with("node "), "{name}: {message}");
+        }
+        read += 1;
+    }
+    assert_eq!(read, 16);
+    // The eigenvariable a `∃` step below its `∀` step names, by name.
+    let json = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/first-order/swap_back.json"),
+    )
+    .unwrap();
+    let proof: Proof = serde_json::from_str(&json).unwrap();
+    let error = proof.check(Mode::CLASSICAL).unwrap_err();
+    assert_eq!(
+        error.describe(&proof).to_string(),
+        "node 4 (∃ on ∃x. (∀y. p(x, y)) from 3) with premises ⊢ ∃y. (∀x. ~p(x, y)), \
+         ∀y. p(a, y): eigenvariable a occurs outside the ∀ step that introduces it"
+    );
+}
+
+/// The first-order terms a sequent's atoms unfold to are bounded on every
+/// reader by `limits.terms`: the text, the sequent's JSON and a proof's
+/// instance table, each refused past it with its own code.
+#[test]
+fn the_term_limit_refuses_at_every_reader() {
+    let text = "|- p(f(f(a)))";
+    let sequent: Sequent = text.parse().unwrap();
+    assert_eq!(sequent.fo_size(), 3);
+    let tight = Limits::default().with_terms(Some(2));
+    let error = Sequent::parse_within(text, &tight).unwrap_err();
+    assert_eq!(error.code(), "too_many_terms", "{error}");
+    assert!(Sequent::parse_within(text, &Limits::default().with_terms(Some(3))).is_ok());
+    let json = serde_json::to_string(&sequent).unwrap();
+    let mut document = serde_json::Deserializer::from_str(&json);
+    let error = linlog::wire::upgrade::<Sequent, _>(&mut document, &tight).unwrap_err();
+    assert_eq!(error.code(), "too_many_terms", "{error}");
+    // A proof whose sequent is within the bound and whose instance table
+    // is not.
+    let json = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/first-order/swap.json"),
+    )
+    .unwrap();
+    let proof: Proof = serde_json::from_str(&json).unwrap();
+    // Four members, four frames and two terms.
+    assert_eq!(proof.instances().unwrap().len(), 4);
+    assert_eq!(proof.sequent().fo_size(), 4);
+    let limits = Limits::default().with_terms(Some(5));
+    let mut document = serde_json::Deserializer::from_str(&json);
+    let error = linlog::wire::upgrade::<Proof, _>(&mut document, &limits).unwrap_err();
+    assert_eq!(error.code(), "too_many_terms", "{error}");
+    assert_eq!(error.setting(), Some("limits.terms"));
 }

@@ -409,6 +409,20 @@ fn every_label() {
         pin(name, &derivation);
         pin_linlog(name, &derivation);
     }
+    // First-order derivations of proofs written by hand: the quantifier
+    // rules one-sided, and two-sided as `∀R`, `∀L`, `∃R` and `∃L`, every
+    // instance written with its frame's terms.
+    for (name, sides) in [("swap", Sides::One), ("swap_ill", Sides::Two)] {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/first-order")
+            .join(format!("{name}.json"));
+        let proof: Proof = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let view = ViewOptions::default().with_sides(sides);
+        let derivation = proof.derivation_within(&view, &Limits::default(), |_| false);
+        let derivation = derivation.unwrap();
+        rules.extend(derivation.inferences().iter().map(Inference::rule));
+        pin(&format!("first_order_{name}"), &derivation);
+    }
     let missing: Vec<Named> = Named::ALL
         .into_iter()
         .filter(|r| r.rule != Rule::Open && !rules.contains(r))

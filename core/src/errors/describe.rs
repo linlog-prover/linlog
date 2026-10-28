@@ -4,9 +4,10 @@
 use super::{Error, INVALID_PROOF};
 use crate::Mode;
 use crate::nets::{MellStructure, NetError, ProofStructure};
-use crate::occurrences::OccId;
-use crate::occurrences::{Forest, Reading, ShapeError};
+use crate::occurrences::instances::Framing;
+use crate::occurrences::{Forest, Instances, Member, OccId, Reading, ShapeError};
 use crate::proofs::{CheckError, Derivation, Proof};
+use crate::sequents::notation::TEXT;
 use std::fmt::{self, Display, Formatter, Write};
 
 /// The most characters a formula or a list of formulas of an error report
@@ -59,31 +60,44 @@ pub(crate) struct Names<'a> {
     pub(crate) forest: &'a Forest,
     /// The reading of an owner in an intuitionistic mode.
     pub(crate) reading: Option<&'a Reading<'a>>,
+    /// The instances of an owner that has them.
+    pub(crate) framing: Option<&'a Framing<'a>>,
 }
 
-/// Writes an occurrence as its formula when names are given, else as its
-/// id.
+/// Writes a member as its formula when names are given, an instance as
+/// its owner's table says, else as its id.
 pub(crate) fn occurrence(
     f: &mut (impl Write + ?Sized),
     names: Option<Names<'_>>,
-    o: OccId,
+    o: Member,
 ) -> fmt::Result {
     match names {
         Some(Names {
+            forest,
+            reading,
+            framing: Some(framing),
+        }) if o.index() >= forest.len() => {
+            let mut text = String::new();
+            TEXT.instance(&mut text, forest, reading, framing, o)?;
+            f.write_str(&text)
+        }
+        // An instance whose owner's table the names lack, by its id.
+        Some(Names { forest, .. }) if o.index() >= forest.len() => write!(f, "#{}", o.get()),
+        Some(Names {
             reading: Some(reading),
             ..
-        }) => write!(f, "{}", reading.formula(o)),
-        Some(Names { forest, .. }) => write!(f, "{}", forest.formula(o)),
+        }) => write!(f, "{}", reading.formula(o.occ())),
+        Some(Names { forest, .. }) => write!(f, "{}", forest.formula(o.occ())),
         None => write!(f, "{}", o.get()),
     }
 }
 
-/// Writes an occurrence as [`occurrence`] does, cut after `limit`
-/// characters with `…` after it.
+/// Writes a member as [`occurrence`] does, cut after `limit` characters
+/// with `…` after it.
 pub(crate) fn cut(
     f: &mut (impl Write + ?Sized),
     names: Option<Names<'_>>,
-    o: OccId,
+    o: Member,
     limit: Limit,
 ) -> fmt::Result {
     let mut budget = Budget::new(f, limit);
@@ -114,6 +128,11 @@ impl crate::sealed::Owner for Proof {
     /// The mode the proof records.
     fn mode(&self) -> Option<Mode> {
         Proof::mode(self)
+    }
+
+    /// The proof's instances.
+    fn instances(&self) -> Option<&Instances> {
+        Proof::instances(self)
     }
 }
 
@@ -213,6 +232,8 @@ pub struct Described<'a> {
     /// The mode whose reading writes the formulas, where it is an
     /// intuitionistic one.
     mode: Option<Mode>,
+    /// The owner's instances, where it has them.
+    instances: Option<&'a Instances>,
 }
 
 impl<'a> Described<'a> {
@@ -224,6 +245,7 @@ impl<'a> Described<'a> {
             vertices: owner.vertices(),
             limit: None,
             mode: owner.mode(),
+            instances: owner.instances(),
         }
     }
 
@@ -260,9 +282,13 @@ impl Display for Described<'_> {
             .mode
             .filter(|mode| mode.is_intuitionistic())
             .and_then(|mode| Reading::of_mode(self.forest, mode.with_empty_antecedents()).ok());
+        let framing = self
+            .instances
+            .map(|table| Framing::new(&self.forest.sequent().fo, table));
         let forest = Some(Names {
             forest: self.forest,
             reading: reading.as_ref(),
+            framing: framing.as_ref(),
         });
         match self.error {
             Subject::Error(Error::Net(e)) => {

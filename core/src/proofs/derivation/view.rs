@@ -8,6 +8,7 @@ use super::build::unfold;
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Progress};
+use crate::occurrences::instances::Framing;
 use crate::occurrences::{Forest, Member, OccId, Reading};
 use crate::proofs::check;
 use crate::proofs::{Named, NodeId, Proof};
@@ -296,6 +297,9 @@ pub struct Derivation<'a> {
         expect(dead_code, reason = "only a certificate asks")
     )]
     mode: Option<Mode>,
+    /// The instances of the proof's members past the forest, where it
+    /// has them.
+    framing: Option<Framing<'a>>,
 }
 
 impl<'a> Derivation<'a> {
@@ -381,6 +385,9 @@ impl<'a> Derivation<'a> {
             inferences,
             of_goal: proof.goal().is_some(),
             mode: proof.mode(),
+            framing: proof
+                .instances()
+                .map(|table| Framing::new(&proof.forest().sequent().fo, table)),
         })
     }
 
@@ -400,6 +407,7 @@ impl<'a> Derivation<'a> {
             inferences,
             of_goal: false,
             mode: Some(mode),
+            framing: None,
         }
     }
 
@@ -449,17 +457,46 @@ impl<'a> Derivation<'a> {
 
     /// Returns the occurrence a member of the derivation stands for.
     pub fn occurrence(&self, member: Member) -> OccId {
-        member.occ()
+        self.framing
+            .as_ref()
+            .map_or(member.occ(), |framing| framing.occurrence(member))
     }
 
     /// Returns the formula a member of the derivation stands for: in a
     /// two-sided derivation as its reading writes it, else as the
-    /// one-sided sequent writes it.
+    /// one-sided sequent writes it; an instance with the terms of its
+    /// frame for its loose bound variables.
+    ///
+    /// # Panics
+    ///
+    /// For a member past the forest that the proof's table does not
+    /// number, which is no member of the derivation.
     pub fn formula(&self, member: Member) -> impl std::fmt::Display + 'a {
+        if let Some(framing) = &self.framing
+            && member.index() >= self.forest.len()
+        {
+            let mut text = String::new();
+            crate::sequents::notation::TEXT
+                .instance(
+                    &mut text,
+                    self.forest,
+                    self.reading.as_ref(),
+                    framing,
+                    member,
+                )
+                .expect("writing into a string cannot fail");
+            return text;
+        }
         match &self.reading {
             Some(reading) => reading.formula(member.occ()).to_string(),
             None => self.forest.formula(member.occ()).to_string(),
         }
+    }
+
+    /// Returns the instances of the proof's members past the forest,
+    /// where it has them.
+    pub(crate) fn framing(&self) -> Option<&Framing<'a>> {
+        self.framing.as_ref()
     }
 
     /// Returns the intuitionistic reading of a two-sided derivation, or

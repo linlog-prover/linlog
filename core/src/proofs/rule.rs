@@ -43,6 +43,10 @@ pub enum Rule {
     AffineWeakening,
     /// `cut`
     Cut,
+    /// `∀`, with an eigenvariable.
+    Forall,
+    /// `∃`, with a witness.
+    Exists,
     /// An open goal of a proof in progress: a leaf without a rule, which
     /// only the derivation of an interactive state contains.
     Open,
@@ -50,7 +54,7 @@ pub enum Rule {
 
 impl Rule {
     /// Every rule, in the order of declaration.
-    pub const ALL: [Self; 17] = {
+    pub const ALL: [Self; 19] = {
         use Rule::*;
         [
             Ax,
@@ -69,6 +73,8 @@ impl Rule {
             Mix,
             AffineWeakening,
             Cut,
+            Forall,
+            Exists,
             Open,
         ]
     };
@@ -93,6 +99,8 @@ impl Rule {
             Mix => "mix",
             AffineWeakening => "wk",
             Cut => "cut",
+            Forall => "∀",
+            Exists => "∃",
             Open => "open",
         }
     }
@@ -115,7 +123,7 @@ impl Rule {
             Ax | One | Top | Open => 0,
             Tensor | With | Mix | Cut => 2,
             Par | Bot | PlusLeft | PlusRight | Promotion | Dereliction | Contraction
-            | Weakening | AffineWeakening => 1,
+            | Weakening | AffineWeakening | Forall | Exists => 1,
         }
     }
 
@@ -175,7 +183,7 @@ pub enum Division {
 impl Named {
     /// Every named rule: the one-sided ones in the order of
     /// [`Rule::ALL`], an open goal last, and the two-sided ones between.
-    pub const ALL: [Self; 35] = {
+    pub const ALL: [Self; 41] = {
         use Rule::*;
         use Side::{Input, Output};
         [
@@ -195,6 +203,8 @@ impl Named {
             one_sided(Mix),
             one_sided(AffineWeakening),
             one_sided(Cut),
+            one_sided(Forall),
+            one_sided(Exists),
             two_sided(Tensor, Input),
             two_sided(Par, Output),
             two_sided(Par, Input),
@@ -213,6 +223,10 @@ impl Named {
             two_sided(Promotion, Output),
             two_sided(Contraction, Input),
             two_sided(Weakening, Input),
+            two_sided(Forall, Output),
+            two_sided(Forall, Input),
+            two_sided(Exists, Output),
+            two_sided(Exists, Input),
             one_sided(Open),
         ]
     };
@@ -313,6 +327,10 @@ impl Named {
             (Promotion, Some(_)) => "!R",
             (Contraction, Some(_)) => "!c",
             (Weakening, Some(_)) => "!w",
+            (Forall, Some(Output)) => "∀R",
+            (Forall, Some(Input)) => "∃L",
+            (Exists, Some(Output)) => "∃R",
+            (Exists, Some(Input)) => "∀L",
             (rule, _) => rule.name(),
         }
     }
@@ -328,6 +346,11 @@ impl Named {
         if let Some(division) = self.division {
             let left = matches!(self.rule, Rule::Tensor);
             return Self::ALL.len() + 2 * (division as usize) + if left { 0 } else { 1 };
+        }
+        // The one-sided rules lead the list in their order, an open goal
+        // apart.
+        if self.side.is_none() && !matches!(self.rule, Rule::Open) {
+            return self.rule as usize;
         }
         let mut i = 0;
         while i < Self::ALL.len() {
@@ -425,6 +448,8 @@ impl FromStr for Named {
             "mix" => (Mix, None),
             "wk" => (AffineWeakening, None),
             "cut" => (Cut, None),
+            "∀" | "forall" => (Forall, None),
+            "∃" | "exists" => (Exists, None),
             "⊸L" | "-oL" => (Tensor, Some(Input)),
             "⊸R" | "-oR" => (Par, Some(Output)),
             "⊗L" | "*L" => (Par, Some(Input)),
@@ -443,6 +468,10 @@ impl FromStr for Named {
             "!R" => (Promotion, Some(Output)),
             "!c" => (Contraction, Some(Input)),
             "!w" => (Weakening, Some(Input)),
+            "∀R" | "forallR" => (Forall, Some(Output)),
+            "∃L" | "existsL" => (Forall, Some(Input)),
+            "∃R" | "existsR" => (Exists, Some(Output)),
+            "∀L" | "forallL" => (Exists, Some(Input)),
             "open" => (Open, None),
             _ => {
                 return Err(Error::UnknownName {
@@ -463,9 +492,9 @@ const NAMES: &[&str] = KNOWN.split_at(Named::ALL.len()).0;
 /// The names of [`Named::ALL`], in its order, then those of the
 /// divisions.
 const KNOWN: &[&str] = &[
-    "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "cut",
-    "⊸L", "⊸R", "⊗L", "⊗R", "&L₁", "&L₂", "&R", "⊕L", "⊕R₁", "⊕R₂", "1L", "1R", "0L", "⊤R", "!L",
-    "!R", "!c", "!w", "open", "\\L", "\\R", "/L", "/R",
+    "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "cut", "∀",
+    "∃", "⊸L", "⊸R", "⊗L", "⊗R", "&L₁", "&L₂", "&R", "⊕L", "⊕R₁", "⊕R₂", "1L", "1R", "0L", "⊤R",
+    "!L", "!R", "!c", "!w", "∀R", "∃L", "∃R", "∀L", "open", "\\L", "\\R", "/L", "/R",
 ];
 
 #[cfg(test)]

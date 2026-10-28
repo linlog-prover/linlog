@@ -468,7 +468,7 @@ impl NetError {
             match (names, o) {
                 (Some(names), Some(o)) => {
                     let mut formula = String::new();
-                    clipped(&mut formula, Some(names), o, limit).unwrap();
+                    clipped(&mut formula, Some(names), o.into(), limit).unwrap();
                     format!("{formula}[{}]", v.get())
                 }
                 _ => v.get().to_string(),
@@ -932,7 +932,9 @@ impl ProofStructure {
                 | Node::Bang(..)
                 | Node::Quest(..)
                 | Node::Copy(..)
-                | Node::Weaken(..) => {
+                | Node::Weaken(..)
+                | Node::Forall(..)
+                | Node::Exists(..) => {
                     return Err(NetError::Rule {
                         node: NodeId::new(i as u32),
                         rule: node.name(),

@@ -132,7 +132,7 @@ impl ShapeError {
         names: Option<Names<'_>>,
         limit: Limit,
     ) -> FmtResult {
-        let occurrence = |f: &mut Formatter<'_>, o: OccId| cut(f, names, o, limit);
+        let occurrence = |f: &mut Formatter<'_>, o: OccId| cut(f, names, o.into(), limit);
         let forest = names.map(|n| n.forest);
         match self {
             ShapeError::NoGoal => f.write_str(
@@ -542,7 +542,17 @@ impl<'a> Reading<'a> {
         &'s self,
         sequent: &'s [super::Member],
     ) -> impl Iterator<Item = usize> + 's {
-        let output = move |p: usize| self.position(sequent[p].occ()) == Side::Output;
+        self.written_by(sequent, super::Member::occ)
+    }
+
+    /// Returns the positions as [`written`](Self::written) does, of a
+    /// sequent of members whose occurrences `occ` gives.
+    pub(crate) fn written_by<'s>(
+        &'s self,
+        sequent: &'s [super::Member],
+        occ: impl Fn(super::Member) -> OccId + Copy + 's,
+    ) -> impl Iterator<Item = usize> + 's {
+        let output = move |p: usize| self.position(occ(sequent[p])) == Side::Output;
         let len = sequent.len();
         let ordered = self.ordered;
         let at = if ordered {

@@ -3,13 +3,20 @@
 
 use crate::occurrences::{Member, OccId};
 
-/// A multiset of occurrence ids, kept as an ascending list with repeats: the
-/// linear zone of a sequent, which holds an occurrence more than once after
-/// copies from the unrestricted zone.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub(crate) struct Multiset(Vec<OccId>);
+/// A multiset of occurrence ids or members, kept as an ascending list with
+/// repeats: the linear zone of a sequent, which holds an occurrence more
+/// than once after copies from the unrestricted zone.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct Multiset<T = OccId>(Vec<T>);
 
-impl Multiset {
+impl<T> Default for Multiset<T> {
+    /// The empty multiset.
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<T: Copy + Ord> Multiset<T> {
     /// Returns the empty multiset.
     #[cfg(any(test, feature = "interactive"))]
     pub(crate) const fn new() -> Self {
@@ -17,21 +24,24 @@ impl Multiset {
     }
 
     /// Returns the multiset of the given ids, in any order.
-    pub(crate) fn of(ids: impl IntoIterator<Item = OccId>) -> Self {
-        let mut ids: Vec<OccId> = ids.into_iter().collect();
+    pub(crate) fn of(ids: impl IntoIterator<Item = T>) -> Self {
+        let mut ids: Vec<T> = ids.into_iter().collect();
         ids.sort_unstable();
         Self(ids)
     }
 
     /// Returns the members in ascending order, with repeats.
-    pub(crate) fn as_slice(&self) -> &[OccId] {
+    pub(crate) fn as_slice(&self) -> &[T] {
         &self.0
     }
 
     /// Returns the members, ascending with repeats, as a sequent of an
     /// inference holds them.
-    pub(crate) fn into_members(self) -> Vec<Member> {
-        self.0.into_iter().map(Member::from).collect()
+    pub(crate) fn into_members(self) -> Vec<Member>
+    where
+        T: Into<Member>,
+    {
+        self.0.into_iter().map(Into::into).collect()
     }
 
     /// Returns whether the multiset has no member.
@@ -40,31 +50,31 @@ impl Multiset {
     }
 
     /// Returns the position of the first copy of `o`, if it is a member.
-    pub(crate) fn position(&self, o: OccId) -> Option<usize> {
+    pub(crate) fn position(&self, o: T) -> Option<usize> {
         let i = self.0.partition_point(|&x| x < o);
         (self.0.get(i) == Some(&o)).then_some(i)
     }
 
     /// Returns whether `o` is a member.
-    pub(crate) fn contains(&self, o: OccId) -> bool {
+    pub(crate) fn contains(&self, o: T) -> bool {
         self.position(o).is_some()
     }
 
     /// Adds one copy of `o`.
-    pub(crate) fn insert(&mut self, o: OccId) {
+    pub(crate) fn insert(&mut self, o: T) {
         let i = self.0.partition_point(|&x| x <= o);
         self.0.insert(i, o);
     }
 
     /// Adds `o` if it is not a member.
-    pub(crate) fn ensure(&mut self, o: OccId) {
+    pub(crate) fn ensure(&mut self, o: T) {
         if !self.contains(o) {
             self.insert(o);
         }
     }
 
     /// Removes one copy of `o` and returns whether there was one.
-    pub(crate) fn remove(&mut self, o: OccId) -> bool {
+    pub(crate) fn remove(&mut self, o: T) -> bool {
         match self.position(o) {
             Some(i) => {
                 self.0.remove(i);
@@ -86,7 +96,7 @@ impl Multiset {
                 (None, Some(&y)) => y,
                 (None, None) => unreachable!(),
             };
-            let run = |v: &[OccId], k: usize| v[k..].iter().take_while(|&&x| x == o).count();
+            let run = |v: &[T], k: usize| v[k..].iter().take_while(|&&x| x == o).count();
             let (ca, cb) = (run(a, i), run(b, j));
             out.extend(std::iter::repeat_n(o, f(ca, cb)));
             i += ca;
@@ -154,7 +164,7 @@ mod tests {
         assert_eq!(b.difference(&a).as_slice(), [o(2), o(4)]);
         assert!(!a.is_subset(&b));
         assert!(a.difference(&b).is_subset(&a));
-        assert!(Multiset::new().is_subset(&a));
-        assert!(Multiset::new().is_empty());
+        assert!(Multiset::<OccId>::new().is_subset(&a));
+        assert!(Multiset::<OccId>::new().is_empty());
     }
 }

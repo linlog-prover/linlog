@@ -125,6 +125,8 @@ fn unfolded(proof: &Proof) -> u64 {
             | Node::With(..)
             | Node::Plus(..)
             | Node::Top(_) => 1,
+            // A sequent with a binder has no net.
+            Node::Forall(..) | Node::Exists(..) => unreachable!("a MELL proof has no binder"),
         };
         total = total.saturating_add(uses[i].saturating_mul(made));
         for p in nodes[i].premises() {
@@ -272,7 +274,9 @@ impl<'a> Unfolding<'a> {
             | Node::Copy(..)
             | Node::Weaken(..)
             | Node::Mix(..)
-            | Node::Cut(..) => {}
+            | Node::Cut(..)
+            | Node::Forall(..)
+            | Node::Exists(..) => {}
         }
         Frame {
             node: id,
@@ -342,7 +346,13 @@ impl<'a> Unfolding<'a> {
                 self.waiting[a.index()].push(copy);
             }
             Node::Mix(..) => {}
-            Node::One(_) | Node::Bot(..) | Node::With(..) | Node::Plus(..) | Node::Top(_) => {
+            Node::One(_)
+            | Node::Bot(..)
+            | Node::With(..)
+            | Node::Plus(..)
+            | Node::Top(_)
+            | Node::Forall(..)
+            | Node::Exists(..) => {
                 unreachable!("a checked proof of unit-free MELL has no such rule")
             }
             Node::Cut(a, _, _) => {
