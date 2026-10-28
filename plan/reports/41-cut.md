@@ -547,8 +547,9 @@ cause with a test that reaches them; their answers are below.
   cuts left after 2 steps: the elimination took the most steps allowed,
   2; --steps N allows more`) as one note that every format comments line
   by line, then the derivation of the proof reached; exit 0 at no cut
-  left or at the steps asked for, 3 at any other bound or the time limit,
-  1 for an invalid proof, 2 for an error. `--format json` writes the
+  left or at the steps asked for with `--steps` (or a settings file), 3
+  at the default bound on steps with cuts left, at any other bound and
+  at the time limit, 1 for an invalid proof, 2 for an error. `--format json` writes the
   library's record.
 - **The record's JSON form** (written only, `Serialize for
   Elimination`): `{"version": 6, "proof": {…}, "steps": [{"cut": 9,
@@ -640,10 +641,14 @@ draw and undo it.
   front ends: the command maps its flags; the bindings (41d) hold
   `Settings::cut` as JSON (`{"cut": {"steps": 10000, "nodes": 100000,
   "strategy": "topmost"}}`); a library caller passes `cut::Options`.
-- **Exit statuses of `eliminate`**: 0 at no cut left and at the steps
-  bound (what was asked: `--steps 1` is one step), 3 at another bound or
-  the time limit, as an unknown is elsewhere; the proof reached is
-  printed in every one of them.
+- **Exit statuses of `eliminate`**: 0 at no cut left and at a steps
+  bound the user set (what was asked: `--steps 1` is one step), 3 at the
+  default steps bound with cuts left, at another bound or at the time
+  limit, as an unknown is elsewhere; the proof reached is printed in
+  every one of them. The first version answered 0 at the default bound
+  too, which read as done with cuts left; the supervisor's review found
+  it, and `the_default_bound_on_steps_is_unknown` and the command test
+  in `cli/tests/cli.rs` pin the statuses.
 - **Quantifiers (D17)**: a step reads nodes and occurrences only; a
   first-order cut's key case (`∀`/`∃`) will substitute the witness term
   into the subproof, which is a renaming of the arena's terms as
@@ -799,7 +804,13 @@ check` failed its `conventions` check, which refuses `step N` and `steps
 N` in README and in comments (the words that would name the plan), on
 the command's lines `step 1: …` and the example `--steps 2`; the lines
 are now numbered (`1. contraction on the cut of !a`) and the flag
-written `--steps=2`, the check unchanged.
+written `--steps=2`, the check unchanged. The second `nix flake check` failed its
+`doc` check on a redundant explicit link target in the elimination's
+docs (`rustdoc::redundant_explicit_links`, denied); "Drop a redundant
+link target in the elimination's docs" removed it and passed the gate,
+as did "Answer unknown when eliminate stops at its default bound on
+steps" (the supervisor's finding, under Decisions), each at its own
+tree.
 
 ### The target sets
 
