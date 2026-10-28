@@ -1013,7 +1013,9 @@ with `--output FILE` draws every net into a file of its own: `FILE-k`
 link, a bar under its two formulas, and what the step acts on (the links
 at its ends, its `⊗` and `⅋`, the box of its `!`, the box it enters)
 highlighted, and `FILE` the net reached; an SVG file's first line is a
-comment naming its step. `--format json` writes the record `{"version",
+comment naming its step. Each file is written as soon as it is drawn,
+within `--derivation-limit`, and there are as many as steps, at most
+`--steps`. `--format json` writes the record `{"version",
 "net", "steps", "end"}` with the net reached, each step's `cut` the two
 vertices of its cut link.
 

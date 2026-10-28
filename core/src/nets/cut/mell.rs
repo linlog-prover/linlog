@@ -54,31 +54,34 @@ impl Work {
         self.erased.iter().filter(|&&e| !e).count()
     }
 
-    /// Returns the premises of a vertex left, in vertex order.
-    fn premises(&self, v: u32) -> Vec<u32> {
-        (0..self.parent.len() as u32)
-            .filter(|&w| self.parent[w as usize] == v && !self.erased[w as usize])
-            .collect()
-    }
-
-    /// Returns whether the vertex lies in the box of `b`, at any depth.
-    fn within(&self, v: u32, b: u32) -> bool {
-        let mut c = self.inside[v as usize];
-        while c != NONE {
-            if c == b {
-                return true;
-            }
-            c = self.inside[c as usize];
-        }
-        false
-    }
-
     /// Returns the box of the `!` vertex `b`: `b` and every vertex inside
-    /// it, at any depth, in vertex order.
+    /// it, at any depth, in vertex order. One pass over the vertices lists
+    /// each box's own, then a walk down the boxes inside gathers them, so
+    /// that it takes time linear in the structure however deep the boxes
+    /// nest.
     fn contents(&self, b: u32) -> Vec<u32> {
-        (0..self.parent.len() as u32)
-            .filter(|&v| !self.erased[v as usize] && (v == b || self.within(v, b)))
-            .collect()
+        let n = self.parent.len();
+        let mut own: Vec<Vec<u32>> = vec![Vec::new(); n];
+        for v in 0..n {
+            let i = self.inside[v];
+            if i != NONE && !self.erased[v] {
+                own[i as usize].push(v as u32);
+            }
+        }
+        let mut inner = vec![b];
+        let mut boxes = vec![b];
+        while let Some(c) = boxes.pop() {
+            // A vertex whose box this is and which has a box of its own is
+            // the `!` vertex of a box inside.
+            for &v in &own[c as usize] {
+                inner.push(v);
+                if !own[v as usize].is_empty() {
+                    boxes.push(v);
+                }
+            }
+        }
+        inner.sort_unstable();
+        inner
     }
 
     /// Adds a vertex and returns it.
@@ -103,20 +106,20 @@ impl Work {
         self.hangs.retain(|&(q, _)| !erased[q as usize]);
     }
 
-    /// Duplicates the box of `b` and returns the duplicate's `!` vertex:
-    /// every vertex in it, the links, cut links and weakenings inside, and
-    /// for a copy in it of a `?` vertex outside, a copy of that vertex.
-    fn duplicate(&mut self, b: u32) -> u32 {
-        let inner = self.contents(b);
+    /// Duplicates the box of `b`, whose contents are `inner`, and returns
+    /// the duplicate's `!` vertex: every vertex in it, the links, cut links
+    /// and weakenings inside, and for a copy in it of a `?` vertex outside,
+    /// a copy of that vertex.
+    fn duplicate(&mut self, b: u32, inner: &[u32]) -> u32 {
         let mut copy = vec![NONE; self.parent.len()];
-        for &v in &inner {
+        for &v in inner {
             copy[v as usize] = self.push(self.occurrence[v as usize], NONE, NONE);
         }
         let image = |v: u32| match copy[v as usize] {
             NONE => v,
             c => c,
         };
-        for &v in &inner {
+        for &v in inner {
             let c = copy[v as usize] as usize;
             let (p, i) = (self.parent[v as usize], self.inside[v as usize]);
             self.parent[c] = if p == NONE { NONE } else { image(p) };
@@ -217,6 +220,9 @@ impl crate::sealed::Net for MellStructure {
             .expect("a cut link of the net");
         let (x, y) = (x.get(), y.get());
         let kind = |work: &Work, v: u32| forest.kind(work.occurrence[v as usize]);
+        // A vertex's premises in the net the step is taken on.
+        let premises =
+            |v: u32| -> Vec<u32> { self.premises(VertexId::new(v)).map(VertexId::get).collect() };
         let mut above = None;
         let case = match kind(&work, x) {
             Kind::Atom | Kind::DualAtom => {
@@ -248,7 +254,7 @@ impl crate::sealed::Net for MellStructure {
                 Case::Axiom
             }
             Kind::Tensor | Kind::Par => {
-                let (px, py) = (work.premises(x), work.premises(y));
+                let (px, py) = (premises(x), premises(y));
                 // The left premise first, as the structure keeps them.
                 let left = |v: u32, list: &[u32]| {
                     let l = forest.left(work.occurrence[v as usize]).unwrap();
@@ -273,7 +279,7 @@ impl crate::sealed::Net for MellStructure {
                 } else {
                     (y, x)
                 };
-                let copies = work.premises(q);
+                let copies = premises(q);
                 let depth = work.inside[q as usize];
                 match copies[..] {
                     [] => {
@@ -298,17 +304,18 @@ impl crate::sealed::Net for MellStructure {
                         }
                         let bare: Vec<u32> = (0..work.parent.len() as u32)
                             .filter(|&r| {
-                                !work.erased[r as usize]
-                                    && kind(&work, r) == Kind::Quest
-                                    && self.premises(VertexId::new(r)).next().is_some()
-                                    && work.premises(r).is_empty()
+                                !work.erased[r as usize] && kind(&work, r) == Kind::Quest && {
+                                    let mut copies = self.premises(VertexId::new(r)).peekable();
+                                    copies.peek().is_some()
+                                        && copies.all(|c| work.erased[c.index()])
+                                }
                             })
                             .collect();
                         work.hangs.extend(bare.into_iter().map(|r| (r, hung)));
                         Case::Weakening
                     }
                     [c] if work.inside[c as usize] == depth => {
-                        let premise = work.premises(b)[0];
+                        let premise = premises(b)[0];
                         for v in 0..work.inside.len() {
                             if work.inside[v] == b {
                                 work.inside[v] = depth;
@@ -334,7 +341,10 @@ impl crate::sealed::Net for MellStructure {
                         Case::BoxIntoBox
                     }
                     [c, ..] => {
-                        let twin = work.duplicate(b);
+                        // The bound on vertices before the box is copied.
+                        let inner = work.contents(b);
+                        within(work.vertices() + inner.len() + 1, options)?;
+                        let twin = work.duplicate(b, &inner);
                         let own = work.push(work.occurrence[q as usize], NONE, depth);
                         work.parent[c as usize] = own;
                         let cut = if b == x { (twin, own) } else { (own, twin) };

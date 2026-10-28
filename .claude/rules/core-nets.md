@@ -234,6 +234,16 @@ code relies on:
   An erased box's `?` vertices that lose every copy, and the weakenings
   hung in it, hang on the literal the erased `?` hung on, which a proof
   net never has inside the box (a 2-cycle through the cut).
+- **A step is linear in the net**, so that the bounds hold inside it
+  (only `eliminate`'s checks and the step between them ask the stop):
+  premises are read off the net the step is taken on, `Work::contents`
+  lists each box's own vertices in one pass and walks the boxes down,
+  and a contraction checks `cut::Options::nodes` against the net it will
+  make before it copies the box. The first version scanned every vertex
+  per premise and walked every vertex's chain of boxes, so one step on a
+  net of 100 000 nested boxes took 5.6 s past a 2 s time limit and the
+  bound on vertices was asked only after the copy (the integers panel's
+  finding; now 0.1 s).
 - **Remove the reduced cut before rewriting**: `Work::erase` drops every
   cut link with an end in the box, the reduced one too; removing it
   after by its index dropped the next cut link, which the tests found.

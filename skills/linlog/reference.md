@@ -519,7 +519,8 @@ case), every net reached passes the criterion, and the net reached is
 printed as text, a cut link as `cut A[x] — A⊥[y]`; `--node-limit`
 counts a net's vertices. `--format svg|png|pdf --output FILE` writes
 `FILE-k` (the net step k was taken on, its cut link and what it acts
-on highlighted) and `FILE` (the net reached); `--format json` writes
+on highlighted) and `FILE` (the net reached), each within
+`--derivation-limit`, as many as steps; `--format json` writes
 `{"version", "net", "steps": [{"cut": [x, y], "case", "above"}],
 "end"}`.
 

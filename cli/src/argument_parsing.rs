@@ -120,7 +120,9 @@ pub(crate) enum Command {
     /// the net reached is printed as text; `--format svg`, `png` or `pdf`
     /// with `--output FILE` draws every net into a file of its own, FILE-k
     /// (net-1.svg for net.svg) the net step k was taken on, with its cut
-    /// link and what it acts on highlighted, and FILE the net reached, and
+    /// link and what it acts on highlighted, and FILE the net reached (each
+    /// written as it is drawn, within --derivation-limit, one per step up
+    /// to --steps), and
     /// `--format json` writes the record `{"version", "net", "steps",
     /// "end"}`, each step's `cut` the two vertices of its cut link.
     Eliminate(EliminateArgs),

@@ -292,44 +292,23 @@ fn eliminate_net(
             return Ok(Status::Unknown);
         }
     };
-    // Each drawing with the line its file notes, or why it is left out.
-    let mut drawings = Vec::new();
-    let (reached, steps, end) = run(&net, mode, settings, &over, |before, step, line| {
-        if !quiet {
-            drawings.push((line, before.step_drawing(Some(step), show, &over)));
-        }
-    })?;
-    let line = net_report(
-        &steps,
-        &end,
-        &reached,
-        mode,
-        &sequent_of(proof, mode, show),
-        deadline,
-    );
-    let last = line.lines().last().unwrap_or_default().to_owned();
-    if !quiet {
-        drawings.push((last, reached.step_drawing(None, show, &over)));
-    }
-    let last = drawings.len();
-    for (k, (comment, drawing)) in drawings.into_iter().enumerate() {
-        let file = if k + 1 == last {
-            path.to_owned()
-        } else {
-            numbered(path, k + 1)
-        };
+    // Each drawing goes to its file as soon as it is made, so that no more
+    // than one is held at a time; the first failure stops the elimination
+    // and is returned once it has stopped.
+    let failed: std::cell::RefCell<Option<anyhow::Error>> = std::cell::RefCell::new(None);
+    let write = |file: &Path, comment: &str, drawing: std::result::Result<String, String>| {
         let drawing = match drawing {
             Ok(drawing) => drawing,
             Err(left_out) => {
                 eprintln!("{}: {left_out}", file.display());
-                continue;
+                return Ok(());
             }
         };
-        let mut out = io::Output::open(Some(&file), show.format.is_binary())?;
+        let mut out = io::Output::open(Some(file), show.format.is_binary())?;
         if show.format == Format::Svg {
             if show.verdict {
                 out.stream()
-                    .write_all(note(Format::Svg, &comment).as_bytes())?;
+                    .write_all(note(Format::Svg, comment).as_bytes())?;
                 out.stream().write_all(b"\n")?;
             }
             out.stream().write_all(drawing.as_bytes())?;
@@ -348,7 +327,34 @@ fn eliminate_net(
                 }
             }
         }
-        out.finish()?;
+        out.finish()
+    };
+    let stopping = || over() || failed.borrow().is_some();
+    let mut k = 0;
+    let (reached, steps, end) = run(&net, mode, settings, &stopping, |before, step, line| {
+        k += 1;
+        if quiet || failed.borrow().is_some() {
+            return;
+        }
+        let drawing = before.step_drawing(Some(step), show, &over);
+        if let Err(error) = write(&numbered(path, k), &line, drawing) {
+            *failed.borrow_mut() = Some(error);
+        }
+    })?;
+    if let Some(error) = failed.into_inner() {
+        return Err(error);
+    }
+    let line = net_report(
+        &steps,
+        &end,
+        &reached,
+        mode,
+        &sequent_of(proof, mode, show),
+        deadline,
+    );
+    if !quiet {
+        let last = line.lines().last().unwrap_or_default();
+        write(path, last, reached.step_drawing(None, show, &over))?;
     }
     if show.verdict {
         println!("{line}");
