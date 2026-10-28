@@ -229,7 +229,11 @@ impl crate::sealed::Net for MellStructure {
                 };
                 let (px, py) = (partner(x), partner(y));
                 let ends = |&(u, v): &(u32, u32)| [x, y].contains(&u) || [x, y].contains(&v);
-                let first = work.links.iter().position(ends).expect("the literal's link");
+                let first = work
+                    .links
+                    .iter()
+                    .position(ends)
+                    .expect("the literal's link");
                 work.links[first] = (px, py);
                 work.links.retain(|link| !ends(link));
                 // A weakening hung on either literal hangs on the link made.

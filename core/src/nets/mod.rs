@@ -830,10 +830,7 @@ impl ProofStructure {
     /// Validates cut links over the forest and returns them each from its
     /// end in a cut formula's tree, with the set of the structure's
     /// vertices where the forest has cut formulas.
-    fn place_cuts(
-        forest: &Forest,
-        cuts: &[(VertexId, VertexId)],
-    ) -> Result<CutsPlaced, Error> {
+    fn place_cuts(forest: &Forest, cuts: &[(VertexId, VertexId)]) -> Result<CutsPlaced, Error> {
         if !forest.has_cuts() {
             if let Some(&(x, _)) = cuts.first() {
                 return Err(misplaced(x, Placement::Cut));

@@ -213,8 +213,14 @@ fn eliminated<N: Tested>(proof: &Proof, mode: Mode, seen: &mut Seen) -> N {
     let (mut current, mut steps) = (net.clone(), Vec::new());
     while !current.cut_links().is_empty() {
         assert!(steps.len() < MOST_STEPS, "no end in {mode:?}: {net:?}");
-        let reduction = step(&current, None, &Options::default(), &Limits::default(), never)
-            .unwrap_or_else(|e| panic!("{e} in {mode:?} at {current:?}"));
+        let reduction = step(
+            &current,
+            None,
+            &Options::default(),
+            &Limits::default(),
+            never,
+        )
+        .unwrap_or_else(|e| panic!("{e} in {mode:?} at {current:?}"));
         sound(&reduction.net, proof, mode);
         assert_eq!(reduction.step.cut, current.cut_links()[0]);
         *seen.cases.entry(reduction.step.case.name()).or_default() += 1;
@@ -351,7 +357,14 @@ fn any_cut_link_may_be_reduced() {
     /// made and returns the cut link the step names.
     fn reduced<N: Tested>(proof: &Proof, mode: Mode, at: VertexId) -> (VertexId, VertexId) {
         let net = N::of(proof, Criterion::of(mode).unwrap()).unwrap();
-        let r = step(&net, Some(at), &Options::default(), &Limits::default(), never).unwrap();
+        let r = step(
+            &net,
+            Some(at),
+            &Options::default(),
+            &Limits::default(),
+            never,
+        )
+        .unwrap();
         sound(&r.net, proof, mode);
         r.step.cut
     }
@@ -360,9 +373,15 @@ fn any_cut_link_may_be_reduced() {
         let criterion = Criterion::of(mode).unwrap();
         let mll = proof.sequent().fragment().has_nets();
         let cuts = if mll {
-            ProofStructure::of(&proof, criterion).unwrap().cuts().to_vec()
+            ProofStructure::of(&proof, criterion)
+                .unwrap()
+                .cuts()
+                .to_vec()
         } else {
-            MellStructure::of(&proof, criterion).unwrap().cuts().to_vec()
+            MellStructure::of(&proof, criterion)
+                .unwrap()
+                .cuts()
+                .to_vec()
         };
         for (i, &(x, y)) in cuts.iter().enumerate() {
             let at = if i % 2 == 0 { x } else { y };
@@ -484,17 +503,9 @@ fn cut_links_are_checked() {
     let forest = Forest::new(&sequent).unwrap();
     let v = VertexId::new;
     let built = |cuts: &[(u32, u32)], links: &[(u32, u32)]| {
-        let pairs = |list: &[(u32, u32)]| {
-            list.iter()
-                .map(|&(x, y)| (v(x), v(y)))
-                .collect::<Vec<_>>()
-        };
-        ProofStructure::with_cuts(
-            forest.clone(),
-            Criterion::MLL,
-            &pairs(cuts),
-            &pairs(links),
-        )
+        let pairs =
+            |list: &[(u32, u32)]| list.iter().map(|&(x, y)| (v(x), v(y))).collect::<Vec<_>>();
+        ProofStructure::with_cuts(forest.clone(), Criterion::MLL, &pairs(cuts), &pairs(links))
     };
     let net = built(&[(5, 2)], &[(3, 4), (0, 6), (1, 7)]).unwrap();
     assert_eq!(net.cuts(), [(v(2), v(5))]);

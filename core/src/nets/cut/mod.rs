@@ -321,7 +321,8 @@ impl crate::sealed::Net for ProofStructure {
                     self.partner(x).expect("a proof net links every literal"),
                     self.partner(y).expect("a proof net links every literal"),
                 );
-                let ends = |&(u, v): &(VertexId, VertexId)| [x, y].contains(&u) || [x, y].contains(&v);
+                let ends =
+                    |&(u, v): &(VertexId, VertexId)| [x, y].contains(&u) || [x, y].contains(&v);
                 let first = links.iter().position(ends).expect("the literal's link");
                 links[first] = (px, py);
                 links.retain(|link| !ends(link));
@@ -331,7 +332,14 @@ impl crate::sealed::Net for ProofStructure {
             Kind::Tensor | Kind::Par => {
                 let child = |v: VertexId, left: bool| {
                     let o = v.occ();
-                    VertexId::of(if left { forest.left(o) } else { forest.right(o) }.unwrap())
+                    VertexId::of(
+                        if left {
+                            forest.left(o)
+                        } else {
+                            forest.right(o)
+                        }
+                        .unwrap(),
+                    )
                 };
                 cuts.splice(
                     at..=at,

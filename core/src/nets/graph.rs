@@ -463,7 +463,10 @@ impl Graph {
         let n = self.len();
         scratch.restore();
         let vertex = |o: OccId| !self.slots(o.get()).is_empty();
-        for p in forest.ids().filter(|&p| forest.kind(p) == Kind::Par && vertex(p)) {
+        for p in forest
+            .ids()
+            .filter(|&p| forest.kind(p) == Kind::Par && vertex(p))
+        {
             let r = forest.right(p).unwrap();
             scratch.removed[self.twin(r.get(), p.get())] = true;
             scratch.removed[self.slots(r.get()).start] = true;
