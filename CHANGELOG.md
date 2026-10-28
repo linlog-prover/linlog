@@ -516,6 +516,19 @@ second number (0.1.x to 0.2.0), anything else the third.
 - `Inference::node`: in a derivation of a proof term, the node of the
   term whose rule an inference shows, which turns a node (a cut a step
   reduced) into the inferences drawn for it.
+- Cut elimination in the web bindings, on a finished session's proof:
+  `cuts(session, proof, settings)` lists a proof's cuts with their
+  formulas and the drawn inferences that show them, beside its
+  derivation drawn; `cut_step(session, proof, at, settings)` takes one
+  step, the cut `at` or the strategy's, and answers its case, the ids of
+  the drawing to highlight and the proof made; `eliminate(session,
+  proof, settings)` runs to the end within `cut`, each step with its
+  drawing within `cut.drawn_bytes`. On nets `net_cuts`, `net_cut_step`
+  (`at` a vertex at either end of a cut link) and `net_eliminate`, the
+  net with boxes where the proof cuts an occurrence twice, each step's
+  net drawn with its marks. The tab's `cut.drawn_bytes` is 16 MiB
+  (`tab::DRAWN_BYTES`).
+
 ### Changed
 
 - Breaking: `Placed::parent`, a public field of a type 0.1.0 released,

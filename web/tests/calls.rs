@@ -688,8 +688,9 @@ fn ill_formula(state: &mut u64, depth: u32) -> String {
 /// of classical linear logic: over random sequents, the sequent `read_as`
 /// writes, every goal formula's text and reading, and every export of the
 /// session once all its goals are closed (of a Rocq certificate the
-/// comments, whose code is Rocq's, with no classical constructor), and the
-/// net drawn; a sequent written classically is refused with a hint.
+/// comments, whose code is Rocq's, with no classical constructor), the
+/// net drawn, and every step of the elimination of the session's cut; a
+/// sequent written classically is refused with a hint.
 #[wasm_bindgen_test(unsupported = test)]
 fn no_intuitionistic_text_writes_a_classical_symbol() {
     const CLASSICAL: [&str; 8] = ["~", "⅋", "⊥", "?", r"\parr", r"\bot", r"\wn", "perp"];
@@ -752,6 +753,15 @@ fn no_intuitionistic_text_writes_a_classical_symbol() {
         if let Ok(net) = calls::draw_net(&session(&closed), "") {
             check("the net", &net);
         }
+        // Every step of the cut's elimination, each drawn as its proof's
+        // intuitionistic derivation; a net with cut links is drawn plain,
+        // as the one-sided net it is, and is no text of this check.
+        let ran = value(&calls::eliminate(&session(&closed), "", "").unwrap());
+        for step in ran["steps"].as_array().unwrap() {
+            check("a step's formula", step["formula"].as_str().unwrap());
+            check("a step's drawing", step["drawing"].as_str().unwrap());
+        }
+        check("the proof reached", ran["drawing"].as_str().unwrap());
     }
     assert!(finished > 3, "{finished} of 16 finished");
     let refused = failure(&calls::read_as("~a |- b", "intuitionistic", "").unwrap_err());
@@ -759,4 +769,228 @@ fn no_intuitionistic_text_writes_a_classical_symbol() {
         refused["message"].as_str().unwrap().contains("no negation"),
         "{refused}"
     );
+}
+
+/// Returns the finished session of `sequent` in `mode` cut on `formula`,
+/// the members at `left` going to its first premise, both premises closed
+/// by the search.
+fn cut_session(sequent: &str, mode: &str, formula: &str, left: &str) -> String {
+    let started = calls::start(sequent, mode, "").unwrap();
+    let root = value(&started)["view"]["goals"][0]["goal"]
+        .as_u64()
+        .unwrap() as u32;
+    let cut = calls::cut(&session(&started), root, formula, left, "").unwrap();
+    let closed = calls::close_all(&session(&cut), "").unwrap();
+    assert_eq!(value(&closed)["view"]["complete"], true, "{sequent}");
+    session(&closed)
+}
+
+/// Returns the strings of a JSON array.
+fn strings(array: &Value) -> Vec<String> {
+    array
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s.as_str().unwrap().to_owned())
+        .collect()
+}
+
+/// A proof with a cut is eliminated step by step, on the derivation drawn
+/// as the session is (two-sided as written, and intuitionistic): its cut
+/// listed with its formula and the drawing's inferences that show it, the
+/// cut named and the strategy's next one taking the same step, each step
+/// named by its case with the ids of the cut in the drawing of the proof
+/// it was taken on, until no cut is left; `eliminate` takes the same steps
+/// to the same proof, every step drawn with its cut; a node that is no cut
+/// and a proof of another sequent are refused.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_proof_with_cuts_is_eliminated_step_by_step() {
+    let mut proofs = Vec::new();
+    for (sequent, mode, formula, left, written) in [
+        ("A, A -o B |- B", "classical", "A -o B", "[1]", "~A ⅋ B"),
+        ("!a |- a * a", "intuitionistic", "!a", "[0]", "!a"),
+    ] {
+        let closed = cut_session(sequent, mode, formula, left);
+        let two = settings(&json!({"view": {"classical": "two"}}));
+        let view = value(&calls::cuts(&closed, "", &two).unwrap());
+        let drawing = view["drawing"].as_str().unwrap();
+        let cuts = view["cuts"].as_array().unwrap();
+        assert_eq!(cuts.len(), 1, "{sequent}");
+        assert_eq!(cuts[0]["formula"], written);
+        assert_eq!(view["next"], cuts[0]["node"]);
+        let shown: Vec<String> = (cuts[0]["inferences"].as_array().unwrap().iter())
+            .map(|n| format!("i{n}"))
+            .collect();
+        assert_ne!(shown, Vec::<String>::new());
+        for id in &shown {
+            assert!(drawing.contains(&format!("id=\"{id}\"")), "{id}: {drawing}");
+        }
+        let node = cuts[0]["node"].as_u64().unwrap() as u32;
+        let named = value(&calls::cut_step(&closed, "", Some(node), &two).unwrap());
+        let next = value(&calls::cut_step(&closed, "", None, &two).unwrap());
+        assert_eq!(named, next);
+        assert_eq!(strings(&named["step"]["highlight"]["cut"]), shown);
+        assert_eq!(named["step"]["formula"], written);
+        let mut cases = vec![named["step"]["case"].clone()];
+        let mut current = named;
+        while !current["next"].is_null() {
+            let before = current["drawing"].as_str().unwrap().to_owned();
+            let proof = current["proof"].to_string();
+            current = value(&calls::cut_step(&closed, &proof, None, &two).unwrap());
+            let step = &current["step"];
+            assert!(step["name"].as_str().is_some_and(|name| !name.is_empty()));
+            for id in strings(&step["highlight"]["cut"]) {
+                assert!(before.contains(&format!("id=\"{id}\"")), "{id}");
+            }
+            cases.push(step["case"].clone());
+            assert!(cases.len() < 100, "{sequent}: {cases:?}");
+        }
+        assert_eq!(current["cuts"], json!([]));
+        let ran = value(&calls::eliminate(&closed, "", &two).unwrap());
+        assert_eq!(
+            (&ran["end"], &ran["undrawn"]),
+            (&json!("cut_free"), &Value::Null)
+        );
+        assert_eq!(ran["proof"], current["proof"]);
+        let steps = ran["steps"].as_array().unwrap();
+        assert_eq!(
+            steps.iter().map(|s| s["case"].clone()).collect::<Vec<_>>(),
+            cases
+        );
+        for step in steps {
+            let drawing = step["drawing"].as_str().unwrap();
+            for id in strings(&step["highlight"]["cut"]) {
+                assert!(drawing.contains(&format!("id=\"{id}\"")), "{id}");
+            }
+        }
+        let axiom = (current["proof"]["nodes"].as_array().unwrap().iter())
+            .position(|n| n.get("ax").is_some())
+            .unwrap() as u32;
+        let refused = failure(&calls::cut_step(&closed, "", Some(axiom), "").unwrap_err());
+        assert_eq!(refused["code"], "no_cut");
+        proofs.push((closed, current["proof"].to_string()));
+    }
+    let refused = failure(&calls::cuts(&proofs[0].0, &proofs[1].1, "").unwrap_err());
+    assert_eq!(refused["code"], "foreign_proof");
+}
+
+/// An elimination to the end stops at `cut.steps` with the proof reached
+/// and its cuts, saying which bound; past `cut.drawn_bytes` its steps are
+/// taken undrawn, from the first whose drawing would pass it; the tab's
+/// bound on the drawings is its own.
+#[wasm_bindgen_test(unsupported = test)]
+fn an_elimination_stops_at_its_bounds() {
+    assert_eq!(tab::defaults().cut.drawn_bytes, Some(tab::DRAWN_BYTES));
+    let closed = cut_session("!a |- a * a", "intuitionistic", "!a", "[0]");
+    let one = settings(&json!({"cut": {"steps": 1}}));
+    let ran = value(&calls::eliminate(&closed, "", &one).unwrap());
+    assert_eq!(ran["end"], "refused");
+    assert_eq!(ran["reason"]["code"], "elimination_limit");
+    assert_eq!(ran["steps"].as_array().unwrap().len(), 1);
+    assert_ne!(ran["cuts"], json!([]));
+    let small = settings(&json!({"cut": {"drawn_bytes": 1}}));
+    let ran = value(&calls::eliminate(&closed, "", &small).unwrap());
+    assert_eq!(
+        (&ran["end"], &ran["undrawn"]),
+        (&json!("cut_free"), &json!(1))
+    );
+    for step in ran["steps"].as_array().unwrap() {
+        assert_eq!(
+            (&step["drawing"], &step["highlight"]),
+            (&Value::Null, &Value::Null)
+        );
+    }
+    let ran = value(&calls::net_eliminate(&closed, "", &small).unwrap());
+    assert_eq!(
+        (&ran["end"], &ran["undrawn"]),
+        (&json!("cut_free"), &json!(1))
+    );
+}
+
+/// A proof with a cut has a net with a cut link, eliminated step by step:
+/// the link listed with the id of its bar in the drawing, either end or
+/// the strategy's next one taking the same step, the net it was taken on
+/// drawn with its marks, each step named by its case; `net_eliminate`
+/// takes the same steps to the same net. With exponentials the net has
+/// boxes, and what a step acted on besides the cut is an element of its
+/// drawing; a proof that cuts one occurrence twice has a net with boxes
+/// too. A vertex at no cut link is refused.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_net_with_cuts_is_eliminated_step_by_step() {
+    let mll = cut_session("A, A -o B |- B", "classical", "A -o B", "[1]");
+    let view = value(&calls::net_cuts(&mll, "", "").unwrap());
+    assert_eq!(view["boxes"], false);
+    let link = &view["cuts"][0];
+    let id = link["id"].as_str().unwrap();
+    assert!(
+        view["drawing"]
+            .as_str()
+            .unwrap()
+            .contains(&format!("id=\"{id}\""))
+    );
+    let ends: Vec<u32> = (link["ends"].as_array().unwrap().iter())
+        .map(|v| v.as_u64().unwrap() as u32)
+        .collect();
+    let first = value(&calls::net_cut_step(&mll, "", Some(ends[0]), "").unwrap());
+    let second = value(&calls::net_cut_step(&mll, "", Some(ends[1]), "").unwrap());
+    let next = value(&calls::net_cut_step(&mll, "", None, "").unwrap());
+    assert_eq!((&first, &first), (&second, &next));
+    assert_eq!(strings(&first["step"]["highlight"]["cut"]), [id]);
+    assert!(
+        first["marked"]
+            .as_str()
+            .unwrap()
+            .contains(&format!("id=\"{id}\""))
+    );
+    let mut current = first;
+    let mut cases = vec![current["step"]["case"].clone()];
+    while !current["next"].is_null() {
+        let net = current["net"].to_string();
+        current = value(&calls::net_cut_step(&mll, &net, None, "").unwrap());
+        cases.push(current["step"]["case"].clone());
+        assert!(cases.len() < 100, "{cases:?}");
+    }
+    let ran = value(&calls::net_eliminate(&mll, "", "").unwrap());
+    assert_eq!(ran["end"], "cut_free");
+    assert_eq!(ran["net"], current["net"]);
+    let ran_cases: Vec<Value> = (ran["steps"].as_array().unwrap().iter())
+        .map(|s| s["case"].clone())
+        .collect();
+    assert_eq!(ran_cases, cases);
+    let conclusion = view["net"]["links"][0][0].as_u64().unwrap() as u32;
+    let refused = failure(&calls::net_cut_step(&mll, "", Some(conclusion), "").unwrap_err());
+    assert_eq!(refused["code"], "no_cut");
+
+    let mell = cut_session("!a |- a * a", "intuitionistic", "!a", "[0]");
+    let ran = value(&calls::net_eliminate(&mell, "", "").unwrap());
+    assert_eq!(
+        (&ran["boxes"], &ran["end"]),
+        (&json!(true), &json!("cut_free"))
+    );
+    let mut acted = 0;
+    for step in ran["steps"].as_array().unwrap() {
+        let drawing = step["drawing"].as_str().unwrap();
+        for id in strings(&step["highlight"]["cut"])
+            .into_iter()
+            .chain(strings(&step["highlight"]["above"]))
+        {
+            assert!(drawing.contains(&format!("id=\"{id}\"")), "{id}: {drawing}");
+        }
+        acted += step["highlight"]["above"].as_array().unwrap().len();
+    }
+    assert!(acted > 0, "{ran}");
+
+    // ⊢ a ⊗ a, ~a, ~a: 0 ⊗, 1 a, 2 a, 3 ~a, 4 ~a; the cut formula a, 5,
+    // and its dual, 6, cut under each premise of the ⊗.
+    let twice = cut_session("|- a * a, ~a, ~a", "classical", "a", "[1]");
+    let mut proof = value(&calls::proof(&twice, "").unwrap());
+    proof["nodes"] = json!([
+        {"ax": [5, 3]}, {"ax": [1, 6]}, {"cut": [5, 0, 1]},
+        {"ax": [5, 4]}, {"ax": [2, 6]}, {"cut": [5, 3, 4]}, {"⊗": [0, 2, 5]}
+    ]);
+    let view = value(&calls::net_cuts(&twice, &proof.to_string(), "").unwrap());
+    assert_eq!(view["boxes"], true);
+    assert_eq!(view["cuts"].as_array().unwrap().len(), 2);
+    let ran = value(&calls::net_eliminate(&twice, &proof.to_string(), "").unwrap());
+    assert_eq!(ran["end"], "cut_free");
 }

@@ -172,6 +172,43 @@ for `THIRD-PARTY-NOTICES.txt`.
   setting); `no_intuitionistic_text_writes_a_classical_symbol` cuts every
   session on its goal before closing it.
 
+- **Cut elimination** (`cuts`, `cut_step`, `eliminate`; `net_cuts`,
+  `net_cut_step`, `net_eliminate`) takes the finished session and the
+  proof or net the page holds, `""` for the session's own: the session
+  gives the mode, and for a classical proof drawn as written its
+  record, which every proof of the elimination shares since a step
+  keeps the forest (`proof_in` refuses a proof of another sequent with
+  `foreign_proof`, as the record is indexed by its occurrences). Undo is
+  the page's: it keeps the proof or net before each step, and a step of
+  `eliminate` is taken again by `eliminate` with `cut.steps` one fewer,
+  the strategy being deterministic.
+- **A cut's ids in a derivation's drawing** come from
+  `Inference::node`, the proof node an inference shows, matched against
+  the cut's node (`Drawn::showing`); in a two-sided classical drawing
+  through `TwoSided::shows`, a negation step showing no node. A shared
+  cut node is several inferences. Node ids do not carry over from a
+  proof to the next, so the ids of a step are those of the drawing of
+  the proof it was taken on.
+- **The net of an elimination** follows the command's `net_of`
+  (`Net::of`): with boxes for exponentials and where `ProofStructure`
+  refuses with `Placement::Cut`, which a session's own proof never
+  makes (each cut adds a cut formula) but a proof an elimination on
+  terms made may: hence the net calls take a proof's document too. A
+  net with cut links is drawn plain even in an intuitionistic mode,
+  since it has no essential net: its formulas are the one-sided net's,
+  the one place an intuitionistic answer writes classical symbols, and
+  `no_intuitionistic_text_writes_a_classical_symbol` leaves it out. A
+  MELL step renumbers the vertices, so a net's ids are those of the net
+  the step was taken on, and the vertex ids of `id` follow
+  `svg::mell_net`'s rule (`o<n>` for an occurrence's only vertex, `v<k>`
+  otherwise, `b<k>` for the box a box entered).
+- **The drawings of `eliminate` and `net_eliminate`** are bounded by
+  `cut.drawn_bytes` together (`Drawings`), the command's rule: none
+  after the first that would pass it, `undrawn` naming that step. A
+  drawing its own bound refuses is `null` with `refused`, and the steps
+  go on drawn; the drawing of the proof or net reached is the view's,
+  outside the bound, as the command writes `FILE` anyway.
+
 ## The build (`modules/web.nix`)
 
 - The `wasm-bindgen` CLI is nixpkgs' `wasm-bindgen-cli_X_Y_Z` for the

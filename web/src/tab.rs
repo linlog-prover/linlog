@@ -46,6 +46,13 @@ pub const CLASSICAL_WORK: u64 = Options::DEFAULT_CLASSICAL_WORK >> 4;
 /// 1 024 in Node, so the limit is half the deepest that held.
 pub const RECURSION_DEPTH: u32 = 384;
 
+/// The bound on the bytes the drawings of an elimination's steps take
+/// together: 16 MiB, four drawings at the tab's bound on one
+/// ([`DERIVATION_BYTES`]), as the command's is four at its own. The page
+/// holds every step's drawing, and the command's 256 MiB is past a tab's
+/// whole memory bound ([`MEMORY_BYTES`]).
+pub const DRAWN_BYTES: u64 = 4 * DERIVATION_BYTES;
+
 /// Returns the tab's settings: the command's but for the bounds above, one
 /// thread, no copy bound (the work bound ends a search), no clock, and
 /// drawings with an id on every formula and a description for a screen
@@ -66,7 +73,9 @@ pub fn defaults() -> Settings {
         .with_pool_after_ms(None);
     let mut styles = Styles::default();
     styles.svg = styles.svg.with_ids(true).with_description(true);
+    let cut = linlog::proofs::cut::Options::default().with_drawn_bytes(Some(DRAWN_BYTES));
     Settings::default()
+        .with_cut(cut)
         .with_clock(clock)
         .with_limits(limits)
         .with_search(search)

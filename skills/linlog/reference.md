@@ -754,7 +754,9 @@ JSON text in and JSON, SVG or bytes out, which keep nothing between
 calls. The calls are `about`, `defaults`, `read`, `read_as`, `start`,
 `view`, `rules`, `split_passes`, `apply`, `cut`, `invert_all`, `undo`, `close`,
 `fill`, `close_all`, `hint`, `proof`, `prove`, `draw`, `draw_net`,
-`export`, `render` and `certificate`; each takes the page's settings,
+`cuts`, `cut_step`, `eliminate`, `net_cuts`, `net_cut_step`,
+`net_eliminate` (cut elimination step by step and to the end, on terms
+and on nets), `export`, `render` and `certificate`; each takes the page's settings,
 the JSON of the library's `Settings` laid over a browser tab's defaults,
 and a failed call throws the error's JSON (section 8). An agent with a
 shell uses the command instead.

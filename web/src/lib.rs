@@ -176,6 +176,60 @@ mod exports {
         calls::draw_net(session, settings).map_err(thrown)
     }
 
+    /// Returns the cut or cut link a page names as a number, or `None` for
+    /// the strategy's when it gives `undefined` or `null`.
+    fn at(at: Option<f64>, what: &str) -> Result<Option<u32>, JsValue> {
+        at.map(|at| index(at, what)).transpose()
+    }
+
+    /// See [`calls::cuts`].
+    #[wasm_bindgen]
+    pub fn cuts(session: &str, proof: &str, settings: &str) -> Result<String, JsValue> {
+        calls::cuts(session, proof, settings).map_err(thrown)
+    }
+
+    /// See [`calls::cut_step`]; `at` a node, or `undefined` for the
+    /// strategy's cut.
+    #[wasm_bindgen]
+    pub fn cut_step(
+        session: &str,
+        proof: &str,
+        at: Option<f64>,
+        settings: &str,
+    ) -> Result<String, JsValue> {
+        calls::cut_step(session, proof, self::at(at, "a cut")?, settings).map_err(thrown)
+    }
+
+    /// See [`calls::eliminate`].
+    #[wasm_bindgen]
+    pub fn eliminate(session: &str, proof: &str, settings: &str) -> Result<String, JsValue> {
+        calls::eliminate(session, proof, settings).map_err(thrown)
+    }
+
+    /// See [`calls::net_cuts`].
+    #[wasm_bindgen]
+    pub fn net_cuts(session: &str, net: &str, settings: &str) -> Result<String, JsValue> {
+        calls::net_cuts(session, net, settings).map_err(thrown)
+    }
+
+    /// See [`calls::net_cut_step`]; `at` a vertex at either end of a cut
+    /// link, or `undefined` for the strategy's.
+    #[wasm_bindgen]
+    pub fn net_cut_step(
+        session: &str,
+        net: &str,
+        at: Option<f64>,
+        settings: &str,
+    ) -> Result<String, JsValue> {
+        calls::net_cut_step(session, net, self::at(at, "a vertex")?, settings).map_err(thrown)
+    }
+
+    /// See [`calls::net_eliminate`].
+    #[wasm_bindgen]
+    pub fn net_eliminate(session: &str, net: &str, settings: &str) -> Result<String, JsValue> {
+        calls::net_eliminate(session, net, settings).map_err(thrown)
+    }
+
     /// See [`calls::export`]. `export` is a reserved word of JavaScript,
     /// which wasm-bindgen would rename `_export`.
     #[wasm_bindgen(js_name = "export_as")]

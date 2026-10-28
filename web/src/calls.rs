@@ -12,10 +12,12 @@ use crate::tab;
 use linlog::export::{Drawable, latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::Compact;
 use linlog::proofs::interactive::{Applicable, Inverted, Needs, Split};
+use linlog::proofs::{Sides, cut};
 use linlog::{
-    ClassicalSequent, ClassicalSides, Criterion, CutFormula, Disproof, Error, Fragment, GoalId,
-    IllSequent, IllSyntax, Interactive, MellStructure, Member, Mode, Named, NetError, Outcome,
-    Progress, ProofStructure, Rule, Sequent, Settings, Side, Step, TwoSided, Verdict, nets, wire,
+    ClassicalRule, ClassicalSequent, ClassicalSides, Criterion, CutFormula, Disproof, Error,
+    Fragment, GoalId, IllSequent, IllSyntax, InfId, Inference, Interactive, MellStructure, Member,
+    Mode, Named, NetError, Node, NodeId, Outcome, Progress, Proof, ProofStructure, Reading, Rule,
+    Sequent, Settings, Side, Step, TwoSided, Verdict, VertexId, nets, wire,
 };
 use serde::{Deserialize, Serialize};
 
@@ -1242,4 +1244,799 @@ fn refusal(refusal: linlog::Refusal) -> serde_json::Value {
 /// Writes a value as JSON.
 fn written(value: &impl Serialize) -> Result<String, Failure> {
     serde_json::to_string(value).map_err(Failure::json)
+}
+
+/// A cut of a proof as the page shows it.
+#[derive(Serialize)]
+struct CutShown {
+    /// The cut, a node of the proof, which [`cut_step`] takes as `at`.
+    node: u32,
+    /// The cut formula as the mode reads it.
+    formula: String,
+    /// The inferences of the drawing that show it (its `i<n>`): one, or
+    /// one for every place the proof reads a shared cut at.
+    inferences: Vec<u32>,
+}
+
+/// A proof of an elimination as the page shows it: the proof, its cuts
+/// and its derivation drawn.
+#[derive(Serialize)]
+struct CutsView<'a> {
+    /// The proof, which the page keeps for the next call.
+    proof: &'a Proof,
+    /// Its cuts, in the order of its arena.
+    cuts: Vec<CutShown>,
+    /// The cut the strategy reduces next, `null` for a cut-free proof.
+    next: Option<u32>,
+    /// The derivation as SVG, as [`draw`] draws a session's, or `null`
+    /// where its bound refused it.
+    drawing: Option<String>,
+    /// The refusal of the drawing, where there is one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    refused: Option<serde_json::Value>,
+}
+
+/// A proof's derivation drawn as the page draws a session's, with the
+/// node of the proof each drawn inference shows.
+struct Drawn {
+    /// The drawing.
+    svg: String,
+    /// For the inference `i<n>` of the drawing, at `n`, the node of the
+    /// proof it shows; `None` for an inference the view adds.
+    nodes: Vec<Option<NodeId>>,
+}
+
+impl Drawn {
+    /// Returns the inferences of the drawing that show `node`.
+    fn showing(&self, node: NodeId) -> Vec<u32> {
+        (0u32..)
+            .zip(&self.nodes)
+            .filter(|&(_, &shown)| shown == Some(node))
+            .map(|(n, _)| n)
+            .collect()
+    }
+
+    /// Returns the ids of the drawing's elements that show `node`.
+    fn ids(&self, node: Option<NodeId>) -> Vec<String> {
+        node.map_or_else(Vec::new, |node| {
+            let ids = self.showing(node).into_iter();
+            ids.map(|n| format!("i{n}")).collect()
+        })
+    }
+}
+
+/// Draws the derivation of `proof`, a proof of `state`'s sequent, as
+/// [`export`] draws the session's: two-sided in an intuitionistic mode,
+/// and in a classical one as written with `view.classical` `"two"`.
+fn drawn(proof: &Proof, state: &Interactive, settings: &Settings) -> Result<Drawn, Error> {
+    let (mode, limits) = (state.mode(), &settings.limits);
+    let view = if mode.is_intuitionistic() {
+        settings.view.with_sides(Sides::Two)
+    } else {
+        settings.view.with_sides(Sides::One)
+    };
+    let derivation = proof.derivation_within(&view, limits, never)?;
+    let mut svg = String::new();
+    let as_written = settings.view.classical == ClassicalSides::Two
+        && !mode.is_intuitionistic()
+        && !mode.is_ordered();
+    if !as_written {
+        svg::write(
+            Drawable::from(&derivation),
+            &settings.styles.svg,
+            &mut svg,
+            never,
+        )?;
+        let nodes = derivation.inferences().iter().map(Inference::node);
+        return Ok(Drawn {
+            svg,
+            nodes: nodes.collect(),
+        });
+    }
+    let one_sided;
+    let writing = match state.writing() {
+        Some(writing) => writing,
+        None => {
+            // The session's sequent passed the bounds already.
+            let unbounded = linlog::Limits::default().with_occurrences(None);
+            one_sided = ClassicalSequent::read_one_sided(state.sequent().clone(), &unbounded)?;
+            one_sided.writing()
+        }
+    };
+    let two_sided = TwoSided::new(&derivation, writing, limits)?;
+    svg::write(
+        Drawable::from(&two_sided),
+        &settings.styles.svg,
+        &mut svg,
+        never,
+    )?;
+    // The view's inferences are numbered from 0, fewer than 2³² as its
+    // ids count them.
+    let nodes = (0..two_sided.len() as u32)
+        .map(InfId::new)
+        .map(|id| match two_sided.rule(id) {
+            ClassicalRule::NegationLeft | ClassicalRule::NegationRight => None,
+            _ => derivation.inference(two_sided.shows(id)).node(),
+        });
+    Ok(Drawn {
+        svg,
+        nodes: nodes.collect(),
+    })
+}
+
+/// Returns the text of an occurrence as `mode` reads it: under the
+/// intuitionistic reading in an intuitionistic mode, else one-sided.
+fn formula_in(forest: &linlog::Forest, occurrence: linlog::OccId, mode: Mode) -> String {
+    match Reading::of_mode(forest, mode)
+        .ok()
+        .filter(|_| mode.is_intuitionistic())
+    {
+        Some(reading) => reading.formula(occurrence).to_string(),
+        None => forest.formula(occurrence).to_string(),
+    }
+}
+
+impl<'a> CutsView<'a> {
+    /// Returns the view of `proof`, a proof of `state`'s sequent, drawn
+    /// with the settings, with the drawing it made where it made one.
+    fn of(proof: &'a Proof, state: &Interactive, settings: &Settings) -> (Self, Option<Drawn>) {
+        let (drawing, refused) = match drawn(proof, state, settings) {
+            Ok(drawn) => (Some(drawn), None),
+            Err(error) => (None, serde_json::to_value(error).ok()),
+        };
+        let cuts = (0u32..)
+            .zip(proof.nodes())
+            .filter_map(|(id, &node)| match node {
+                Node::Cut(a, ..) => Some(CutShown {
+                    node: id,
+                    formula: formula_in(proof.forest(), proof.occurrence(a), state.mode()),
+                    inferences: drawing
+                        .as_ref()
+                        .map_or_else(Vec::new, |d| d.showing(NodeId::new(id))),
+                }),
+                _ => None,
+            })
+            .collect();
+        let view = Self {
+            proof,
+            cuts,
+            next: cut::Strategy::default().pick(proof).map(NodeId::get),
+            drawing: drawing.as_ref().map(|d| d.svg.clone()),
+            refused,
+        };
+        (view, drawing)
+    }
+}
+
+/// Reads the proof of an elimination: a proof's document of the
+/// session's sequent, or with an empty text the session's own proof.
+fn proof_in(proof: &str, state: &Interactive, settings: &Settings) -> Result<Proof, Failure> {
+    if proof.trim().is_empty() {
+        return state
+            .proof(&settings.limits, never)
+            .map_err(|e| Failure::described(&e, state));
+    }
+    let mut json = serde_json::Deserializer::from_str(proof);
+    let proof: Proof = wire::upgrade(&mut json, &settings.limits).map_err(Failure::from)?;
+    json.end().map_err(Failure::json)?;
+    if proof.sequent() != state.sequent() {
+        return Err(Error::ForeignProof.into());
+    }
+    Ok(proof)
+}
+
+/// A step of an elimination as the page shows it.
+#[derive(Serialize)]
+struct Taken {
+    /// The cut reduced, a node of the proof the step was taken on, or for
+    /// a net its cut link, its end in a cut formula's tree first.
+    cut: serde_json::Value,
+    /// The cut formula, the occurrence of the cut's, as the mode reads it.
+    formula: String,
+    /// The case, in snake case (`axiom`, `tensor_par`, …).
+    case: cut::Case,
+    /// The case as a phrase: `the axiom case`, `contraction`, …
+    name: &'static str,
+    /// Where the step acted besides the cut, if anywhere: a node of the
+    /// proof, or a vertex of the net, the step was taken on.
+    above: Option<u32>,
+    /// The ids of the elements of that proof's or net's drawing to
+    /// highlight, `null` where it was not drawn.
+    highlight: Option<Highlight>,
+}
+
+/// The ids of a drawing's elements a step acted on.
+#[derive(Serialize)]
+struct Highlight {
+    /// What shows the cut: the inferences of a derivation (`i<n>`), or a
+    /// net's cut link (`c<x>-<y>`).
+    cut: Vec<String>,
+    /// What shows where the step acted besides it: inferences, or a net's
+    /// vertex (`o<n>` or `v<k>`) or box (`b<k>`).
+    above: Vec<String>,
+}
+
+impl Taken {
+    /// Returns a step of an elimination on a proof term, its ids those of
+    /// `drawn`, the drawing of the proof it was taken on.
+    fn term(step: &cut::Step, proof: &Proof, mode: Mode, drawn: Option<&Drawn>) -> Self {
+        Self {
+            cut: step.cut.get().into(),
+            formula: formula_in(proof.forest(), proof.occurrence(step.formula), mode),
+            case: step.case,
+            name: step.case.name(),
+            above: step.above.map(NodeId::get),
+            highlight: drawn.map(|drawn| Highlight {
+                cut: drawn.ids(Some(step.cut)),
+                above: drawn.ids(step.above),
+            }),
+        }
+    }
+}
+
+/// A step and what the page shows of the proof or net it made.
+#[derive(Serialize)]
+struct Stepped<T: Serialize> {
+    /// The step.
+    step: Taken,
+    /// For a net, the net the step was taken on, drawn with what the step
+    /// acted on in the highlight colour.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    marked: Option<String>,
+    /// The proof or net made.
+    #[serde(flatten)]
+    made: T,
+}
+
+/// A step of an elimination to the end, with the drawing of the proof or
+/// net it was taken on.
+#[derive(Serialize)]
+struct Run {
+    /// The step.
+    #[serde(flatten)]
+    step: Taken,
+    /// The drawing, of a net with what the step acted on in the highlight
+    /// colour; `null` for a step past `cut.drawn_bytes` or one whose
+    /// drawing its bound refused.
+    drawing: Option<String>,
+    /// The refusal of that drawing, where there is one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    refused: Option<serde_json::Value>,
+}
+
+/// An elimination to the end and what the page shows of the proof or net
+/// it reached.
+#[derive(Serialize)]
+struct Ran<T: Serialize> {
+    /// The steps, in order.
+    steps: Vec<Run>,
+    /// `cut_free`, or `refused` when a bound ended the elimination.
+    end: &'static str,
+    /// The bound that ended it, in an error's form, for `refused`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<serde_json::Value>,
+    /// The first step, counted from 1, whose drawing `cut.drawn_bytes`
+    /// left out, with every step after it; `null` when every step is
+    /// drawn.
+    undrawn: Option<usize>,
+    /// The proof or net reached.
+    #[serde(flatten)]
+    reached: T,
+}
+
+/// Returns the end of an elimination as `end` and `reason`.
+fn ended(end: &cut::End) -> (&'static str, Option<serde_json::Value>) {
+    match end {
+        cut::End::CutFree => ("cut_free", None),
+        cut::End::Refused(r) => ("refused", Some(refusal(r.clone()))),
+        _ => ("refused", None),
+    }
+}
+
+/// The drawings of an elimination's steps within `cut.drawn_bytes`: each
+/// is kept while the bytes kept so far, its own included, stay within the
+/// bound, and none after the first that would pass it.
+struct Drawings {
+    /// The bound, in bytes.
+    limit: Option<u64>,
+    /// The bytes kept so far.
+    kept: u64,
+    /// The first step left out, counted from 1.
+    undrawn: Option<usize>,
+}
+
+impl Drawings {
+    /// Returns whether the steps are still drawn.
+    const fn open(&self) -> bool {
+        self.undrawn.is_none()
+    }
+
+    /// Keeps step `k`'s drawing if it fits the bound, and returns it.
+    fn keep(&mut self, k: usize, drawing: String) -> Option<String> {
+        let total = self.kept.saturating_add(drawing.len() as u64);
+        if self.limit.is_some_and(|limit| total > limit) {
+            self.undrawn = Some(k);
+            return None;
+        }
+        self.kept = total;
+        Some(drawing)
+    }
+}
+
+/// Returns the proof of an elimination with its cuts, drawn, and the cut
+/// the strategy reduces next: `proof` a proof of the finished session's
+/// sequent as this call or [`cut_step`] wrote it, or with an empty text
+/// the session's own proof. Answers `{"proof", "cuts": [{"node",
+/// "formula", "inferences"}], "next", "drawing"}`, `inferences` the
+/// drawing's `i<n>` that show the cut.
+///
+/// # Errors
+///
+/// As the session's reader, `open_goals` for an unfinished session,
+/// `foreign_proof` for a proof of another sequent, and the proof's reader;
+/// a drawing past its bound is `null` with its refusal in `refused`.
+pub fn cuts(session: &str, proof: &str, settings: &str) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let state = session_of(session, &settings)?;
+    let proof = proof_in(proof, &state, &settings)?;
+    written(&CutsView::of(&proof, &state, &settings).0)
+}
+
+/// Takes one step of cut elimination on a proof of a finished session
+/// (`proof` as [`cuts`] reads it): the cut at the node `at`, or with
+/// `None` the one the strategy picks (`cut.strategy`), within the
+/// settings' `cut` and `limits`. Answers the step, `{"cut", "formula",
+/// "case", "name", "above", "highlight": {"cut", "above"}}` (the ids of
+/// the drawing of the proof given that show the cut and where the step
+/// acted), and the proof made as [`cuts`] answers.
+///
+/// # Errors
+///
+/// As [`cuts`] reads its documents; `no_cut` for an `at` that is no cut
+/// and for a cut-free proof; `elimination_limit` for a proof made past
+/// `cut.nodes`; and the checker's.
+pub fn cut_step(
+    session: &str,
+    proof: &str,
+    at: Option<u32>,
+    settings: &str,
+) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let state = session_of(session, &settings)?;
+    let proof = proof_in(proof, &state, &settings)?;
+    let mode = state.mode();
+    let at = at.map(NodeId::new);
+    let reduction = cut::step(&proof, mode, at, &settings.cut, &settings.limits, never)
+        .map_err(|e| Failure::described(&e, &state))?;
+    let before = drawn(&proof, &state, &settings).ok();
+    let step = Taken::term(&reduction.step, &proof, mode, before.as_ref());
+    written(&Stepped {
+        step,
+        marked: None,
+        made: CutsView::of(&reduction.proof, &state, &settings).0,
+    })
+}
+
+/// Eliminates the cuts of a proof of a finished session (`proof` as
+/// [`cuts`] reads it) by the strategy, within the settings' `cut` (`steps`,
+/// `nodes`, and `drawn_bytes` for the drawings of the steps) and `limits`.
+/// Answers `{"steps": [{…, "drawing"}], "end", "reason", "undrawn"}`, each
+/// step as [`cut_step`] gives it with the drawing of the proof it was taken
+/// on, and the proof reached as [`cuts`] answers.
+///
+/// # Errors
+///
+/// As [`cuts`] reads its documents, and the checker's for a proof that is
+/// none; a bound that ends the elimination is its `end`, not an error.
+pub fn eliminate(session: &str, proof: &str, settings: &str) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let state = session_of(session, &settings)?;
+    let proof = proof_in(proof, &state, &settings)?;
+    let mode = state.mode();
+    let mut drawings = Drawings {
+        limit: settings.cut.drawn_bytes,
+        kept: 0,
+        undrawn: None,
+    };
+    let mut steps = Vec::new();
+    let elimination = cut::eliminate(
+        &proof,
+        mode,
+        &settings.cut,
+        &settings.limits,
+        never,
+        |before, step| {
+            let k = steps.len() + 1;
+            let (mut drawing, mut refused, mut shown) = (None, None, None);
+            if drawings.open() {
+                match drawn(before, &state, &settings) {
+                    Ok(made) => {
+                        drawing = drawings.keep(k, made.svg.clone());
+                        shown = drawing.is_some().then_some(made);
+                    }
+                    Err(error) => refused = serde_json::to_value(error).ok(),
+                }
+            }
+            steps.push(Run {
+                step: Taken::term(step, before, mode, shown.as_ref()),
+                drawing,
+                refused,
+            });
+        },
+    )
+    .map_err(|e| Failure::described(&e, &state))?;
+    let (end, reason) = ended(&elimination.end);
+    written(&Ran {
+        steps,
+        end,
+        reason,
+        undrawn: drawings.undrawn,
+        reached: CutsView::of(&elimination.proof, &state, &settings).0,
+    })
+}
+
+/// A net of an elimination: a proof structure, or one with boxes for a
+/// sequent with exponentials and for a proof that cuts an occurrence
+/// twice.
+#[derive(Serialize)]
+#[serde(untagged)]
+enum Net {
+    /// Without boxes, its vertices the forest's occurrences.
+    Mll(ProofStructure),
+    /// With boxes.
+    Mell(MellStructure),
+}
+
+/// A net of an elimination, borrowed.
+#[derive(Clone, Copy)]
+enum NetRef<'a> {
+    /// Without boxes.
+    Mll(&'a ProofStructure),
+    /// With boxes.
+    Mell(&'a MellStructure),
+}
+
+/// A cut link of a net as the page shows it.
+#[derive(Serialize)]
+struct LinkShown {
+    /// Its two ends, its end in a cut formula's tree first; either is the
+    /// `at` of [`net_cut_step`].
+    ends: [u32; 2],
+    /// The id of its bar in the drawing, `c<x>-<y>`.
+    id: String,
+    /// The cut formula as the mode reads it.
+    formula: String,
+}
+
+/// A net of an elimination as the page shows it.
+#[derive(Serialize)]
+struct NetView<'a> {
+    /// The net, which the page keeps for the next call.
+    net: &'a Net,
+    /// Whether it has boxes (`MellStructure`'s form).
+    boxes: bool,
+    /// Its cut links, in the net's order.
+    cuts: Vec<LinkShown>,
+    /// The cut link the strategy reduces next, `null` for a net without
+    /// cut links.
+    next: Option<[u32; 2]>,
+    /// The net as SVG, as [`draw_net`] draws a proof's, or `null` where
+    /// its bound refused it.
+    drawing: Option<String>,
+    /// The refusal of the drawing, where there is one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    refused: Option<serde_json::Value>,
+}
+
+impl Net {
+    /// Returns the net of a proof in `mode`, as the command makes it: with
+    /// boxes for a sequent with exponentials, and for one without where
+    /// the proof cuts an occurrence twice, which needs two vertices of one
+    /// occurrence.
+    fn of(proof: &Proof, mode: Mode, limits: &linlog::Limits) -> Result<Self, Error> {
+        nets_exist(proof.sequent().fragment(), mode)?;
+        let criterion = Criterion::of(mode)?;
+        let boxed = || MellStructure::from_proof(proof, criterion, limits, never).map(Self::Mell);
+        if proof.sequent().fragment().has_exponentials() {
+            return boxed();
+        }
+        match ProofStructure::from_proof(proof, criterion, limits, never) {
+            Err(Error::Net(error))
+                if matches!(
+                    *error,
+                    NetError::Placement {
+                        fault: linlog::Placement::Cut,
+                        ..
+                    }
+                ) =>
+            {
+                boxed()
+            }
+            made => made.map(Self::Mll),
+        }
+    }
+
+    /// Reads a net's document, with boxes when it has `vertices`.
+    fn read(input: &str, settings: &Settings) -> Result<Self, Failure> {
+        /// The key that tells a structure with boxes.
+        #[derive(Deserialize)]
+        struct Boxes {
+            /// A structure with boxes' vertices.
+            vertices: Option<serde::de::IgnoredAny>,
+        }
+        let probe: Boxes = serde_json::from_str(input).map_err(Failure::json)?;
+        let mut json = serde_json::Deserializer::from_str(input);
+        let net = if probe.vertices.is_some() {
+            Self::Mell(wire::upgrade(&mut json, &settings.limits).map_err(Failure::from)?)
+        } else {
+            Self::Mll(wire::upgrade(&mut json, &settings.limits).map_err(Failure::from)?)
+        };
+        json.end().map_err(Failure::json)?;
+        Ok(net)
+    }
+
+    /// Returns the net borrowed.
+    const fn as_ref(&self) -> NetRef<'_> {
+        match self {
+            Self::Mll(net) => NetRef::Mll(net),
+            Self::Mell(net) => NetRef::Mell(net),
+        }
+    }
+}
+
+impl<'a> NetRef<'a> {
+    /// Returns the cut links.
+    fn cuts(self) -> &'a [(VertexId, VertexId)] {
+        match self {
+            Self::Mll(net) => net.cuts(),
+            Self::Mell(net) => net.cuts(),
+        }
+    }
+
+    /// Returns the formula of a vertex as `mode` reads it.
+    fn formula(self, v: VertexId, mode: Mode) -> String {
+        let (forest, o) = match self {
+            Self::Mll(net) => (net.forest(), net.occurrence(v)),
+            Self::Mell(net) => (net.forest(), net.occurrence(v)),
+        };
+        o.map_or_else(|| v.get().to_string(), |o| formula_in(forest, o, mode))
+    }
+
+    /// Returns the id of a vertex's element in the drawing: `o<n>` for the
+    /// only vertex of occurrence `n`, `v<k>` for vertex `k` of an
+    /// occurrence with several.
+    fn id(self, v: VertexId) -> String {
+        match self {
+            Self::Mll(_) => format!("o{}", v.get()),
+            Self::Mell(net) => {
+                let o = net.occurrence(v);
+                match net.vertices().filter(|&w| net.occurrence(w) == o).count() {
+                    1 => o.map_or_else(|| format!("v{}", v.get()), |o| format!("o{}", o.get())),
+                    _ => format!("v{}", v.get()),
+                }
+            }
+        }
+    }
+
+    /// Draws the net as [`draw_net`] draws a proof's, with what `step`, a
+    /// step taken on it, acted on in the highlight colour.
+    fn draw(
+        self,
+        step: Option<&nets::cut::Step>,
+        mode: Mode,
+        settings: &Settings,
+    ) -> Result<String, Error> {
+        // An intuitionistic net is drawn as its essential net where it has
+        // one: a net with cut links has none, and is drawn plain.
+        let style = &settings
+            .styles
+            .svg
+            .clone()
+            .with_essential(settings.styles.svg.essential || mode.is_intuitionistic());
+        let limits = &settings.limits;
+        match (self, step) {
+            (Self::Mll(net), Some(step)) => svg::net_step(net, step, style, limits, never),
+            (Self::Mll(net), None) => svg::net(net, style, limits, never),
+            (Self::Mell(net), Some(step)) => svg::mell_net_step(net, step, style, limits, never),
+            (Self::Mell(net), None) => svg::mell_net(net, style, limits, never),
+        }
+    }
+
+    /// Returns a step taken on the net as the page shows it.
+    fn taken(self, step: &nets::cut::Step, mode: Mode) -> Taken {
+        let (x, y) = step.cut;
+        let above = match (step.case, step.above) {
+            (_, None) => Vec::new(),
+            (cut::Case::BoxIntoBox, Some(door)) => vec![format!("b{}", door.get())],
+            (_, Some(v)) => vec![self.id(v)],
+        };
+        Taken {
+            cut: serde_json::json!([x.get(), y.get()]),
+            formula: self.formula(x, mode),
+            case: step.case,
+            name: step.case.name(),
+            above: step.above.map(VertexId::get),
+            highlight: Some(Highlight {
+                cut: vec![format!("c{}-{}", x.get(), y.get())],
+                above,
+            }),
+        }
+    }
+}
+
+impl<'a> NetView<'a> {
+    /// Returns the view of a net in `mode`, drawn with the settings.
+    fn of(net: &'a Net, mode: Mode, settings: &Settings) -> Self {
+        let borrowed = net.as_ref();
+        let (drawing, refused) = match borrowed.draw(None, mode, settings) {
+            Ok(drawing) => (Some(drawing), None),
+            Err(error) => (None, serde_json::to_value(error).ok()),
+        };
+        let cuts = borrowed.cuts();
+        Self {
+            net,
+            boxes: matches!(net, Net::Mell(_)),
+            cuts: cuts
+                .iter()
+                .map(|&(x, y)| LinkShown {
+                    ends: [x.get(), y.get()],
+                    id: format!("c{}-{}", x.get(), y.get()),
+                    formula: borrowed.formula(x, mode),
+                })
+                .collect(),
+            next: cuts.first().map(|&(x, y)| [x.get(), y.get()]),
+            drawing,
+            refused,
+        }
+    }
+}
+
+/// Reads the net of an elimination: a net's document as [`net_cuts`]
+/// writes it, or the net of a proof, a proof's document of the session's
+/// sequent (told by its `nodes`) or with an empty text the finished
+/// session's own.
+fn net_in(net: &str, state: &Interactive, settings: &Settings) -> Result<Net, Failure> {
+    /// The key that tells a proof's document.
+    #[derive(Deserialize)]
+    struct Nodes {
+        /// A proof's nodes.
+        nodes: Option<serde::de::IgnoredAny>,
+    }
+    let is_proof = net.trim().is_empty()
+        || serde_json::from_str::<Nodes>(net)
+            .map_err(Failure::json)?
+            .nodes
+            .is_some();
+    if !is_proof {
+        return Net::read(net, settings);
+    }
+    let proof = proof_in(net, state, settings)?;
+    Net::of(&proof, state.mode(), &settings.limits).map_err(|e| Failure::described(&e, state))
+}
+
+/// Returns the net of an elimination with its cut links, drawn, and the
+/// cut link the strategy reduces next: `net` a net as this call or
+/// [`net_cut_step`] wrote it, or the net of a proof of the session's
+/// sequent (its document, or with an empty text the finished session's
+/// own proof): a proof structure (with cut links), or one with boxes for
+/// a sequent with exponentials and for a proof that cuts an occurrence
+/// twice. Answers `{"net", "boxes", "cuts": [{"ends",
+/// "id", "formula"}], "next", "drawing"}`, `id` the cut link's bar,
+/// `c<x>-<y>`. The session gives the mode, whose reading writes the
+/// formulas; a net with cut links is drawn plain, one without as
+/// [`draw_net`] draws it.
+///
+/// # Errors
+///
+/// As the session's reader, `open_goals` for an unfinished session, the
+/// refusal [`view`]'s `net` gives for a sequent without nets, and the
+/// net's reader; a drawing past its bound is `null` with its refusal in
+/// `refused`.
+pub fn net_cuts(session: &str, net: &str, settings: &str) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let state = session_of(session, &settings)?;
+    let net = net_in(net, &state, &settings)?;
+    written(&NetView::of(&net, state.mode(), &settings))
+}
+
+/// Takes one step of cut elimination on a net (`net` as [`net_cuts`]
+/// reads it): the cut link at the vertex `at`, either end, or with `None`
+/// the strategy's, the first of the net's list, within the settings' `cut`
+/// (`nodes` counting the net's vertices) and `limits`. Answers the step,
+/// `{"cut": [x, y], "formula", "case", "name", "above", "highlight":
+/// {"cut", "above"}}`, `marked`, the net the step was taken on drawn with
+/// what it acted on in the highlight colour, and the net made as
+/// [`net_cuts`] answers.
+///
+/// # Errors
+///
+/// As [`net_cuts`] reads its documents; `no_cut` for a vertex at no cut
+/// link and for a net without one; `elimination_limit` for a net made past
+/// `cut.nodes`; the criterion's for a structure that is no proof net.
+pub fn net_cut_step(
+    session: &str,
+    net: &str,
+    at: Option<u32>,
+    settings: &str,
+) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let state = session_of(session, &settings)?;
+    let net = net_in(net, &state, &settings)?;
+    let mode = state.mode();
+    let at = at.map(VertexId::new);
+    let (options, limits) = (&settings.cut, &settings.limits);
+    let (made, step) = match &net {
+        Net::Mll(net) => nets::cut::step(net, at, options, limits, never)
+            .map(|reduction| (Net::Mll(reduction.net), reduction.step)),
+        Net::Mell(net) => nets::cut::step(net, at, options, limits, never)
+            .map(|reduction| (Net::Mell(reduction.net), reduction.step)),
+    }
+    .map_err(|e| Failure::described(&e, &state))?;
+    let before = net.as_ref();
+    written(&Stepped {
+        step: before.taken(&step, mode),
+        marked: before.draw(Some(&step), mode, &settings).ok(),
+        made: NetView::of(&made, mode, &settings),
+    })
+}
+
+/// Eliminates the cut links of a net (`net` as [`net_cuts`] reads it) by
+/// the strategy, within the settings' `cut` (`steps`, `nodes` counting
+/// vertices, and `drawn_bytes` for the drawings of the steps) and
+/// `limits`. Answers `{"steps": [{…, "drawing"}], "end", "reason",
+/// "undrawn"}`, each step as [`net_cut_step`] gives it with the net it
+/// was taken on drawn with its marks, and the net reached as [`net_cuts`]
+/// answers.
+///
+/// # Errors
+///
+/// As [`net_cuts`] reads its documents, and the criterion's for a
+/// structure that is no proof net; a bound that ends the elimination is
+/// its `end`, not an error.
+pub fn net_eliminate(session: &str, net: &str, settings: &str) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let state = session_of(session, &settings)?;
+    let net = net_in(net, &state, &settings)?;
+    let mode = state.mode();
+    let mut drawings = Drawings {
+        limit: settings.cut.drawn_bytes,
+        kept: 0,
+        undrawn: None,
+    };
+    let mut steps = Vec::new();
+    let mut seen = |before: NetRef<'_>, step: &nets::cut::Step| {
+        let k = steps.len() + 1;
+        let (mut drawing, mut refused) = (None, None);
+        if drawings.open() {
+            match before.draw(Some(step), mode, &settings) {
+                Ok(made) => drawing = drawings.keep(k, made),
+                Err(error) => refused = serde_json::to_value(error).ok(),
+            }
+        }
+        steps.push(Run {
+            step: before.taken(step, mode),
+            drawing,
+            refused,
+        });
+    };
+    let (options, limits) = (&settings.cut, &settings.limits);
+    let (reached, end) = match &net {
+        Net::Mll(net) => nets::cut::eliminate(net, options, limits, never, |before, step| {
+            seen(NetRef::Mll(before), step);
+        })
+        .map(|e| (Net::Mll(e.net), e.end)),
+        Net::Mell(net) => nets::cut::eliminate(net, options, limits, never, |before, step| {
+            seen(NetRef::Mell(before), step);
+        })
+        .map(|e| (Net::Mell(e.net), e.end)),
+    }
+    .map_err(|e| Failure::described(&e, &state))?;
+    let (end, reason) = ended(&end);
+    written(&Ran {
+        steps,
+        end,
+        reason,
+        undrawn: drawings.undrawn,
+        reached: NetView::of(&reached, mode, &settings),
+    })
 }

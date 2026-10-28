@@ -144,6 +144,12 @@ to 2³² − 1, anything else refused):
 | `prove(sequent, mode, settings)` | `{"outcome", "refutation_checked"}`: the verdict for the status light, `refutation_checked` what `Disproof::check` said |
 | `draw(session, settings)` | the session's derivation as SVG, open goals as leaves, `i<n>` and `i<n>-<p>` on every conclusion and formula |
 | `draw_net(session, settings)` | the net of a finished session's proof as SVG (`styles.svg.essential` for an essential net) |
+| `cuts(session, proof, settings)` | `{"proof", "cuts": [{"node", "formula", "inferences"}], "next", "drawing", "refused"}`: a proof of the finished session's sequent (`""` for the session's own) with its cuts, the drawing's `i<n>` that show each, the strategy's next cut, and its derivation drawn as `draw` draws the session's (`null` with `refused` past the bound) |
+| `cut_step(session, proof, at, settings)` | `{"step": {"cut", "formula", "case", "name", "above", "highlight": {"cut", "above"}}, …}` and the proof made as `cuts` answers: one step on the cut `at`, or the strategy's for `undefined`; `highlight` the ids in the drawing of the proof given; `no_cut` for a node that is no cut |
+| `eliminate(session, proof, settings)` | `{"steps": [{…, "drawing"}], "end", "reason", "undrawn", …}` and the proof reached: every step by the strategy within `cut.steps` and `cut.nodes`, each with the drawing of the proof it was taken on while `cut.drawn_bytes` holds them (`undrawn` the first step left out), `end` `cut_free` or `refused` with the bound as `reason` |
+| `net_cuts(session, net, settings)` | `{"net", "boxes", "cuts": [{"ends", "id", "formula"}], "next", "drawing"}`: a net as these calls write it, or the net of a proof (`""` for the session's), with boxes for exponentials and for a proof that cuts an occurrence twice; `id` the cut link's bar `c<x>-<y>`; a net with cut links drawn plain |
+| `net_cut_step(session, net, at, settings)` | as `cut_step` on a net, `at` a vertex at either end of a cut link, with `marked`, the net before drawn with the step's marks, and `highlight` the cut link and the vertex (`o<n>`, `v<k>`) or box (`b<k>`) it acted on |
+| `net_eliminate(session, net, settings)` | as `eliminate` on a net, each step's drawing the net it was taken on with its marks |
 | `export_as(session, format, settings)` (`export` is reserved in JavaScript) | `text`, `latex`, `typst`, `svg` (the session's tree, open goals included) or `rocq` (the certificate of the finished proof) |
 | `render(svg, format, font, settings)` | `png` or `pdf` bytes of a drawing, rendered with the font's bytes the page passes; a PDF needs `styles.pdf.date` from the page's clock |
 | `certificate(document, settings)` | the Rocq certificate of non-derivability of a disproof, or of an unprovable outcome |
@@ -166,6 +172,7 @@ command's but for:
 | `search.classical_work` | 2²² | 2²⁶ | within a tab's budget |
 | `clock` | no limits | 2 s | the page applies a time by stopping its worker |
 | `styles.svg.ids`, `.description` | on | off | the page's buttons over the formulas, the screen reader's description |
+| `cut.drawn_bytes` | 16 MiB | 256 MiB | the page holds every step's drawing of an elimination: four at the tab's bound on one, as the command's is four at its own |
 
 ## What the library lacks for the page
 
