@@ -276,7 +276,7 @@ pub struct Elimination {
 ///
 /// The checker's error for a proof that is not one in `mode`;
 /// [`Error::NoCut`] for an `at` that is no cut, or a proof without one;
-/// [`Refusal::Elimination`](crate::Refusal::Elimination) for a proof made
+/// [`Refusal::Elimination`] for a proof made
 /// past `options.nodes`, and the refusals of the checks;
 /// [`Error::Reduction`] where the checker refuses the proof made, a
 /// defect of this crate.
