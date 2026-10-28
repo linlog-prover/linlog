@@ -316,3 +316,159 @@ fn a_bound_stops_with_a_proof() {
         }
     }
 }
+
+/// Builds a proof's nodes from its roots and cut pairs.
+type Terms<'a> = dyn Fn(&[OccId], &[(OccId, OccId)]) -> Vec<Node> + 'a;
+
+/// The axiom case renames the traced occurrence in one premise of a rule
+/// of two premises that reads one subproof twice, not in both: a Mix of a
+/// shared axiom, and an affine `⊗` of a shared absorbing subproof, each
+/// with the cut formula's dual literal in it twice.
+#[test]
+fn the_axiom_case_renames_one_premise_of_a_shared_pair() {
+    let o = |x: OccId| Member::from(x);
+    let n = NodeId::new;
+    let made = |text: &str, cuts: &[&str], nodes: &Terms<'_>| {
+        let mut sequent: Sequent = text.parse().unwrap();
+        for cut in cuts {
+            sequent.add_cut(cut.parse().unwrap()).unwrap();
+        }
+        let forest = crate::Forest::new(&sequent).unwrap();
+        let roots = forest.roots().to_vec();
+        let pairs: Vec<(OccId, OccId)> = forest.cut_pairs().collect();
+        let nodes = nodes(&roots, &pairs);
+        let root = n(nodes.len() as u32 - 1);
+        Proof::new(forest, nodes, root).unwrap()
+    };
+    let mix = made("|- ~x, ~x, x, x", &["|- x", "|- ~x"], &|r, p| {
+        let ((a1, da1), (a2, da2)) = (p[0], p[1]);
+        vec![
+            Node::Ax(o(da1), o(da2)),
+            Node::Mix(n(0), n(0)),
+            Node::Ax(o(a1), o(r[0])),
+            Node::Cut(o(a1), n(2), n(1)),
+            Node::Ax(o(a1), o(r[1])),
+            Node::Cut(o(a1), n(4), n(3)),
+            Node::Ax(o(a2), o(r[2])),
+            Node::Cut(o(a2), n(6), n(5)),
+            Node::Ax(o(a2), o(r[3])),
+            Node::Cut(o(a2), n(8), n(7)),
+        ]
+    });
+    let tensor = made("|- ~x, ~x, p * q, 1, 1", &["|- x", "|- top"], &|r, p| {
+        let ((a1, da1), (a4, da4)) = (p[0], p[1]);
+        vec![
+            Node::Top(o(a4)),
+            Node::Weaken(o(da1), n(0)),
+            Node::Tensor(o(r[2]), n(1), n(1)),
+            Node::Ax(o(a1), o(r[0])),
+            Node::Cut(o(a1), n(3), n(2)),
+            Node::Ax(o(a1), o(r[1])),
+            Node::Cut(o(a1), n(5), n(4)),
+            Node::One(o(r[3])),
+            Node::Weaken(o(da4), n(7)),
+            Node::Cut(o(a4), n(6), n(8)),
+            Node::One(o(r[4])),
+            Node::Weaken(o(da4), n(10)),
+            Node::Cut(o(a4), n(9), n(11)),
+        ]
+    });
+    for (proof, mode) in [
+        (mix, Mode::CLASSICAL.with_mix()),
+        (tensor, Mode::CLASSICAL.with_affine()),
+    ] {
+        proof.check(mode).unwrap();
+        let ended =
+            eliminate(&proof, mode, &Options::default(), &Limits::default(), never).unwrap();
+        assert_eq!(ended.steps[0].case, Case::Axiom);
+        assert_eq!(ended.end, End::CutFree);
+    }
+    // A node both `⊗`s under a `&` read, one taking the renamed literal
+    // from it and the other from its other premise, in every mode.
+    #[cfg(feature = "serialize")]
+    {
+        let proof: Proof = serde_json::from_str(
+            r#"{"version":6,"sequent":{"terms":[{"D":0},{"?":0},{"V":0},{"⊗":[2,2]},{"V":0},{"⊕":[4,4]},{"!":5},{"&":[0,0]},{"?":7}],"roots":[0,1,3],"atoms":["a"],"antecedents":2,"cuts":[6]},"nodes":[{"ax":[12,4]},{"ax":[13,4]},{"ax":[12,5]},{"⊗":[3,0,2]},{"⊗":[3,1,2]},{"&":[11,3,4]},{"copy":[11,5]},{"ax":[8,0]},{"cut":[8,7,6]},{"?":[10,8]},{"ax":[8,2]},{"copy":[2,10]},{"⊕₁":[7,11]},{"!":[6,12]},{"cut":[6,13,9]},{"?":[1,14]}]}"#,
+        )
+        .unwrap();
+        for mode in [
+            Mode::CLASSICAL,
+            Mode::CLASSICAL.with_affine(),
+            Mode::CLASSICAL.with_mix(),
+            Mode::CLASSICAL.with_affine().with_mix(),
+            Mode::INTUITIONISTIC,
+            Mode::INTUITIONISTIC.with_affine(),
+        ] {
+            proof.check(mode).unwrap();
+            let ended =
+                eliminate(&proof, mode, &Options::default(), &Limits::default(), never).unwrap();
+            assert_eq!(ended.end, End::CutFree, "{mode:?}");
+        }
+    }
+}
+
+/// An affine erasure specialized for many places is bounded inside the
+/// step: a cut that `d` nested `&`s read under `2^d` contexts of `g`
+/// formulas each asks the stop, and is refused past the bound on nodes
+/// and on memory before its weakenings are made.
+#[test]
+fn a_specialized_erasure_is_bounded_inside_the_step() {
+    let (d, g) = (13, 10);
+    let mode = Mode::CLASSICAL.with_affine();
+    let mut text = "|- 1, top".to_owned();
+    for _ in 0..d {
+        text.push_str(", 1 & 1");
+    }
+    for _ in 0..g {
+        text.push_str(", 1");
+    }
+    let mut sequent: Sequent = text.parse().unwrap();
+    sequent.add_cut("|- p".parse().unwrap()).unwrap();
+    let forest = crate::Forest::new(&sequent).unwrap();
+    let roots = forest.roots().to_vec();
+    let (p, _) = forest.cut_pairs().next().unwrap();
+    let (o, n) = (|x: OccId| Member::from(x), NodeId::new);
+    let mut nodes = vec![
+        Node::One(o(roots[0])),
+        Node::Weaken(o(p), n(0)),
+        Node::Top(o(roots[1])),
+        Node::Cut(o(p), n(1), n(2)),
+    ];
+    for j in 0..d {
+        let below = n(nodes.len() as u32 - 1);
+        nodes.push(Node::With(o(roots[2 + j]), below, below));
+    }
+    let root = n(nodes.len() as u32 - 1);
+    let proof = Proof::new(forest, nodes, root).unwrap();
+    proof.check(mode).unwrap();
+    let unbounded = Options::default().with_nodes(None);
+    let mut asked = 0;
+    let stopped = step(&proof, mode, None, &unbounded, &Limits::UNBOUNDED, |_| {
+        asked += 1;
+        asked >= 2
+    });
+    assert!(
+        matches!(stopped, Err(Error::Refused(Refusal::Stopped { .. }))),
+        "{stopped:?}"
+    );
+    let few = Options::default().with_nodes(Some(20_000));
+    let refused = step(&proof, mode, None, &few, &Limits::default(), never);
+    assert!(
+        matches!(refused, Err(Error::Refused(Refusal::Elimination { .. }))),
+        "{refused:?}"
+    );
+    let small = Limits::default().with_memory_bytes(Some(1 << 20));
+    let refused = step(&proof, mode, None, &unbounded, &small, never);
+    assert!(
+        matches!(
+            refused,
+            Err(Error::Refused(Refusal::Memory {
+                phase: Phase::Eliminate,
+                ..
+            }))
+        ),
+        "{refused:?}"
+    );
+    let made = step(&proof, mode, None, &unbounded, &Limits::default(), never).unwrap();
+    assert!(made.proof.is_cut_free());
+}

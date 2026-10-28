@@ -384,7 +384,10 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   it).
 - **The order of the cases** (`Rewrite::reduce`): an axiom on the cut
   formula first (either premise: the other premise renames the traced
-  occurrence, `rename`), then in affine mode a weakened cut formula
+  occurrence, `rename`, which at a `⊗`, Mix or cut remakes only the
+  premise slot its path entered: both slots may be one shared subproof,
+  and remapping both renamed the literal twice, a finding of the panel
+  pinned by `the_axiom_case_renames_one_premise_of_a_shared_pair`), then in affine mode a weakened cut formula
   (erasure: the other premise's formulas weakened over the weakening's
   premise), then a commutation into the first premise if its last rule
   does not introduce the cut formula, then into the second, then the
@@ -407,8 +410,13 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   the exact conclusion each place gives (`specialize`, `above`: the
   top-down instantiation the derivation view makes), so each place gets
   its own weakenings. `an_erasure_weakens_what_each_place_gives` pins a
-  cut shared under both premises of a `&` with two contexts. The pairs
-  are bounded by `cut.nodes`.
+  cut shared under both premises of a `&` with two contexts. It is the one
+  rewrite that can make far more nodes than the proof has (places ×
+  context), so it counts every node it will make against `cut.nodes`
+  before making any, charges the conclusions it keeps to `memory_bytes`
+  and asks the stop every 4 096 places; unbounded, a 16 KB file took
+  5 GB inside one step (the panel's finding,
+  `a_specialized_erasure_is_bounded_inside_the_step`).
 - **Bounds**: `cut::Options::steps` and `nodes` (named defaults, flags
   `--steps` and `--node-limit`) end `eliminate` with
   `Refusal::Elimination` and the last proof checked; a refusal of the
@@ -416,7 +424,9 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   step fewer, so the proof returned has always passed the checker.
   `limits` bound each pass; the stop is asked between steps and by the
   passes. A proof made of more than `nodes` nodes, or of more than
-  `memory_bytes` at 16 bytes a node, is refused.
+  `memory_bytes` at 16 bytes a node, is refused; an arena that would pass
+  what a `NodeId` names is `Refusal::Index` (`Rewrite::push` marks it), not
+  ids that alias.
 - **Termination** of `Strategy::Topmost` (the cut first in the arena,
   whose premises are cut-free): each step on such a cut either lowers
   the cut formula's size (key cases, dereliction) or keeps it and

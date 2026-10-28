@@ -22,6 +22,7 @@
 //! | `search::prove_within`, `search::prove_goal` | `memory_bytes`, `recursion_depth`, `occurrences`, `work` (the search's and the check's) | at every node an engine searches, and in its long passes |
 //! | `search::batch::run`, `search::batch::prove` | each search's limits, the batch's memory shared out | through each problem's work, and `Results::cancel` |
 //! | `Proof::check_within` | `memory_bytes`, `work` | every 4 096 nodes or 65 536 units of work |
+//! | `proofs::cut::step`, `proofs::cut::eliminate` | `cut::Options::steps` and `nodes`; `memory_bytes` and `work` for each check, `memory_bytes` for a step's specialized erasure and the proof it makes | between steps, as each check does, and every 4 096 places a specialized erasure makes |
 //! | `Proof::derivation_size`, `Proof::derivation_within`, `Interactive::derivation_within` | `derivation_bytes`, `memory_bytes` | as the check, then at every inference built |
 //! | `Interactive::close`, `close_with`, `close_all`, `proof` | the search's and the derivation's | as the search and the derivation |
 //! | `ProofStructure::is_correct` | none: its memory is linear in the structure | at every round of the criterion |

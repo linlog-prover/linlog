@@ -302,7 +302,7 @@ pub fn step(
             .ok_or(Error::NoCut { node: None })?,
     };
     let (made, step) =
-        reduce(proof, &record, mode, cut, options, limits).map_err(Error::Refused)?;
+        reduce(proof, &record, mode, cut, options, limits, &mut stop).map_err(Error::Refused)?;
     let reading = check::reading(&made, mode).map_err(Error::Check)?;
     let allowance = Allowance::new(limits, Phase::Eliminate, &mut stop);
     match check::examine(
@@ -386,7 +386,7 @@ pub fn eliminate(
             };
             return Ok(ended(current, steps, refusal));
         }
-        match reduce(&current, &record, mode, cut, options, limits) {
+        match reduce(&current, &record, mode, cut, options, limits, &mut stop) {
             Ok((made, step)) => {
                 steps.push(step);
                 checked = Some(std::mem::replace(&mut current, made));
@@ -479,7 +479,8 @@ impl Observer for Record {
 
 /// Reduces the cut at `cut` of a checked proof whose record is `record`
 /// and returns the proof made, not yet checked, and the step; or the
-/// refusal of a proof past the bounds.
+/// refusal of a proof past the bounds, or of the stop, which the one
+/// rewrite that may make more nodes than the proof has asks.
 fn reduce(
     proof: &Proof,
     record: &Record,
@@ -487,6 +488,7 @@ fn reduce(
     cut: NodeId,
     options: &Options,
     limits: &Limits,
+    stop: &mut dyn FnMut(Progress) -> bool,
 ) -> Result<(Proof, Step), Refusal> {
     // The proof was checked in `mode`, so it has a reading there.
     let reading = check::reading(proof, mode).unwrap_or_default();
@@ -496,18 +498,29 @@ fn reduce(
         record,
         reading,
         nodes: proof.nodes().to_vec(),
+        overflowed: false,
     };
     // Every rewrite but the specialized erasure adds fewer nodes than the
     // proof has for each of its passes, so only that one is bounded on the
-    // way; the proof made is measured after.
+    // way, by the nodes, the memory and the stop; the proof made is
+    // measured after.
     let most = options
         .nodes
         .map_or(usize::MAX, |n| usize::try_from(n).unwrap_or(usize::MAX));
     let (made, step) = rewrite.reduce(cut, mode);
     let root = match made {
         Made::Subproof(replacement) => rewrite.replace(cut, replacement),
-        Made::Erasure { kept, proved } => rewrite.specialize(cut, kept, &proved, most)?,
+        Made::Erasure { kept, proved } => {
+            rewrite.specialize(cut, kept, &proved, most, limits.memory_bytes, stop)?
+        }
     };
+    if rewrite.overflowed {
+        return Err(Refusal::Index {
+            what: crate::limits::Space::Node,
+            count: rewrite.nodes.len() as u64,
+            most: u64::from(u32::MAX),
+        });
+    }
     let nodes = rewrite.nodes;
     let made = Proof::new(proof.forest.clone(), nodes, root).map_err(|error| match error {
         Error::Refused(refusal) => refusal,
@@ -569,17 +582,26 @@ struct Rewrite<'a> {
     reading: Option<Reading<'a>>,
     /// The arena.
     nodes: Vec<Node>,
+    /// Whether the arena passed what a node id names, so that the step is
+    /// refused rather than made of ids that alias.
+    overflowed: bool,
 }
 
 impl Rewrite<'_> {
     /// Adds a node and returns its id. The arena grows by a few times the
-    /// proof's nodes at most, which [`reduce`] measures after.
+    /// proof's nodes at most, which [`reduce`] measures after; past what a
+    /// node id names the id returned is a placeholder and the step is
+    /// refused.
     fn push(&mut self, node: Node) -> NodeId {
-        // The arena holds fewer than 2³² nodes before a step, and a step
-        // adds a few times as many at most, which `Proof::new` refuses.
-        let id = NodeId::new(u32::try_from(self.nodes.len()).unwrap_or(u32::MAX));
+        let id = match u32::try_from(self.nodes.len()) {
+            Ok(id) if id < u32::MAX => id,
+            _ => {
+                self.overflowed = true;
+                u32::MAX
+            }
+        };
         self.nodes.push(node);
-        id
+        NodeId::new(id)
     }
 
     /// Returns the node at `id`.
@@ -930,37 +952,53 @@ impl Rewrite<'_> {
     /// and every node on the way is made anew.
     fn rename(&mut self, top: NodeId, from: OccId, to: OccId) -> NodeId {
         let mut seen: HashSet<NodeId> = HashSet::default();
-        let mut on: Vec<NodeId> = Vec::new();
+        // The nodes on the way, and for a `⊗`, a Mix or a cut the premise
+        // the occurrence comes from: only that one is made anew, even
+        // where both premises are one shared subproof.
+        let mut on: Vec<(NodeId, Option<Branch>)> = Vec::new();
         let mut stack = vec![top];
         while let Some(id) = stack.pop() {
             if !seen.insert(id) {
                 continue;
             }
-            on.push(id);
             let node = self.node(id);
+            let mut entered = None;
             match node {
                 Node::Ax(..) | Node::One(_) | Node::Top(_) => {}
                 Node::Weaken(o, _) if o.occ() == from => {}
                 Node::With(_, p, q) => stack.extend([p, q]),
                 node => match self.split(node) {
-                    Some([first, second]) => stack.push(match self.holder(from, first, second) {
-                        Branch::Left => first.0,
-                        Branch::Right => second.0,
-                    }),
+                    Some([first, second]) => {
+                        let side = self.holder(from, first, second);
+                        entered = Some(side);
+                        stack.push(match side {
+                            Branch::Left => first.0,
+                            Branch::Right => second.0,
+                        });
+                    }
                     None => stack.extend(node.premises()),
                 },
             }
+            on.push((id, entered));
         }
-        on.sort_unstable();
+        on.sort_unstable_by_key(|&(id, _)| id);
         let mut made: HashMap<NodeId, NodeId> = HashMap::default();
         let to = Member::from(to);
-        for id in on {
+        for (id, entered) in on {
             let old = self.node(id);
-            let node = match old {
-                Node::Ax(x, y) if x.occ() == from => Node::Ax(to, y),
-                Node::Ax(x, y) if y.occ() == from => Node::Ax(x, to),
-                Node::Weaken(o, p) if o.occ() == from => Node::Weaken(to, p),
-                node => node.map_premises(|p| made.get(&p).copied().unwrap_or(p)),
+            let new = |p: NodeId| made.get(&p).copied().unwrap_or(p);
+            let node = match (old, entered) {
+                (Node::Ax(x, y), _) if x.occ() == from => Node::Ax(to, y),
+                (Node::Ax(x, y), _) if y.occ() == from => Node::Ax(x, to),
+                (Node::Weaken(o, p), _) if o.occ() == from => Node::Weaken(to, p),
+                (node, Some(side)) => {
+                    let [first, second] = self.split(node).expect("a rule of two premises");
+                    match side {
+                        Branch::Left => node.with_premises(new(first.0), second.0),
+                        Branch::Right => node.with_premises(first.0, new(second.0)),
+                    }
+                }
+                (node, None) => node.map_premises(new),
             };
             if node != old {
                 let new = self.push(node);
@@ -1025,14 +1063,20 @@ impl Rewrite<'_> {
     /// each exact conclusion it has on the way there, and each place the
     /// cut is read at gets the weakenings of its own conclusion's formulas
     /// beyond `proved` over `kept`. Returns the root, or the refusal of
-    /// more than `most` nodes made.
+    /// more than `most` nodes made, of more than `memory` bytes held by the
+    /// conclusions it keeps and the nodes it makes, or of the stop, which
+    /// it asks every 4 096 pairs.
     fn specialize(
         &mut self,
         cut: NodeId,
         kept: NodeId,
         proved: &Multiset,
         most: usize,
+        memory: Option<u64>,
+        stop: &mut dyn FnMut(Progress) -> bool,
     ) -> Result<NodeId, Refusal> {
+        /// How many pairs pass between two polls of the stop.
+        const POLL: usize = 4096;
         /// A node with an exact conclusion, and the pairs of its premises
         /// that lead to the cut.
         struct Pair {
@@ -1061,7 +1105,34 @@ impl Rewrite<'_> {
             what: crate::limits::Bound::Nodes,
             limit: most as u64,
         };
+        // The bytes the pairs hold, each conclusion twice (the pair's and
+        // the index's key) at four bytes a member beside a node's sixteen
+        // and a table entry, and the nodes made; they saturate.
+        let mut held: u64 = 0;
+        let mut hold = |members: usize, nodes: usize| -> Result<(), Refusal> {
+            held = held
+                .saturating_add((members as u64).saturating_mul(8))
+                .saturating_add((nodes as u64).saturating_mul(64));
+            match memory {
+                Some(limit) if held > limit => Err(Refusal::Memory {
+                    phase: Phase::Eliminate,
+                    limit_bytes: limit,
+                    needed_bytes: None,
+                }),
+                _ => Ok(()),
+            }
+        };
+        let mut popped: usize = 0;
         while let Some(k) = stack.pop() {
+            // Each pair is popped once, and there are at most `most` of them.
+            popped += 1;
+            if popped.is_multiple_of(POLL)
+                && stop(Progress::new(Phase::Eliminate, POLL as u64, popped as u64))
+            {
+                return Err(Refusal::Stopped {
+                    phase: Phase::Eliminate,
+                });
+            }
             let id = pairs[k].id;
             if id == cut {
                 continue;
@@ -1078,6 +1149,7 @@ impl Rewrite<'_> {
                         if pairs.len() >= most {
                             return Err(refused());
                         }
+                        hold(zone.as_slice().len(), 1)?;
                         pairs.push(Pair {
                             id: p,
                             zone: zone.clone(),
@@ -1091,6 +1163,18 @@ impl Rewrite<'_> {
                 pairs[k].premises[j] = Some(at);
             }
         }
+        // Each pair makes a node, and each place the cut is read at the
+        // weakenings of its context: counted before any is made.
+        let weakenings = pairs
+            .iter()
+            .filter(|pair| pair.id == cut)
+            .fold(0usize, |sum, pair| {
+                sum.saturating_add(pair.zone.difference(proved).as_slice().len())
+            });
+        if pairs.len().saturating_add(weakenings) > most {
+            return Err(refused());
+        }
+        hold(0, weakenings)?;
         let mut order: Vec<usize> = (0..pairs.len()).collect();
         order.sort_unstable_by_key(|&k| pairs[k].id);
         let mut made = vec![NodeId::new(0); pairs.len()];
