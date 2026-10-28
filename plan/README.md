@@ -3606,3 +3606,39 @@ client follows it (step 32).
   the planning session now runs on the second account (`claude2`, Max
   5x) from `plan/handoff.md`. Next: session 41b, cut elimination on
   proof terms (Opus 5.5 at high, with the panel).
+- 2026-10-28: the author, after the go: "Don't stop before 42's first
+  session, just continue as planned", so step 42's first session starts
+  on Fable 5.1 on this account without asking; and the planning session
+  is named `linlog-orchestrator` from now on (`plan/handoff.md` says so).
+- 2026-10-28: review of session 41b, cut elimination on proof terms
+  (Opus 5.5 at high, 10:31 to 12:26, unattended): `proofs::cut::step`
+  reduces the cut the caller names, or the strategy's, and returns the
+  checked proof with a `Step` (the cut, the occurrence cut, the case,
+  the rule passed above); `eliminate` runs `Strategy::Topmost` to a
+  cut-free proof within `cut::Options` (`steps` 10 000, `nodes`
+  100 000, each a flag and a settings key), or stops with the last
+  checked proof and its reason; nine cases (axiom, the key cases of
+  `⊗ ⅋`, `1 ⊥`, `& ⊕`, weakening, dereliction, contraction, a box
+  entering a box, commutative) in the classical, affine, Mix and both
+  intuitionistic modes, the exponentials stepped in the dyadic
+  calculus; every intermediate proof over the same forest with no new
+  cut formula, asserted at every step; `linlog eliminate` with its
+  numbered steps, the record at wire level 6, exit 3 at the default
+  bound with cuts left (a heads-up box in the session's pane, sent back
+  and fixed), README, the guide and the changelog. No new variant of a
+  closed enum. The panel (the argument on Fable 5.1): a shared subproof
+  renamed twice in the axiom case (found by both the argument and the
+  counterexamples) and an affine erasure that grew unbounded inside one
+  step (5 GB from 16 KB), both fixed with tests. Checked here: every
+  step's elimination is re-checked by the unchanged checker
+  (`check::examine` on every proof made); the command on a contraction
+  cut step by step, each intermediate proof accepted by `check`, an
+  additive cut's commutation and key cases, a Mix and an affine cut,
+  `--node-limit` reached (exit 3), the target sets (0 of 145 and 0 of
+  64 decided rows differ). Departures, for the author, each in the
+  report: `Strategy::Topmost` for the plan's lowest-first, `End::CutFree`
+  for `Normal`, the record's steps gaining `formula` and `above`, no
+  `Proof::cut` composition, no `--cut NODE` in the command (the page
+  picks the cut through the library; the command's single step is
+  `--steps=1`). Follow-ups in `later.md` ("Follow-ups: interactive
+  proving"). Next: 41c.

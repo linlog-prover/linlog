@@ -17,11 +17,12 @@ it is self-contained.
 - **How the author starts you**, in `/home/tux/Projects/own/linlog`,
   from their shell, which is nushell:
   ```nu
-  claude2 --name planning --model claude-opus-5-5 --effort high --permission-mode auto (open --raw plan/handoff.md)
+  claude2 --name linlog-orchestrator --model claude-opus-5-5 --effort high --permission-mode auto (open --raw plan/handoff.md)
   ```
   `claude2` is `claude` with `CLAUDE_CONFIG_DIR=/home/tux/.claude-2`.
-  The name matters: step sessions send their messages to `planning`;
-  check with `ListAgents` that no other `planning` is alive (a peer
+  The name matters: step sessions send their messages to
+  `linlog-orchestrator` (the author's name for it since 2026-10-28; earlier
+  `planning`); check with `ListAgents` that no other session of that name is alive (a peer
   `website-learn-c0`, a shell, is not yours; leave it). Auto mode
   matters too: messages between sessions of different permission
   classes wait for approval.
@@ -164,7 +165,7 @@ interactive proving, the bindings, the Rocq library). Left, in order:
    with: "Nothing is pushed. A failing check is fixed at its cause;
    never weaken, delete or loosen a test, a check or a tolerance to make
    it pass. If a requirement turns out impossible, say why in the report
-   and in the message to planning." A session that touches both
+   and in the message to linlog-orchestrator." A session that touches both
    repositories sends "linlog ready" after its linlog part; you review
    and push that part, then answer with linlog's commit and the client's
    revision to base on. Briefs forbid entering the client's dev shell
@@ -184,7 +185,7 @@ interactive proving, the bindings, the Rocq library). Left, in order:
    unattended, a wake-up every 20 minutes (below). Re-subscribe after
    each idle notice, but not to a session already idle (it fires at
    once).
-4. **Review it** when it reports (its last message to `planning`):
+4. **Review it** when it reports (its last message to `linlog-orchestrator`):
    - read its report section and the diff (`jj diff -r 'BASE..HEAD'
      --stat`, every soundness-relevant file in full: the checker's arm,
      the Rocq trusted definitions);

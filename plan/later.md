@@ -1570,6 +1570,16 @@ wrapping. Reading a state back requires the two-sided rule names that the
 library writes, while `apply` also accepts the classical name in
 intuitionistic mode; harmless for the library's own JSON.
 
+Found at the review of 41b (2026-10-28): `interact`'s `cut G C P…`
+reads the cut formula as one word, so `cut 0 b & a 0` fails with "`&` is
+not a position" and the formula must be written without spaces
+(`b&a`); a quoted formula or the positions before it would mend that.
+After a `cut` the second goal's line has a stray comma (`opened goal 2:,
+1: !a ⊢ …`, from 41a). `linlog eliminate` has no flag to name the cut
+it reduces (the library's `at` does), and its exit status differs
+between the default `--steps` (3 with cuts left) and the same number
+given (0), as documented.
+
 ## Follow-ups: the exports
 
 - **The essential net's input side is green in the library's default
