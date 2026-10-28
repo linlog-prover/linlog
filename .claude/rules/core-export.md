@@ -433,6 +433,27 @@ for NanoYalla. What the code relies on:
   the structure's, one-sided: in the Lambek calculus its hypotheses
   come reversed against the two-sided sequent, as the planar layout
   needs.
+- **Cut links and the steps of an elimination** (`svg::net_step`,
+  `svg::mell_net_step`, and `net`/`mell_net` for a net with cut links):
+  a cut link is a bar `2·node_radius` under its two formulas, joined to
+  them from below (Girard's drawing), id `c<x>-<y>` with its end in a cut
+  formula's tree first, the order `nets::cut::Step::cut` names it in.
+  Outside every box the two ends stand at the bottom after the
+  conclusions, side by side (the MLL drawer's `tops`, its dead
+  occurrences, those of a cut formula above every cut link, skipped);
+  inside a box they are layout children of the box after its premise and
+  boxed copies (keys `n + 2i`), on their own rows, which the box's `!`
+  stands a row below. The drawing grows by the bar's room only when a
+  cut link stands at the bottom. A step's marks (`Marks`, built from the
+  step and the net it was taken on) are the cut link, the axiom links at
+  its ends (axiom), the premise edges of its ends (`tensor_par`), the box
+  of its `!` end (every exponential case), the box entered
+  (`box_into_box`) and the wire to the copy acted on (dereliction,
+  contraction), all in the highlight group. A net with cut links has no
+  essential drawing (`style.essential` is ignored for it), so every step
+  of an elimination is drawn alike. `cut_elimination_is_drawn` checks
+  every step of three eliminations in both looks and both drawings, and
+  pins `net-cut.svg` and `net-cut-boxes.svg`.
 - **A net with boxes** (`svg::mell_net`, `export/svg/mell.rs`) is the
   multiplicative layout over a *layout tree*: a vertex's premises, a `!`
   vertex's box (node `n + b`), a `?` vertex's copies at its own depth,

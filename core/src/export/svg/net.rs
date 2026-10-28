@@ -30,7 +30,8 @@
 
 use super::font::{AXIS, DEPTH, HEIGHT};
 use super::{
-    NOTATION, NetDrawing, PLAIN, Premises, RAISED_BOT, Style, document, escaped, lay, run, text,
+    Marks, NOTATION, NetDrawing, PLAIN, Premises, RAISED_BOT, Style, document, escaped, lay, run,
+    text,
 };
 use crate::nets::{NetError, ProofStructure};
 use crate::occurrences::{OccId, Reading, Side};
@@ -129,16 +130,20 @@ fn components(net: &ProofStructure) -> Vec<usize> {
         }
         o
     };
-    let kept = forest.ids().flat_map(|o| {
-        let cut = (forest.kind(o) == Kind::Par)
-            .then(|| forest.right(o))
-            .flatten();
-        forest
-            .children(o)
-            .filter(move |&c| Some(c) != cut)
-            .map(move |c| (o, c))
-    });
-    for (a, b) in kept.chain(joined(net)) {
+    let kept = forest
+        .ids()
+        .filter(|&o| net.vertex(o).is_some())
+        .flat_map(|o| {
+            let cut = (forest.kind(o) == Kind::Par)
+                .then(|| forest.right(o))
+                .flatten();
+            forest
+                .children(o)
+                .filter(move |&c| Some(c) != cut)
+                .map(move |c| (o, c))
+        });
+    let across = net.cuts().iter().map(|&(x, y)| (x.occ(), y.occ()));
+    for (a, b) in kept.chain(across).chain(joined(net)) {
         let (a, b) = (find(&mut parent, a.index()), find(&mut parent, b.index()));
         parent[a] = b;
     }
@@ -266,7 +271,7 @@ pub(super) fn estimate(net: &ProofStructure, style: &Style, read: bool, most: u6
         });
     }
     let roots = forest.roots().len() as u64;
-    let links = net.links().len() as u64;
+    let links = net.links().len() as u64 + net.cuts().len() as u64;
     bytes = bytes
         .saturating_add(roots.saturating_mul(ROOT + 2))
         .saturating_add(links.saturating_mul(LINK));
@@ -301,8 +306,15 @@ pub(super) fn draw(
     style: &Style,
     verdict: &Result<(), NetError>,
     reading: Option<&Reading<'_>>,
+    step: &Marks,
 ) -> String {
     let forest = net.forest();
+    // The vertices: every occurrence but those of a cut formula above every
+    // cut link; the formulas at the bottom, the conclusions and the cut
+    // links' ends, each cut link's two ends side by side after them.
+    let live = |o: OccId| net.vertex(o).is_some();
+    let mut tops: Vec<OccId> = forest.roots().to_vec();
+    tops.extend(net.cuts().iter().flat_map(|&(x, y)| [x.occ(), y.occ()]));
     let n = forest.len();
     let formulas = style.net == NetDrawing::Formulas;
     let line_height = i64::from(style.line_height);
@@ -313,7 +325,7 @@ pub(super) fn draw(
     let arrow = radius / 2;
     let advance = |c: char| i64::from(style.font.advances.advance(c));
     let width = |text: &str| lay(text, 1000, &style.font, |_| {});
-    let root = |o: OccId| forest.parent(o).is_none();
+    let root = |o: OccId| forest.parent(o).is_none_or(|p| !live(p));
     // Whether an occurrence's formula is written: a compact net writes
     // only its literals and its conclusions.
     let written = |o: OccId| formulas || forest.is_literal(o) || root(o);
@@ -409,17 +421,19 @@ pub(super) fn draw(
     }
     // The conclusions side by side on the bottom layer, `literal_gap`
     // apart, and top-down every anchor from its parent's.
-    let bottom = forest.roots().iter().map(|r| layer[r.index()]).max();
+    let bottom = tops.iter().map(|r| layer[r.index()]).max();
     let bottom = bottom.unwrap_or(0);
     let mut x = vec![0; n];
     let mut right = margin - gap;
-    for &r in forest.roots() {
+    for &r in &tops {
         layer[r.index()] = bottom;
         x[r.index()] = right + gap - extent[r.index()].0;
         right = x[r.index()] + extent[r.index()].1;
     }
     for o in forest.ids() {
-        if let Some(p) = forest.parent(o) {
+        if let Some(p) = forest.parent(o)
+            && !root(o)
+        {
             x[o.index()] = x[p.index()] + offset[o.index()];
         }
     }
@@ -508,7 +522,9 @@ pub(super) fn draw(
         let joined = parts
             .as_ref()
             .is_some_and(|(c, _)| c[a.index()] == c[b.index()]);
-        cycle.binary_search(&(a.min(b), a.max(b))).is_ok() || (joined && apart(a))
+        cycle.binary_search(&(a.min(b), a.max(b))).is_ok()
+            || (joined && apart(a))
+            || step.has(a.get(), b.get())
     };
 
     let (mut lines, mut pars, mut links) = (String::new(), String::new(), String::new());
@@ -519,7 +535,7 @@ pub(super) fn draw(
         true => format!(r#" fill="{}""#, escaped(&style.input)),
         false => String::new(),
     };
-    for o in forest.ids() {
+    for o in forest.ids().filter(|&o| live(o)) {
         if written(o) {
             // A compact net's circle is its connective's element.
             let mut attributes = match formulas || forest.is_literal(o) {
@@ -659,6 +675,32 @@ pub(super) fn draw(
         }
     }
 
+    // Each cut link as the literature draws one: a bar under its two
+    // formulas, joined to them from below.
+    let cut_depth = 2 * radius;
+    for &(a, d) in net.cuts() {
+        let (a, d) = (a.occ(), d.occ());
+        let below = |o: OccId| match formulas {
+            true => text_y(o) + depth,
+            false => under + depth,
+        };
+        let low = below(a).max(below(d)) + cut_depth;
+        let out = match step.cut == Some((a.get(), d.get())) {
+            true => &mut marked,
+            false => &mut lines,
+        };
+        writeln!(
+            out,
+            r#"<path id="c{}-{}" d="M{} {}V{low}H{}V{}"/>"#,
+            a.get(),
+            d.get(),
+            x[a.index()],
+            below(a),
+            x[d.index()],
+            below(d)
+        )
+        .unwrap();
+    }
     let group = |out: &mut String, colour: &str, extra: &str, content: &str| {
         writeln!(
             out,
@@ -694,14 +736,19 @@ pub(super) fn draw(
         Some(reading) => PLAIN.reading(&mut title, reading).unwrap(),
         None => PLAIN.one_sided(&mut title, forest.sequent()).unwrap(),
     }
-    let width = if forest.roots().is_empty() {
+    let width = if tops.is_empty() {
         2 * margin
     } else {
         right + margin
     };
+    let cuts = if net.is_cut_free() {
+        0
+    } else {
+        depth.max(DEPTH) + cut_depth + stroke
+    };
     let height = match formulas {
-        true => baseline + bottom * pitch + DEPTH + margin,
-        false => under + DEPTH + margin,
+        true => baseline + bottom * pitch + DEPTH.max(cuts) + margin,
+        false => under + DEPTH.max(cuts) + margin,
     };
     let description = style.description.then(|| match reading {
         Some(reading) => net

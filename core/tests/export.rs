@@ -778,6 +778,169 @@ fn outline(drawing: &str, b: u32) -> (i64, i64, i64, i64) {
     (left, top, right, bottom)
 }
 
+/// Every step of an elimination on a net is drawn in both looks and both
+/// drawings, with every cut link as its bar (`c<x>-<y>`) and what the step
+/// acted on in the highlight colour: the cut link reduced, the links at
+/// its ends in the axiom case, the box of its `!` end in the exponential
+/// cases and the box a box enters; the net reached has no cut link left.
+/// The size estimate is at least the drawing. A step of each kind of net
+/// is pinned.
+#[test]
+fn cut_elimination_is_drawn() {
+    use linlog::nets::cut::{self, Step};
+    use linlog::proofs::cut::{Case, Options as Bounds};
+    let highlighted = |svg: &str| -> String {
+        let colour = format!(r#"stroke="{}""#, Style::default().highlight);
+        svg.split(&colour)
+            .skip(1)
+            .map(|group| group.split("</g>").next().unwrap_or_default().to_owned())
+            .collect()
+    };
+    let check = |svg: &str, cuts: &[(VertexId, VertexId)], step: Option<&Step>, boxes: &[u32]| {
+        structure(svg);
+        for &(x, y) in cuts {
+            assert!(
+                svg.contains(&format!(r#"id="c{}-{}""#, x.get(), y.get())),
+                "{svg}"
+            );
+        }
+        let marked = highlighted(svg);
+        match step {
+            Some(step) => {
+                let (x, y) = step.cut;
+                assert!(
+                    marked.contains(&format!(r#"id="c{}-{}""#, x.get(), y.get())),
+                    "{svg}"
+                );
+                for b in boxes {
+                    assert!(marked.contains(&format!(r#"id="b{b}""#)), "{step:?}: {svg}");
+                }
+            }
+            None => assert!(!svg.contains(r#"id="c"#), "{svg}"),
+        }
+    };
+    let looks = [NetLook::LINLOG, NetLook::TEXTBOOK];
+    let drawings = [NetDrawing::Formulas, NetDrawing::Compact];
+    let styles: Vec<Style> = looks
+        .iter()
+        .flat_map(|&look| {
+            drawings
+                .iter()
+                .map(move |&d| Style::default().with_net_look(look).with_net(d))
+        })
+        .collect();
+    let mut cases = BTreeSet::new();
+
+    let proof = cut_proof("a * b |- b * a", Mode::CLASSICAL, "a * b", &[0]);
+    let net =
+        ProofStructure::from_proof(&proof, Criterion::MLL, &Limits::default(), |_| false).unwrap();
+    let mut drawn = Vec::new();
+    let end = cut::eliminate(
+        &net,
+        &Bounds::default(),
+        &Limits::default(),
+        |_| false,
+        |net, step| {
+            drawn.push((net.clone(), *step));
+        },
+    )
+    .unwrap();
+    for (net, step) in &drawn {
+        cases.insert(step.case.name());
+        for style in &styles {
+            let svg = svg::net_step(net, step, style, &unbounded(), |_| false).unwrap();
+            check(&svg, net.cuts(), Some(step), &[]);
+            let bytes = svg.len() as u64;
+            assert!(svg::net_step(net, step, style, &bounded(bytes - 1), |_| false).is_err());
+            if step.case == Case::Axiom {
+                for v in [step.cut.0, step.cut.1] {
+                    let p = net.partner(v).unwrap();
+                    let link =
+                        format!(r#"id="l{}-{}""#, v.get().min(p.get()), v.get().max(p.get()));
+                    assert!(highlighted(&svg).contains(&link), "{svg}");
+                }
+            }
+        }
+    }
+    snapshot(
+        "net-cut.svg",
+        &svg::net_step(
+            &drawn[0].0,
+            &drawn[0].1,
+            &Style::default(),
+            &unbounded(),
+            |_| false,
+        )
+        .unwrap(),
+    );
+    let last = svg::net(&end.net, &Style::default(), &unbounded(), |_| false).unwrap();
+    check(&last, &[], None, &[]);
+
+    for (input, mode) in [
+        ("!a, !b |- !(a * b) * a", Mode::INTUITIONISTIC),
+        ("|- ?~a, a * a", Mode::CLASSICAL),
+        ("|- ?~a, ~b, b", Mode::CLASSICAL.with_mix()),
+    ] {
+        let proof = cut_proof(input, mode, "!a", &[0]);
+        let criterion = Criterion::of(mode).unwrap();
+        let net =
+            MellStructure::from_proof(&proof, criterion, &Limits::default(), |_| false).unwrap();
+        let mut drawn = Vec::new();
+        let end = cut::eliminate(
+            &net,
+            &Bounds::default(),
+            &Limits::default(),
+            |_| false,
+            |net, step| {
+                drawn.push((net.clone(), *step));
+            },
+        )
+        .unwrap();
+        for (net, step) in &drawn {
+            cases.insert(step.case.name());
+            let (x, y) = step.cut;
+            let bang =
+                |v: VertexId| net.forest().kind(net.occurrence(v).unwrap()) == linlog::Kind::Bang;
+            let mut boxes = Vec::new();
+            if matches!(
+                step.case,
+                Case::Weakening | Case::Dereliction | Case::Contraction | Case::BoxIntoBox
+            ) {
+                boxes.push(if bang(x) { x.get() } else { y.get() });
+            }
+            if step.case == Case::BoxIntoBox {
+                boxes.push(step.above.unwrap().get());
+            }
+            for style in &styles {
+                let svg = svg::mell_net_step(net, step, style, &unbounded(), |_| false).unwrap();
+                check(&svg, net.cuts(), Some(step), &boxes);
+                let bytes = svg.len() as u64;
+                assert!(
+                    svg::mell_net_step(net, step, style, &bounded(bytes - 1), |_| false).is_err()
+                );
+            }
+            if step.case == Case::BoxIntoBox {
+                snapshot(
+                    "net-cut-boxes.svg",
+                    &svg::mell_net_step(net, step, &Style::default(), &unbounded(), |_| false)
+                        .unwrap(),
+                );
+            }
+        }
+        let last = svg::mell_net(&end.net, &Style::default(), &unbounded(), |_| false).unwrap();
+        check(&last, &[], None, &[]);
+    }
+    let all = [
+        "the axiom case",
+        "the key case of ⊗ and ⅋",
+        "weakening",
+        "dereliction",
+        "contraction",
+        "a box entering a box",
+    ];
+    assert!(all.iter().all(|case| cases.contains(case)), "{cases:?}");
+}
+
 /// Proof nets with boxes are pinned as SVG in both drawings: a box with
 /// two copies of one `?` inside and a contraction outside it, and boxes
 /// nested, the inner rectangle inside the outer one; every drawing lies

@@ -37,6 +37,7 @@ use super::{
     Conclusions, NOTATION, NetDrawing, PLAIN, Premises, RAISED_BOT, Style, WhyNot, document,
     escaped, lay, run, text,
 };
+use crate::export::svg::Marks;
 use crate::hash::HashMap;
 use crate::nets::{MellStructure, NetError, VertexId};
 use crate::occurrences::{OccId, Reading, Side};
@@ -240,9 +241,25 @@ pub(super) fn draw(
     style: &Style,
     verdict: &Result<(), NetError>,
     reading: Option<&Reading<'_>>,
+    step: &Marks,
 ) -> String {
     let forest = net.forest();
     let n = net.len();
+    // The formulas at the bottom: the roots and the ends of the cut links
+    // outside every box, each cut link's two ends side by side after them;
+    // the ends of a cut link inside a box stand in it, beside its premise.
+    let raw_cuts: Vec<(u32, u32)> = net
+        .cuts()
+        .iter()
+        .map(|&(x, y)| (x.get(), y.get()))
+        .collect();
+    let mut tops: Vec<u32> = (0..forest.roots().len() as u32).collect();
+    tops.extend(
+        raw_cuts
+            .iter()
+            .filter(|&&(x, _)| net.inside(VertexId::new(x)).is_none())
+            .flat_map(|&(x, y)| [x, y]),
+    );
     let formulas = style.net == NetDrawing::Formulas;
     // An essential net tells its edges apart by their polarity, not by
     // the switching.
@@ -258,7 +275,7 @@ pub(super) fn draw(
     let kind_of = |v: u32| forest.kind(occ(v));
     let parent = |v: u32| raw(net.parent(VertexId::new(v)));
     let inside = |v: u32| raw(net.inside(VertexId::new(v)));
-    let root = |v: u32| parent(v) == NONE;
+    let root = |v: u32| parent(v) == NONE && inside(v) == NONE;
     let written = |v: u32| formulas || forest.is_literal(occ(v)) || root(v);
     let binary = |v: u32| matches!(kind_of(v), Kind::Tensor | Kind::Par);
     // A vertex's formula as the drawing writes it: one-sided, or as the
@@ -327,7 +344,8 @@ pub(super) fn draw(
     // premise and its boxed copies, ordered by where their `?` vertex
     // comes in the formula trees against the `!` vertex.
     let mut pre = vec![0u32; n];
-    let mut walk: Vec<u32> = (0..forest.roots().len() as u32).rev().collect();
+    let ends = raw_cuts.iter().flat_map(|&(x, y)| [x, y]);
+    let mut walk: Vec<u32> = (0..forest.roots().len() as u32).chain(ends).rev().collect();
     let mut time = 0;
     while let Some(v) = walk.pop() {
         pre[v as usize] = time;
@@ -337,6 +355,15 @@ pub(super) fn draw(
     }
     let nodes = 2 * n;
     let mut edges: Vec<(u32, u32, u32)> = Vec::with_capacity(nodes);
+    // A cut link inside a box stands in it after everything else there.
+    for (i, &(x, y)) in raw_cuts.iter().enumerate() {
+        let b = inside(x);
+        if b != NONE {
+            let key = n as u32 + 2 * i as u32;
+            edges.push((n as u32 + b, key, x));
+            edges.push((n as u32 + b, key + 1, y));
+        }
+    }
     for v in 0..n as u32 {
         if kind_of(v) == Kind::Bang {
             edges.push((v, 0, n as u32 + v));
@@ -446,10 +473,7 @@ pub(super) fn draw(
     // rules every copy at its depth, above its nodes' rows); a `!` vertex
     // with auxiliary doors stays where it is, above the `?` vertices its
     // wires go to.
-    let bottom = (0..forest.roots().len())
-        .map(|r| layer[r])
-        .max()
-        .unwrap_or(0);
+    let bottom = tops.iter().map(|&r| layer[r as usize]).max().unwrap_or(0);
     let has_doors: Vec<bool> = {
         let mut has = vec![false; n];
         for &(b, _) in &doors.pairs {
@@ -466,9 +490,10 @@ pub(super) fn draw(
         if fixed {
             continue;
         }
-        if p == NONE {
+        if root(v) {
             row[v as usize] = bottom;
-        } else if kind_of(p) == Kind::Quest
+        } else if p != NONE
+            && kind_of(p) == Kind::Quest
             && !boxed(v)
             && (rules || kids(p as usize).nth(1).is_some())
         {
@@ -484,10 +509,7 @@ pub(super) fn draw(
     let mut extent = vec![(0i64, 0i64); nodes];
     let mut offset = vec![0i64; nodes];
     let mut post: Vec<usize> = Vec::with_capacity(nodes);
-    let mut walk: Vec<(usize, bool)> = (0..forest.roots().len())
-        .rev()
-        .map(|r| (r, false))
-        .collect();
+    let mut walk: Vec<(usize, bool)> = tops.iter().rev().map(|&r| (r as usize, false)).collect();
     while let Some((node, done)) = walk.pop() {
         if done {
             post.push(node);
@@ -654,7 +676,8 @@ pub(super) fn draw(
     // anchor from its parent's.
     let mut x = vec![0i64; nodes];
     let mut right = margin - gap;
-    for r in 0..forest.roots().len() {
+    for &r in &tops {
+        let r = r as usize;
         x[r] = right + gap - extent[r].0;
         right = x[r] + extent[r].1;
     }
@@ -875,7 +898,8 @@ pub(super) fn draw(
             .collect();
         cycle.sort_unstable();
     }
-    let marks = |a: u32, b: u32| cycle.binary_search(&(a.min(b), a.max(b))).is_ok();
+    let marks =
+        |a: u32, b: u32| cycle.binary_search(&(a.min(b), a.max(b))).is_ok() || step.has(a, b);
 
     let (mut lines, mut pars, mut links) = (String::new(), String::new(), String::new());
     let (mut marked, mut texts) = (String::new(), String::new());
@@ -1431,16 +1455,20 @@ pub(super) fn draw(
         }
         gaps.sort_unstable();
         let mut at = gaps[0] + radius;
-        write!(lines, r#"<path id="b{b}" d="M{at} {bottom}"#).unwrap();
+        let out = match step.boxes.contains(&b) {
+            true => &mut marked,
+            false => &mut lines,
+        };
+        write!(out, r#"<path id="b{b}" d="M{at} {bottom}"#).unwrap();
         for &door in &gaps[1..] {
             if door - radius > at {
-                write!(lines, "H{}", door - radius).unwrap();
+                write!(out, "H{}", door - radius).unwrap();
             }
             at = at.max(door + radius);
-            write!(lines, "M{at} {bottom}").unwrap();
+            write!(out, "M{at} {bottom}").unwrap();
         }
         writeln!(
-            lines,
+            out,
             r#"H{right}V{ceiling}H{left}V{bottom}H{}"/>"#,
             gaps[0] - radius
         )
@@ -1482,6 +1510,29 @@ pub(super) fn draw(
         }
     }
 
+    // Each cut link as the literature draws one: a bar under its two
+    // formulas, joined to them from below.
+    let cut_depth = 2 * radius;
+    for &(a, d) in &raw_cuts {
+        let below = |v: u32| match formulas || forest.is_literal(occ(v)) || root(v) {
+            true => foot(v).1,
+            false => node(v).1 + radius,
+        };
+        let low = below(a).max(below(d)) + cut_depth;
+        let out = match step.cut == Some((a, d)) {
+            true => &mut marked,
+            false => &mut lines,
+        };
+        writeln!(
+            out,
+            r#"<path id="c{a}-{d}" d="M{} {}V{low}H{}V{}"/>"#,
+            x[a as usize],
+            below(a),
+            x[d as usize],
+            below(d)
+        )
+        .unwrap();
+    }
     let group = |out: &mut String, colour: &str, extra: &str, content: &str| {
         writeln!(
             out,
@@ -1518,14 +1569,20 @@ pub(super) fn draw(
         Some(reading) => PLAIN.reading(&mut title, reading).unwrap(),
         None => PLAIN.one_sided(&mut title, forest.sequent()).unwrap(),
     }
-    let width = if forest.roots().is_empty() {
+    let width = if tops.is_empty() {
         2 * margin
     } else {
         right + margin
     };
+    // Room under the bottom row for the bars of the cut links there.
+    let cuts = if tops.len() > forest.roots().len() {
+        depth.max(DEPTH) + cut_depth + stroke
+    } else {
+        DEPTH
+    };
     let height = match formulas {
-        true => baseline + i64::from(rows) * pitch + DEPTH + margin,
-        false => under + DEPTH + margin,
+        true => baseline + i64::from(rows) * pitch + cuts + margin,
+        false => under + cuts + margin,
     };
     let description = style.description.then(|| match reading {
         Some(_) => net.written_in(crate::Mode::INTUITIONISTIC).to_string(),

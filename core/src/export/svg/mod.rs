@@ -1205,7 +1205,9 @@ pub fn write<'a>(
 /// the edges, conclusions and links of every part but the first in it.
 /// Every occurrence's formula, or a compact net's circle of a connective,
 /// is the element with the id `o<n>` for occurrence `n`, and a link is
-/// `l<m>-<n>`.
+/// `l<m>-<n>`. A cut link, as the literature draws one, is a bar under
+/// its two formulas, which stand at the bottom after the conclusions,
+/// with the id `c<x>-<y>`, its end in a cut formula's tree first.
 /// With [`Style::essential`], a structure of an intuitionistic sequent is
 /// drawn as its essential net instead, which the field describes, its
 /// highlights those of [`ProofStructure::is_essential`].
@@ -1227,8 +1229,41 @@ pub fn net(
     limits: &crate::Limits,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<String, Error> {
+    net_marked(net, &Marks::default(), style, limits, stop)
+}
+
+/// Returns a proof net as [`net()`] draws it, with what a step of cut
+/// elimination taken on it acted on in the highlight colour: the cut link
+/// reduced and, by its case, the two axiom links at its ends or the
+/// premise edges of its `⊗` and `⅋`.
+///
+/// # Errors
+///
+/// As [`net()`] fails.
+pub fn net_step(
+    net: &ProofStructure,
+    step: &crate::nets::cut::Step,
+    style: &Style,
+    limits: &crate::Limits,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
+) -> Result<String, Error> {
+    net_marked(net, &Marks::of_mll(net, step), style, limits, stop)
+}
+
+/// Draws a proof structure with `marks` highlighted.
+fn net_marked(
+    net: &ProofStructure,
+    marks: &Marks,
+    style: &Style,
+    limits: &crate::Limits,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
+) -> Result<String, Error> {
     style.check()?;
-    let reading = net.reading().ok().filter(|_| style.essential);
+    // A structure with cut links has no essential net to draw.
+    let reading = net
+        .reading()
+        .ok()
+        .filter(|_| style.essential && net.is_cut_free());
     if let Some(limit) = limits.derivation_bytes {
         let estimate = net::estimate(net, style, reading.is_some(), limit);
         if estimate > limit {
@@ -1248,7 +1283,7 @@ pub fn net(
     if let Err(refused @ crate::nets::NetError::Refused { .. }) = verdict {
         return Err(refused.into());
     }
-    Ok(net::draw(net, style, &verdict, reading.as_ref()))
+    Ok(net::draw(net, style, &verdict, reading.as_ref(), marks))
 }
 
 /// Returns a proof structure with boxes as an SVG document, drawn as
@@ -1260,7 +1295,10 @@ pub fn net(
 /// `⅋`'s premise edges are. A formula has the id `o<n>` when it is the only
 /// vertex of occurrence `n` and `v<k>` (its vertex) when its occurrence has
 /// several; a link `l<x>-<y>` (its vertices) and a box `b<k>` (its `!`
-/// vertex). A switching cycle is in the highlight colour. With
+/// vertex), and a cut link `c<x>-<y>`, a bar under its two formulas,
+/// its end in a cut formula's tree first, at the bottom after the
+/// conclusions or, inside a box, in it beside the box's premise. A
+/// switching cycle is in the highlight colour. With
 /// [`Style::essential`], a structure of an intuitionistic sequent is drawn
 /// as its essential net, as [`net()`] draws one, with its boxes, the wires
 /// of a hypothesis `!A` led up into its copies; its highlight is still the
@@ -1280,8 +1318,41 @@ pub fn mell_net(
     limits: &crate::Limits,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<String, Error> {
+    mell_net_marked(net, &Marks::default(), style, limits, stop)
+}
+
+/// Returns a proof net with boxes as [`mell_net()`] draws it, with what a
+/// step of cut elimination taken on it acted on in the highlight colour:
+/// the cut link reduced and, by its case, the two axiom links at its
+/// ends, the premise edges of its `⊗` and `⅋`, or the box of its `!` end,
+/// with the box it enters or the edge to the copy it cuts against.
+///
+/// # Errors
+///
+/// As [`mell_net()`] fails.
+pub fn mell_net_step(
+    net: &MellStructure,
+    step: &crate::nets::cut::Step,
+    style: &Style,
+    limits: &crate::Limits,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
+) -> Result<String, Error> {
+    mell_net_marked(net, &Marks::of_mell(net, step), style, limits, stop)
+}
+
+/// Draws a proof structure with boxes with `marks` highlighted.
+fn mell_net_marked(
+    net: &MellStructure,
+    marks: &Marks,
+    style: &Style,
+    limits: &crate::Limits,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
+) -> Result<String, Error> {
     style.check()?;
-    let reading = net.reading().ok().filter(|_| style.essential);
+    let reading = net
+        .reading()
+        .ok()
+        .filter(|_| style.essential && net.is_cut_free());
     if let Some(limit) = limits.derivation_bytes {
         let estimate = mell::estimate(net, style, reading.is_some(), limit);
         if estimate > limit {
@@ -1297,7 +1368,108 @@ pub fn mell_net(
     if let Err(refused @ crate::nets::NetError::Refused { .. }) = verdict {
         return Err(refused.into());
     }
-    Ok(mell::draw(net, style, &verdict, reading.as_ref()))
+    Ok(mell::draw(net, style, &verdict, reading.as_ref(), marks))
+}
+
+/// What a drawing of a net highlights of a step of cut elimination taken
+/// on it, by raw vertex ids.
+#[derive(Default)]
+struct Marks {
+    /// The cut link reduced, from its end in a cut formula's tree.
+    cut: Option<(u32, u32)>,
+    /// The edges and links the step acted on, each from its smaller end,
+    /// sorted.
+    pairs: Vec<(u32, u32)>,
+    /// The `!` vertices of the boxes the step acted on.
+    boxes: Vec<u32>,
+}
+
+impl Marks {
+    /// Returns the marks of a step on a proof structure: the cut link, and
+    /// the axiom links at its ends or the premise edges of its ends.
+    fn of_mll(net: &ProofStructure, step: &crate::nets::cut::Step) -> Self {
+        let (x, y) = step.cut;
+        let forest = net.forest();
+        let mut pairs = Vec::new();
+        for v in [x, y] {
+            match step.case {
+                crate::proofs::cut::Case::TensorPar => {
+                    pairs.extend(forest.children(v.occ()).map(|c| (v.get(), c.get())));
+                }
+                crate::proofs::cut::Case::Axiom
+                | crate::proofs::cut::Case::OneBot
+                | crate::proofs::cut::Case::WithPlus
+                | crate::proofs::cut::Case::Weakening
+                | crate::proofs::cut::Case::Dereliction
+                | crate::proofs::cut::Case::Contraction
+                | crate::proofs::cut::Case::BoxIntoBox
+                | crate::proofs::cut::Case::Commutative => {
+                    pairs.extend(net.partner(v).map(|p| (v.get(), p.get())));
+                }
+            }
+        }
+        Self::new(step, pairs, Vec::new())
+    }
+
+    /// Returns the marks of a step on a proof structure with boxes: the cut
+    /// link, and the axiom links at its ends, the premise edges of its
+    /// ends, or the box of its `!` end with the box it enters or the edge
+    /// to the copy it acts on.
+    fn of_mell(net: &MellStructure, step: &crate::nets::cut::Step) -> Self {
+        use crate::proofs::cut::Case;
+        let (x, y) = step.cut;
+        let (mut pairs, mut boxes) = (Vec::new(), Vec::new());
+        let bang = |v: crate::nets::VertexId| {
+            net.occurrence(v)
+                .is_some_and(|o| net.forest().kind(o) == crate::Kind::Bang)
+        };
+        let (b, q) = if bang(x) { (x, y) } else { (y, x) };
+        match step.case {
+            Case::Axiom => {
+                for v in [x, y] {
+                    pairs.extend(net.partner(v).map(|p| (v.get(), p.get())));
+                }
+            }
+            Case::TensorPar => {
+                for v in [x, y] {
+                    pairs.extend(net.premises(v).map(|c| (v.get(), c.get())));
+                }
+            }
+            Case::BoxIntoBox => {
+                boxes.push(b.get());
+                boxes.extend(step.above.map(crate::nets::VertexId::get));
+            }
+            Case::Weakening
+            | Case::Dereliction
+            | Case::Contraction
+            | Case::OneBot
+            | Case::WithPlus
+            | Case::Commutative => {
+                boxes.push(b.get());
+                pairs.extend(step.above.map(|c| (q.get(), c.get())));
+            }
+        }
+        Self::new(step, pairs, boxes)
+    }
+
+    /// Returns the marks of a step with the given edges and boxes.
+    fn new(step: &crate::nets::cut::Step, pairs: Vec<(u32, u32)>, boxes: Vec<u32>) -> Self {
+        let mut pairs: Vec<(u32, u32)> = pairs
+            .into_iter()
+            .map(|(a, b)| (a.min(b), a.max(b)))
+            .collect();
+        pairs.sort_unstable();
+        Self {
+            cut: Some((step.cut.0.get(), step.cut.1.get())),
+            pairs,
+            boxes,
+        }
+    }
+
+    /// Returns whether the edge or link between `a` and `b` is marked.
+    fn has(&self, a: u32, b: u32) -> bool {
+        self.pairs.binary_search(&(a.min(b), a.max(b))).is_ok()
+    }
 }
 
 #[cfg(test)]
