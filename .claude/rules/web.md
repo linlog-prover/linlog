@@ -172,6 +172,13 @@ for `THIRD-PARTY-NOTICES.txt`.
   setting); `no_intuitionistic_text_writes_a_classical_symbol` cuts every
   session on its goal before closing it.
 
+- **A session's cuts replay from the view's `cuts`**: each cut's
+  inference and its formula as typed in the mode's syntax (the reading's
+  text in an intuitionistic mode, `Interactive::formula_as_written` in a
+  classical session that keeps its record, else one-sided), which `cut`
+  reads again; `start` on the session's sequent leaves its cut formulas
+  out (`Interactive::within`), so the replayed cut adds the same terms
+  and the same occurrences (`a_cut_opens_two_goals`).
 - **Cut elimination** (`cuts`, `cut_step`, `eliminate`; `net_cuts`,
   `net_cut_step`, `net_eliminate`) takes the finished session and the
   proof or net the page holds, `""` for the session's own: the session

@@ -472,7 +472,10 @@ mod tests {
     /// A cut opens its two premises as goals, the cut formula right of `⊢`
     /// in the first and left of it in the second, as typed; the finished
     /// proof has the cut and checks, the two-sided view names it `cut`,
-    /// and `undo` takes the cut back with its formula.
+    /// the session writes its formula as typed, a session started on its
+    /// sequent starts from the conclusion and the same cut made again
+    /// gives the same sequent, and `undo` takes the cut back with its
+    /// formula.
     #[test]
     fn a_cut_opens_two_goals_and_undo_takes_it_back() {
         let limits = Limits::default();
@@ -524,6 +527,18 @@ mod tests {
             .map(|&p| view.sequent(p).to_string())
             .collect();
         assert_eq!(premises, ["A ⊸ B ⊢ A ⊸ B", "A, A ⊸ B ⊢ B"]);
+        let typed = session
+            .formula_as_written(cut.cut().unwrap())
+            .unwrap()
+            .to_string();
+        assert_eq!(typed, "A ⊸ B");
+        let mut again = Interactive::within(session.sequent(), Mode::CLASSICAL, &limits).unwrap();
+        assert!(!again.forest().has_cuts());
+        assert_eq!(state(&again), before);
+        let root = again.goals().next().unwrap();
+        let typed = formula(&typed, Mode::CLASSICAL).unwrap();
+        again.cut(root, &typed, &[1], &limits).unwrap();
+        assert_eq!(again.sequent(), session.sequent());
         while session.undo().is_some() {}
         assert_eq!(state(&session), before);
         assert!(!session.forest().has_cuts());

@@ -170,6 +170,14 @@ builder needs no stack to speak of, so a front end on a small one (the
 web) builds what the bounds allow; `Size::height` is what it asks to
 know whether a tree fits a view.
 
+**A session starts from its sequent's conclusion** (`Interactive::within`
+pops a sequent's cut formulas, `Sequent::pop_cut`): a session's cut
+formulas must be those of its cuts in the order made, which its reader
+checks, so a session started on a sequent with cut formulas could not be
+read back. A front end replays a session's cut by typing its formula
+again (`Interactive::formula_as_written` for a classical record, the
+reading's text intuitionistically), which adds the same terms.
+
 **The node of an inference** (`Inference::node`): `Build` sets it on
 every inference a node unfolds into (`Task::Infer` carries it, `leaf`
 sets it), and leaves `None` on what the view adds below a node (the

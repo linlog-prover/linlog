@@ -219,6 +219,10 @@ struct View {
     /// The session's inferences that a step of an invertible rule closed
     /// (`Interactive::is_invertible`), whichever took it, in order.
     invertible: Vec<GoalId>,
+    /// The session's cuts, each its inference and its cut formula as typed,
+    /// in the mode's syntax, which [`cut`] reads again: what a replay of
+    /// the session makes each cut with.
+    cuts: Vec<CutMade>,
     /// `null` when the sequent has proof nets, and otherwise the refusal
     /// that says why not, which the page shows at the greyed net view.
     net: Option<serde_json::Value>,
@@ -264,11 +268,48 @@ impl View {
             goals,
             inferences: state.derivation_ids(),
             invertible: invertible_steps(state),
+            cuts: cuts_made(state),
             net: nets_exist(fragment, state.mode())
                 .err()
                 .and_then(|refusal| serde_json::to_value(Error::from(refusal)).ok()),
         }
     }
+}
+
+/// A cut of a session: its inference and its formula as typed.
+#[derive(Serialize)]
+struct CutMade {
+    /// The cut's inference.
+    inference: GoalId,
+    /// The cut formula in the mode's syntax: under the reading in an
+    /// intuitionistic mode, as written in a classical session that keeps
+    /// how it was written, else one-sided.
+    formula: String,
+}
+
+/// Returns a session's cuts with their formulas as typed.
+fn cuts_made(state: &Interactive) -> Vec<CutMade> {
+    let Ok(derivation) = state.derivation_within(
+        &linlog::ViewOptions::default(),
+        &linlog::Limits::default().with_derivation_bytes(None),
+        never,
+    ) else {
+        return Vec::new();
+    };
+    (derivation.inferences().iter())
+        .zip(state.derivation_ids())
+        .filter_map(|(inference, goal)| {
+            let a = inference.cut()?;
+            let formula = match state.formula_as_written(a) {
+                Some(written) if !state.mode().is_intuitionistic() => written.to_string(),
+                _ => state.formula(a).to_string(),
+            };
+            Some(CutMade {
+                inference: goal,
+                formula,
+            })
+        })
+        .collect()
 }
 
 /// Returns the inferences of a session that a step of an invertible rule

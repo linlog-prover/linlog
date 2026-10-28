@@ -120,8 +120,10 @@ fn a_classical_session_is_drawn_as_written() {
 /// A cut opens two goals, the formula typed as written proved by the
 /// first and used by the second; the finished proof has its cut, written
 /// at the wire level that has it, and is drawn as written with the cut
-/// named; text that is no formula of the mode is refused, the session
-/// unchanged, and `undo` takes the cut back.
+/// named; the view gives each cut's formula as typed, with which a
+/// session started on the sequent (its cut formulas left out) makes the
+/// same cut again; text that is no formula of the mode is refused, the
+/// session unchanged, and `undo` takes the cut back.
 #[wasm_bindgen_test(unsupported = test)]
 fn a_cut_opens_two_goals() {
     let started = calls::start("A, A -o B |- B", "classical", "").unwrap();
@@ -130,6 +132,19 @@ fn a_cut_opens_two_goals() {
         .unwrap() as u32;
     let state = session(&started);
     let cut = calls::cut(&state, root, "A -o B", "[1]", "").unwrap();
+    let replays = |cut: &str, mode: &str, left: &str, typed: &str| {
+        let made = value(cut);
+        assert_eq!(made["view"]["cuts"][0]["formula"], typed);
+        let sequent = made["session"]["sequent"].to_string();
+        let again = calls::start(&sequent, mode, "").unwrap();
+        let replayed = calls::cut(&session(&again), root, typed, left, "").unwrap();
+        let replayed = value(&replayed)["session"].clone();
+        assert_eq!(
+            (&replayed["sequent"], &replayed["inferences"]),
+            (&made["session"]["sequent"], &made["session"]["inferences"])
+        );
+    };
+    replays(&cut, "classical", "[1]", "A ⊸ B");
     let goals = &value(&cut)["view"]["goals"];
     let texts = |g: usize| -> Vec<Value> {
         goals[g]["formulas"]
@@ -161,6 +176,7 @@ fn a_cut_opens_two_goals() {
     let refused = failure(&calls::cut(&session(&ill), root, "B par C", "[0, 1]", "").unwrap_err());
     assert_eq!(refused["code"], "parse");
     let cut = calls::cut(&session(&ill), root, "B", "[0, 1]", "").unwrap();
+    replays(&cut, "intuitionistic", "[0, 1]", "B");
     let readings: Vec<Value> = value(&cut)["view"]["goals"][1]["formulas"]
         .as_array()
         .unwrap()

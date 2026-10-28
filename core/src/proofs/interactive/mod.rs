@@ -466,7 +466,9 @@ pub struct Interactive {
 
 impl Interactive {
     /// Starts a proof of the sequent in the mode, with the whole sequent as
-    /// the one open goal. Fails in intuitionistic mode for a sequent with no
+    /// the one open goal: of its conclusion, a sequent's cut formulas left
+    /// out, since a session's are those of its cuts, which add them as they
+    /// are made. Fails in intuitionistic mode for a sequent with no
     /// intuitionistic reading or with Mix.
     ///
     /// # Errors
@@ -490,6 +492,13 @@ impl Interactive {
     ///
     /// As [`new`](Self::new) does, the bound being `limits.occurrences`.
     pub fn within(sequent: &Sequent, mode: Mode, limits: &Limits) -> Result<Self, Error> {
+        if !sequent.cuts().is_empty() {
+            let mut conclusion = sequent.clone();
+            while !conclusion.cuts().is_empty() {
+                conclusion.pop_cut();
+            }
+            return Self::within(&conclusion, mode, limits);
+        }
         let forest = Forest::within(sequent, limits)?;
         Self::from_forest(forest, mode)
     }
@@ -549,6 +558,23 @@ impl Interactive {
     /// started from a classical sequent as written, and `None` otherwise.
     pub fn writing(&self) -> Option<&[Written]> {
         self.writing.as_deref()
+    }
+
+    /// Returns the formula a member stands for as the session's sequent was
+    /// written, its negation included (`A ⊸ B`, `~(A ⊗ B)`), a cut formula
+    /// as it was typed: for a session that keeps how its sequent was
+    /// written ([`writing`](Self::writing)), and `None` for one that does
+    /// not.
+    pub fn formula_as_written(&self, member: Member) -> Option<impl Display + '_> {
+        use crate::occurrences::written;
+        let writing = self.writing.as_deref()?;
+        let o = member.occ();
+        Some(written::Shown {
+            forest: &self.forest,
+            writing,
+            o,
+            negated: written::negated(&self.forest, writing, o),
+        })
     }
 
     /// Keeps how the sequent was written, as a session read back carries

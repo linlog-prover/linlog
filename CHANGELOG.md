@@ -528,6 +528,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   net with boxes where the proof cuts an occurrence twice, each step's
   net drawn with its marks. The tab's `cut.drawn_bytes` is 16 MiB
   (`tab::DRAWN_BYTES`).
+- `Interactive::formula_as_written(member)`: a formula as the session's
+  sequent was written, a cut formula as typed. The bindings' view gives
+  each cut's `inference` and `formula` as typed (`cuts`), with which a
+  page replays a session's cuts.
 
 ### Changed
 
@@ -536,6 +540,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   tree an output one, its dual's an input one), so that every step of an
   intuitionistic elimination is written in its syntax; it was drawn as
   the one-sided net, with classical symbols.
+- `Interactive::new` and `within` start from a sequent's conclusion,
+  its cut formulas left out: a session's cut formulas are those of its
+  cuts, and a session started on a sequent with cut formulas was refused
+  when read back.
 - Breaking: `Placed::parent`, a public field of a type 0.1.0 released,
   is an `Option<VertexId>`, `None` for an end of a cut link (a vertex of
   a structure with boxes that stands for a cut formula's occurrence and
