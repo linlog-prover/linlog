@@ -194,9 +194,11 @@ pub fn step<N: Net>(
 /// stop is asked between steps and by the checks.
 ///
 /// Every strategy ends: in MLL a step takes two vertices out of the net,
-/// and nets with boxes are strongly normalising (Girard, *Linear logic*,
-/// 1987, §III.4, for the nets of MELL), so the bound on steps bounds time,
-/// not termination.
+/// and cut elimination on typed nets with boxes is strongly normalising
+/// (Girard, *Linear logic*, TCS 50, 1987; Danos's thesis, 1990; Pagani
+/// and Tortora de Falco, TCS 411, 2010; as recalled by de Carvalho and
+/// Tortora de Falco, arXiv:1304.6762, §1), so the bound on steps bounds
+/// time, not termination.
 ///
 /// # Errors
 ///

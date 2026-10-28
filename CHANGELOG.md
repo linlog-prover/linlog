@@ -494,6 +494,14 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
+- Breaking: `Placed::parent`, a public field of a type 0.1.0 released,
+  is an `Option<VertexId>`, `None` for an end of a cut link (a vertex of
+  a structure with boxes that stands for a cut formula's occurrence and
+  is no premise). Code that read it as a `VertexId` reads the `Option`;
+  `Placed::new` keeps its signature, and `Placed::cut` makes an end of a
+  cut link. The additive alternative, naming a cut link's other end as
+  the parent, would let a walk down the parents go round between the two
+  ends without end.
 - The command reads the text of an intuitionistic sequent (`-i`, and a
   batch's intuitionistic entries) in the syntax of intuitionistic linear
   logic alone: a `~`, `^`, `par`, `|`, `?` or `bot` is refused with a
