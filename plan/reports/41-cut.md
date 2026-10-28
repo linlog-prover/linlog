@@ -1129,6 +1129,19 @@ default) bounds the time an elimination takes.
   supervisor's question answered): the additive alternative, naming a
   cut link's other end as the parent, would let a walk down the parents
   go round forever.
+- **The drawings are bounded by default** (the supervisor's finding,
+  after the panel: with the defaults the command could write one drawing
+  per step for 10 000 steps, gigabytes on disk from a small input, which
+  D16 forbids): `cut::Options::drawn_bytes` (`DEFAULT_DRAWN_BYTES`,
+  256 MiB, four drawings at the default bound on one; key
+  `cut.drawn_bytes`, flag `--drawings-limit SIZE`) bounds the bytes the
+  steps' drawings take together. A drawing that would pass it is not
+  written, nor any after it; the elimination goes on as before, a line on
+  standard error says from which step the steps are undrawn, and `FILE`,
+  the net reached, is written anyway within `--derivation-limit`. The
+  option lives in `cut::Options` so that every front end that draws each
+  step (the page, 41d) reads the same bound; the library draws nothing
+  itself. `cli/tests/cli.rs` reaches the bound with `--drawings-limit 1`.
 - **The command's files**: `FILE-k` is the net step k was taken on (the
   lines are numbered from 1), and `FILE` the net reached, which is what
   `check --net --output FILE` writes for a proof's net; an SVG file's
@@ -1149,9 +1162,11 @@ default) bounds the time an elimination takes.
 
 ### Options, front ends and quantifiers (D15, D16, D17)
 
-- No new option: `cut::Options` (`steps`, `nodes` as vertices,
-  `strategy`) and the styles' `svg` (`net`, `net_look`) govern it. The
-  command maps `--steps`, `--node-limit` and `--style`; the bindings
+- One new option, `cut::Options::drawn_bytes` (256 MiB by default, key
+  `cut.drawn_bytes`, flag `--drawings-limit`); beside it `cut::Options`
+  (`steps`, `nodes` as vertices, `strategy`) and the styles' `svg`
+  (`net`, `net_look`) govern it. The command maps `--steps`,
+  `--node-limit`, `--drawings-limit` and `--style`; the bindings
   (41d) hold `Settings::cut` and the styles as JSON; a library caller
   passes them.
 - Quantifiers: a first-order cut link joins the same two trees; its key
@@ -1172,7 +1187,9 @@ changelog's `[Unreleased]`, Changed, says so). New public items:
 `ProofStructure::{with_cuts, cuts, cut_partner, is_cut_free, vertices}`,
 `MellStructure::{cuts, cut_partner, is_cut_free}`, `Parts::cuts`,
 `Placed::cut`, `svg::{net_step, mell_net_step}`, `Serialize` for
-`nets::cut::Elimination` of either structure.
+`nets::cut::Elimination` of either structure, `cut::Options::drawn_bytes`
+with `DEFAULT_DRAWN_BYTES` and `with_drawn_bytes` (a new public field of
+a marked struct).
 
 ### The target sets
 
@@ -1200,8 +1217,10 @@ elimination", "Format the code of cut links in nets" (the formatter, run
 by hand after edits made from the shell), "Draw cut links and every step
 of an elimination on a net", "Add eliminate --net, drawing every step of
 an elimination on a net", "Give a proof that cuts one occurrence twice a
-net with boxes" and "Keep a step on a net with boxes linear and write
-each drawing as it is made": clippy, the tests, both `cargo hack` runs
+net with boxes", "Keep a step on a net with boxes linear and write
+each drawing as it is made", "Resolve the doc links of the net
+elimination's module" and "Bound the bytes eliminate --net draws by
+default": clippy, the tests, both `cargo hack` runs
 and the ratchet, every journey within its ceiling (the largest change
 `search-wide-m2-256`, +1.75 %, the net engine's journey, the same count
 from the first commit on). The behaviour
@@ -1373,6 +1392,9 @@ holds.
 - [x] The panel on a frozen tree (Fable 5.1, Opus 5.5, Sonnet 5.5, each at
   `high`): three findings held, all fixed at the cause with their
   witnesses reproduced; every finding answered above.
+- [x] The supervisor's finding after the panel (the drawings unbounded
+  on disk by default) answered: `cut.drawn_bytes`, 256 MiB by default,
+  `--drawings-limit`, tested at its bound.
 - [x] Both target sets against `elimination` and `net-elimination`: no
   verdict differs, every decided row's counters equal (145 and 64).
 - [x] Every code commit gated; `nix flake check` at the session's last
