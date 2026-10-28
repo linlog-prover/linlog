@@ -61,6 +61,11 @@ pub struct Options {
     /// makes may have.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub nodes: Option<u64>,
+    /// For a front end that draws the net of every step of an elimination
+    /// on a net, the most bytes those drawings take together; past it the
+    /// steps are taken undrawn. The library draws none itself.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
+    pub drawn_bytes: Option<u64>,
 }
 
 impl Options {
@@ -69,6 +74,10 @@ impl Options {
     /// The default bound on a proof's nodes: a hundred thousand, 1.6 MB
     /// of arena.
     pub const DEFAULT_NODES: u64 = 100_000;
+    /// The default bound on the bytes the drawings of an elimination's
+    /// steps take together: 256 MiB, four drawings at the default bound on
+    /// one.
+    pub const DEFAULT_DRAWN_BYTES: u64 = 256 << 20;
 
     /// Returns the options with another [`strategy`](Self::strategy).
     #[must_use]
@@ -87,17 +96,29 @@ impl Options {
     pub const fn with_nodes(self, nodes: Option<u64>) -> Self {
         Self { nodes, ..self }
     }
+
+    /// Returns the options with another bound on
+    /// [`drawn_bytes`](Self::drawn_bytes).
+    #[must_use]
+    pub const fn with_drawn_bytes(self, drawn_bytes: Option<u64>) -> Self {
+        Self {
+            drawn_bytes,
+            ..self
+        }
+    }
 }
 
 impl Default for Options {
     /// The strategy [`Strategy::Topmost`] within
-    /// [`DEFAULT_STEPS`](Self::DEFAULT_STEPS) and
-    /// [`DEFAULT_NODES`](Self::DEFAULT_NODES).
+    /// [`DEFAULT_STEPS`](Self::DEFAULT_STEPS),
+    /// [`DEFAULT_NODES`](Self::DEFAULT_NODES) and
+    /// [`DEFAULT_DRAWN_BYTES`](Self::DEFAULT_DRAWN_BYTES).
     fn default() -> Self {
         Self {
             strategy: Strategy::default(),
             steps: Some(Self::DEFAULT_STEPS),
             nodes: Some(Self::DEFAULT_NODES),
+            drawn_bytes: Some(Self::DEFAULT_DRAWN_BYTES),
         }
     }
 }

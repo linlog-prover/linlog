@@ -480,7 +480,11 @@ second number (0.1.x to 0.2.0), anything else the third.
   with `--format json` the record `{"version", "net", "steps": [{"cut":
   [x, y], "case", "above"}], "end"}` (`Serialize` for
   `nets::cut::Elimination` of either structure). `--node-limit` counts
-  a net's vertices there.
+  a net's vertices there, and `--drawings-limit SIZE`
+  (`cut::Options::drawn_bytes`, key `cut.drawn_bytes`, 256 MiB by
+  default, `DEFAULT_DRAWN_BYTES`) bounds the bytes the steps' drawings
+  take together: past it the steps go on undrawn and a line says from
+  which.
 - Drawings of nets with cut links and of the steps of an elimination:
   `svg::net` and `svg::mell_net` draw a cut link as a bar under its two
   formulas (id `c<x>-<y>`), at the bottom after the conclusions or

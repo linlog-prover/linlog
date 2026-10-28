@@ -1014,8 +1014,10 @@ link, a bar under its two formulas, and what the step acts on (the links
 at its ends, its `⊗` and `⅋`, the box of its `!`, the box it enters)
 highlighted, and `FILE` the net reached; an SVG file's first line is a
 comment naming its step. Each file is written as soon as it is drawn,
-within `--derivation-limit`, and there are as many as steps, at most
-`--steps`. `--format json` writes the record `{"version",
+within `--derivation-limit`, and the steps' files take 256 MiB together
+at most (`--drawings-limit SIZE`, the settings key `cut.drawn_bytes`):
+past it the steps go on undrawn, a line on standard error says from
+which step, and `FILE` still holds the net reached. `--format json` writes the record `{"version",
 "net", "steps", "end"}` with the net reached, each step's `cut` the two
 vertices of its cut link.
 

@@ -121,8 +121,8 @@ pub(crate) enum Command {
     /// with `--output FILE` draws every net into a file of its own, FILE-k
     /// (net-1.svg for net.svg) the net step k was taken on, with its cut
     /// link and what it acts on highlighted, and FILE the net reached (each
-    /// written as it is drawn, within --derivation-limit, one per step up
-    /// to --steps), and
+    /// written as it is drawn, within --derivation-limit, the steps' files
+    /// within --drawings-limit together), and
     /// `--format json` writes the record `{"version", "net", "steps",
     /// "end"}`, each step's `cut` the two vertices of its cut link.
     Eliminate(EliminateArgs),
@@ -655,6 +655,14 @@ pub(crate) struct EliminateArgs {
     /// reached is printed (exit status 3).
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(cut::Options::DEFAULT_NODES)))]
     pub(crate) node_limit: Count<u64>,
+    /// The most bytes the drawings of the steps take together with --net
+    /// and a drawing format, or `none` (cut.drawn_bytes)
+    ///
+    /// Past it the steps are taken and printed undrawn, a line on standard
+    /// error says from which step on, and FILE still holds the net
+    /// reached.
+    #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(cut::Options::DEFAULT_DRAWN_BYTES)))]
+    pub(crate) drawings_limit: Bytes,
     /// The bounds, the mode and the output, as `check` takes them.
     #[command(flatten)]
     pub(crate) check: CheckArgs,

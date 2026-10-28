@@ -197,7 +197,12 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   (the first write error stops the elimination through its stop and is
   returned): collecting them held every step's SVG at once, 7.7 GB for
   1 952 steps, past `--memory-limit` (the integers panel's finding);
-  the disk takes `--steps` files of at most `--derivation-limit` each;
+  the steps' files take at most `cut.drawn_bytes` together
+  (`--drawings-limit`, 256 MiB by default, the supervisor's finding that
+  the defaults allowed gigabytes from a small input): a drawing that
+  would pass it is not written, nor any after it, the steps go on, a
+  line on standard error says from which step, and `FILE` (the net
+  reached, within `--derivation-limit`) is written anyway;
   `show.rs` is how a derivation, a net or a sequent is shown (`Show`,
   `Shown`, `derivation`, `shown`, `render`, `net_into`, the lines that
   say why one is left out). Together they hold `--net`'s refusal of

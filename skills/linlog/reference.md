@@ -520,7 +520,9 @@ printed as text, a cut link as `cut A[x] — A⊥[y]`; `--node-limit`
 counts a net's vertices. `--format svg|png|pdf --output FILE` writes
 `FILE-k` (the net step k was taken on, its cut link and what it acts
 on highlighted) and `FILE` (the net reached), each within
-`--derivation-limit`, as many as steps; `--format json` writes
+`--derivation-limit`, the steps' files 256 MiB together at most
+(`--drawings-limit SIZE`, `cut.drawn_bytes`; past it the steps go on
+undrawn and standard error says from which); `--format json` writes
 `{"version", "net", "steps": [{"cut": [x, y], "case", "above"}],
 "end"}`.
 

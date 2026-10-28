@@ -799,6 +799,30 @@ fn interactive_session() {
     }
     assert!(!dir.join(format!("net-{}.svg", steps + 1)).exists());
     assert!(!dir.join("net-0.svg").exists());
+    // Past the bound on the drawings' bytes the steps go on undrawn, a
+    // line says from which step, and the net reached is still drawn.
+    let bounded = dir.join("bounded.svg");
+    let args = [
+        "eliminate",
+        "--net",
+        "--format",
+        "svg",
+        "--drawings-limit",
+        "1",
+    ];
+    let (status, out, err) = linlog(
+        &[&args[..], &["--output", bounded.to_str().unwrap(), file]].concat(),
+        "",
+    );
+    assert_eq!(status, 0);
+    assert_eq!(out.lines().count(), steps + 1, "{out}");
+    assert!(
+        err.starts_with("the steps from 1 on are not drawn"),
+        "{err}"
+    );
+    assert!(err.contains("--drawings-limit SIZE"), "{err}");
+    assert!(!dir.join("bounded-1.svg").exists());
+    assert!(bounded.is_file());
     let (status, json, _) = linlog(&["eliminate", "--net", "--format", "json", file], "");
     assert!(
         json.starts_with(r#"{"version":6,"net":{"sequent":"#)

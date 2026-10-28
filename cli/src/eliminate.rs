@@ -8,8 +8,8 @@ use crate::limit::Deadline;
 use crate::prove::{Stop, on_large_stack, stopped};
 use crate::settings::{Given, time_limit};
 use crate::show::{
-    Net, Rendered, Show, Shown, abbreviated, derivation, every_steps, net_of, nets_exist, note,
-    render,
+    Net, Rendered, Show, Shown, abbreviated, bytes_text, derivation, every_steps, net_of,
+    nets_exist, note, render,
 };
 use crate::{Status, exit_on_interrupt, interrupted};
 use anyhow::{Result, bail};
@@ -296,48 +296,72 @@ fn eliminate_net(
     // than one is held at a time; the first failure stops the elimination
     // and is returned once it has stopped.
     let failed: std::cell::RefCell<Option<anyhow::Error>> = std::cell::RefCell::new(None);
-    let write = |file: &Path, comment: &str, drawing: std::result::Result<String, String>| {
+    // A drawing as its file's bytes: the SVG document after a comment of
+    // its line, or the image or document rendered; `None` for one left
+    // out, with the line that says why on standard error.
+    let bytes_of = |file: &Path, comment: &str, drawing: std::result::Result<String, String>| {
         let drawing = match drawing {
             Ok(drawing) => drawing,
             Err(left_out) => {
                 eprintln!("{}: {left_out}", file.display());
-                return Ok(());
+                return Ok(None);
             }
         };
-        let mut out = io::Output::open(Some(file), show.format.is_binary())?;
         if show.format == Format::Svg {
+            let mut bytes = Vec::with_capacity(drawing.len() + comment.len() + 16);
             if show.verdict {
-                out.stream()
-                    .write_all(note(Format::Svg, comment).as_bytes())?;
-                out.stream().write_all(b"\n")?;
+                bytes.extend_from_slice(note(Format::Svg, comment).as_bytes());
+                bytes.push(b'\n');
             }
-            out.stream().write_all(drawing.as_bytes())?;
-        } else {
-            match render(
-                drawing,
-                show.format,
-                &show.styles,
-                show.limits.memory_bytes,
-                &over,
-            )? {
-                Rendered::Bytes(bytes) => out.stream().write_all(&bytes)?,
-                Rendered::Refused(line) => bail!("{line}"),
-                Rendered::Stopped => {
-                    bail!("the drawing of {} was stopped: {}", file.display(), why())
-                }
+            bytes.extend_from_slice(drawing.as_bytes());
+            return Ok(Some(bytes));
+        }
+        match render(
+            drawing,
+            show.format,
+            &show.styles,
+            show.limits.memory_bytes,
+            &over,
+        )? {
+            Rendered::Bytes(bytes) => Ok(Some(bytes)),
+            Rendered::Refused(line) => bail!("{line}"),
+            Rendered::Stopped => {
+                bail!("the drawing of {} was stopped: {}", file.display(), why())
             }
         }
+    };
+    let write = |file: &Path, bytes: &[u8]| -> Result<()> {
+        let mut out = io::Output::open(Some(file), show.format.is_binary())?;
+        out.stream().write_all(bytes)?;
         out.finish()
     };
     let stopping = || over() || failed.borrow().is_some();
+    // The bytes the steps' drawings took so far, and the first step left
+    // undrawn by the bound on them.
+    let (mut drawn, mut undrawn) = (0u64, None);
     let mut k = 0;
     let (reached, steps, end) = run(&net, mode, settings, &stopping, |before, step, line| {
         k += 1;
-        if quiet || failed.borrow().is_some() {
+        if quiet || undrawn.is_some() || failed.borrow().is_some() {
             return;
         }
+        let file = numbered(path, k);
         let drawing = before.step_drawing(Some(step), show, &over);
-        if let Err(error) = write(&numbered(path, k), &line, drawing) {
+        let bytes = match bytes_of(&file, &line, drawing) {
+            Ok(Some(bytes)) => bytes,
+            Ok(None) => return,
+            Err(error) => {
+                *failed.borrow_mut() = Some(error);
+                return;
+            }
+        };
+        let total = drawn.saturating_add(bytes.len() as u64);
+        if settings.cut.drawn_bytes.is_some_and(|limit| total > limit) {
+            undrawn = Some(k);
+            return;
+        }
+        drawn = total;
+        if let Err(error) = write(&file, &bytes) {
             *failed.borrow_mut() = Some(error);
         }
     })?;
@@ -352,9 +376,21 @@ fn eliminate_net(
         &sequent_of(proof, mode, show),
         deadline,
     );
+    if let (Some(k), Some(limit)) = (undrawn, settings.cut.drawn_bytes) {
+        eprintln!(
+            "the steps from {k} on are not drawn: their drawings would take more than {} \
+             together (cut.drawn_bytes), {} so far; --drawings-limit SIZE raises the bound, and \
+             {} holds the net reached",
+            bytes_text(limit),
+            bytes_text(drawn),
+            path.display()
+        );
+    }
     if !quiet {
         let last = line.lines().last().unwrap_or_default();
-        write(path, last, reached.step_drawing(None, show, &over))?;
+        if let Some(bytes) = bytes_of(path, last, reached.step_drawing(None, show, &over))? {
+            write(path, &bytes)?;
+        }
     }
     if show.verdict {
         println!("{line}");

@@ -346,6 +346,9 @@ impl EliminateArgs {
         if apply.set("node_limit") {
             settings.cut.nodes = self.node_limit.0;
         }
+        if apply.set("drawings_limit") {
+            settings.cut.drawn_bytes = self.drawings_limit.0;
+        }
         Ok(settings)
     }
 }
