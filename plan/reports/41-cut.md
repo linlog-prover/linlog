@@ -1205,7 +1205,14 @@ each drawing as it is made": clippy, the tests, both `cargo hack` runs
 and the ratchet, every journey within its ceiling (the largest change
 `search-wide-m2-256`, +1.75 %, the net engine's journey, the same count
 from the first commit on). The behaviour
-lock did not move (no help it pins changed).
+lock did not move (no help it pins changed). The first `nix flake check`
+failed its `doc` check: `nets/mod.rs` imported a function `cut` from the
+error descriptions, which made `crate::nets::cut` both a function and a
+module, and the new module's own links to `step` and `eliminate` did not
+resolve; "Resolve the doc links of the net elimination's module" renames
+the import, gives those links explicit paths, drops two redundant link
+targets rustdoc then named (one in `nets/essential.rs`, older than this
+session) and passed the gate.
 
 ### The panel
 
@@ -1369,7 +1376,8 @@ holds.
 - [x] Both target sets against `elimination` and `net-elimination`: no
   verdict differs, every decided row's counters equal (145 and 64).
 - [x] Every code commit gated; `nix flake check` at the session's last
-  commit, under the machine lock (below).
+  commit, under the machine lock (exit 0; the first run failed on `doc`,
+  fixed at the cause, under Gating).
 - [x] `.claude/rules/` amended (`core-nets`, `core-export`, `cli`),
   README, the guide and the changelog true.
 - [x] No new variant of a closed enum; the marked enums' new variants and
