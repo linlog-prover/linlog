@@ -918,3 +918,459 @@ changelog lists them under `[Unreleased]`.
   the guide and the changelog true.
 - [x] No new variant of a closed enum (`Node`, `Rule`, `Term`, `Kind`);
   the marked enums' new variants listed for step 45.
+
+## Session 41c: cut elimination on proof nets
+
+### Outcome
+
+**Proofs with cuts have nets with cut links, in MLL and with boxes, in
+classical mode with and without Mix and in intuitionistic mode; the
+criteria accept them and sequentialization gives the cuts back; cut
+elimination on those nets works one step at a time and to the end, every
+net reached checked by the criterion, every step drawn in both net looks
+with the cut link and what the step acts on highlighted; the library and
+the command have it, and the search is unchanged.** A cut link joins an
+occurrence `x` of a cut formula's tree to `Forest::dual(x)`, the cut of
+a proof (`ProofStructure::with_cuts`, `Parts::cuts`); `from_proof` reads
+a proof's cuts as cut links, both criteria take a cut link as a `⊗`
+without a conclusion, and `sequentialize` gives a proof with a cut per
+cut link, which the checker accepts in the mode.
+`nets::cut::step(&net, at, &options, &limits, stop)` reduces the cut link
+at the vertex `at` (either end) or the strategy's, checks the net it
+makes with the criterion and returns it with the `Step` (`cut`, the
+link's two ends, the end in a cut formula's tree first; `case`, one of
+`Axiom`, `TensorPar`, `Weakening`, `Dereliction`, `Contraction`,
+`BoxIntoBox`; `above`, the copy a dereliction or contraction acted on or
+the box a box entered); `nets::cut::eliminate` takes the strategy's
+steps until no cut link is left or a bound of `cut::Options` (`steps`;
+`nodes`, which counts a net's vertices) or `Limits` ends it, and returns
+the net reached, the steps and the `End`, giving every step and the net
+it was taken on to a callback. `svg::net_step` and `svg::mell_net_step`
+draw a step; `linlog eliminate --net PROOF` prints the steps and the net
+reached, draws every step's net into a file of its own, or writes the
+record in JSON. Both target sets equal their oracles on every decided
+row's counters, every code commit passed the gate, and the panel's
+findings are answered below.
+
+### What was built
+
+- **Cut links in `ProofStructure`** (`nets/mod.rs`, `nets/graph.rs`):
+  vertex `i` stays occurrence `i`; over a forest with cut formulas the
+  vertices are the conclusions' trees and the trees above the cut
+  links' ends (`live`, an `OccSet`; `vertex`, `occurrence`, `vertices`),
+  every other occurrence of a cut formula's tree is none. `with_cuts`
+  validates each cut link (`Placement::Cut` for one that joins no
+  occurrence of a cut formula's tree to its dual, or lies in the tree
+  above another; `Placement::Uncut` for a link to an occurrence above
+  every cut link; `NetError::Mode` for cut links under the cyclic
+  order). The graph gives a dead occurrence no slot and puts a cut link
+  in slot 0 of both ends (the parent edge's place, the parent being no
+  vertex); `deletable` reads a `⅋`'s parent edge as its third slot
+  rather than from the forest; the count of a switching's edges adds a
+  cut link and compares with the live vertices (`Graph::vertices`). The
+  graph holds one edge between two vertices, and the one parallel pair
+  a cut makes, a cut between two literals linked to each other, is a
+  switching cycle `is_correct` and `is_acyclic` name first (`looped`).
+  The witnesses of a disconnection name a cut link by its end in the cut
+  formula's tree. `is_essential` answers a structure with cut links by
+  the switching criterion without Mix (no essential net with cut links is
+  built).
+- **Cut links in `MellStructure`** (`nets/mell/`): `Placed::parent` is
+  an `Option`, `None` for an end of a cut link (`Placed::cut`), and
+  `Parts::cuts` lists the links; `place_cuts` checks that every
+  parentless vertex but the roots is the end of one cut link, which
+  joins an instance of a cut formula's occurrence to one of its dual in
+  one box. The criterion's graph has a cut vertex per cut link after the
+  doors, a `⊗` without a conclusion whose premises are the two ends
+  (their parent slot): a direct edge would run parallel to a door's wire
+  where a `?` end's copy lies in the `!` end's box, and the graph's
+  bridge search assumes a simple graph. Desequentialization unfolds a
+  `Cut` node into a cut link between the instances its two premises left
+  open; sequentialization splits on cut vertices as on a `⊗`.
+- **Elimination** (`nets/cut/mod.rs`, `nets/cut/mell.rs`): the cases are
+  the literature's (Girard, *Linear logic*, 1987; for the generalised
+  `?` node, Accattoli, arXiv:1303.7326 §7), named as the term
+  elimination names them, and nets have no commutative case. Axiom: the
+  two axiom links at the cut's ends and the cut become one link.
+  `⊗`/`⅋`: two cut links between the premises. A box against a `?`
+  vertex, by its copies: none, weakening (the box and the `?` erased,
+  every `?` vertex outside whose copies were all in the box and every
+  weakening hung in it hung on the literal the erased `?` hung on); one
+  at the cut's depth, dereliction (the box opened, its premise cut
+  against the copy); one inside a box at the cut's depth, a box entering
+  a box (the box and the `?` vertex move into it, the cut with them);
+  several, contraction (the box duplicated with its links, cut links and
+  weakenings, a copy of every outer `?`'s copy in it added to that `?`,
+  and the first copy given a `?` vertex of its own cut against the
+  duplicate). MLL steps keep the forest and the ids; MELL steps take the
+  structure apart (`Work`), rewrite and renumber it (roots, then depth
+  first each root's tree and each cut link's two trees). The cut links a
+  step makes take the reduced one's place in the list; the strategy
+  (`Strategy::Topmost`, documented for nets as the first cut link of the
+  list) so finishes a cut formula's links before the next one's. Every
+  net made is checked by the criterion (`NetError::Reduction`, kind
+  defect, code `reduction_rejected`, if it ever failed); `eliminate`
+  checks each net before its next step and returns the last one
+  checked, as the term elimination does.
+- **The drawings** (`export/svg/net.rs`, `mell.rs`, `mod.rs`): a cut link
+  is a bar `2·node_radius` under its two formulas (id `c<x>-<y>`), its
+  ends at the bottom after the conclusions or, inside a box, in it beside
+  the box's premise; `net_step` and `mell_net_step` highlight the cut
+  link reduced and, by the case, the axiom links at its ends, the premise
+  edges of its `⊗` and `⅋`, the box of its `!` end, the box entered, the
+  wire to the copy acted on. Both looks (`NetLook::LINLOG`,
+  `NetLook::TEXTBOOK`), both drawings (formulas, compact); a net with cut
+  links is drawn without its essential reading.
+- **The command**: `linlog eliminate --net PROOF` checks the proof, makes
+  its net (`nets_exist`, the modes `--net` takes), eliminates by the
+  strategy within `--steps` and `--node-limit` (vertices of a net), and
+  prints a line per step (`1. contraction on the cut of !a`), the end
+  (`cut-free proof net of !a ⊢ a ⊗ a (intuitionistic) after 5 steps`)
+  and the net reached as text, each cut link a line `cut A[x] — A⊥[y]`;
+  `--format svg|png|pdf --output FILE` writes `FILE-k`, the net step k
+  was taken on with its marks, and `FILE`, the net reached; `--format
+  json` the record `{"version", "net", "steps": [{"cut": [x, y], "case",
+  "above"}], "end"}`. The exit statuses are the term elimination's.
+- **The JSON forms**: a structure with cut links writes `"cuts": [[x,
+  y], …]`, at wire level 6 (its sequent holds the cut formulas), and an
+  end of a cut link in a structure with boxes `[occurrence, null, box]`;
+  no level was raised.
+- **Tests**: `nets::cut::tests` takes 380 proofs with cuts (128
+  classical, 128 with Mix, 124 intuitionistic; 359 with two cuts or more,
+  100 with a cut on an exponential formula): generated sequents of
+  unit-free MLL and MELL in the three modes, cut twice by 41a's
+  `with_cuts`, and eighteen made for the exponential cases. Each proof's
+  net has one cut link per cut and passes the criterion; every one of
+  the 2 447 steps of their eliminations makes a net the criterion
+  accepts that sequentializes into a proof the checker accepts in the
+  mode for the same sequent and conclusion with as many cuts as the net
+  has cut links; every elimination ends without cut links, as
+  `eliminate` does in the same steps; every case met (axiom 1 338,
+  `⊗`/`⅋` 630, dereliction 226, a box entering a box 138, weakening 73,
+  contraction 42). `any_cut_link_may_be_reduced` reduces every cut link
+  first, named from either end; `a_bound_stops_with_a_net` reaches the
+  steps bound, the vertices bound (one below the largest net) and the
+  stop at every poll from 1 to 39; `cut_links_are_checked` pins the
+  validation and the looped cut; `cut_elimination_is_drawn`
+  (`core/tests/export.rs`) draws every step of three eliminations in both
+  looks and both drawings, checks every cut link's bar and the marks, the
+  estimate against the bytes, and pins `net-cut.svg` and
+  `net-cut-boxes.svg`; `cli/tests/cli.rs` runs the command in text, SVG
+  and JSON.
+
+### The two eliminations' normal forms
+
+**In MLL, with and without Mix, the net of the term elimination's normal
+form is the net elimination's normal form, link for link, tested on 237
+proofs.** Why (derived here, not quoted): a term step is a commutative
+case, whose net is the net before (rule permutations have one net), or a
+key case, whose net is the net step of the same name (an axiom case is
+the net's axiom step, `⊗`/`⅋` the net's), so the term elimination maps
+to a sequence of net steps from the same net; MLL net reduction ends
+(every step takes two vertices away) and the cut-free net of a proof is
+its canonical form, so both normal forms are the cut-free net that
+sequence reaches, and every reduction sequence of an MLL net reaches the
+same one, the steps on distinct cut links commuting.
+
+**With boxes, the two agree up to the order of copies and the axiom
+links the weakenings hang on, tested on 97 of the 143 proofs with boxes:
+those whose normal forms have no two vertices of one occurrence.** Why
+not on the others: a term names occurrences, not instances, so the net
+of a term is fixed only up to which instance a rule acts on where a
+sequent holds two of one occurrence (`from_proof` takes the last made),
+which step 39 found and `.claude/rules/core-nets.md` records ("A term
+names occurrences, not instances"); the net of the term normal form is
+one net of that term, and the net normal form may be another of the same
+term. The weakenings' links are the one datum a term does not fix (Di
+Donna and Tortora de Falco, FSCD 2025, §4, as step 39 read it). Where no
+occurrence repeats, a net has one reading as a term up to those links,
+and the agreement then rests on the confluence of MELL net reduction
+recalled below.
+
+### Termination
+
+The strategy, and every other, ends. In MLL a step takes two vertices
+out of the net, which is the measure. With boxes the session relies on
+the strong normalisation of cut elimination on typed MELL nets, which de
+Carvalho and Tortora de Falco (*A semantic account of strong
+normalization in Linear Logic*, arXiv:1304.6762, §1, read here) recall
+as known from Girard (1987), Danos's thesis (1990) and Pagani and
+Tortora de Falco (TCS 411, 2010), the last two proving it through
+confluence. This is a cited claim: the session read the citing paper,
+not the proofs, and checks that its steps are those of the literature's
+nets with the generalised `?` node; `cut::Options::steps` (10 000 by
+default) bounds the time an elimination takes.
+
+### Decisions
+
+- **One forest, with dead occurrences, for MLL** rather than a new forest
+  per step: the vertices keep their ids from step to step, so a client
+  can animate a step, and the net engine's structures, over forests
+  without cut formulas, are built as before. Its cost on the engine's
+  hot path is the `⅋` test of `deletable` reading the slot count; the
+  ratchet's net journey `search-wide-m2-256` counted 264 946 445
+  instructions against its ceiling of 260 393 363 (+1.75 %, within the
+  ratchet's tolerance: the gate passed; the session did not measure the
+  base's count to tell how much of it is this change's), and both target
+  sets equal their oracles.
+- **A cut vertex in the MELL graph, a direct edge in the MLL graph**:
+  the MLL graph's ids are occurrences, which a cut vertex would not be,
+  and its one parallel pair is caught by `looped`; the MELL graph
+  already has vertices past the structure's (the doors).
+- **The weakening case rehangs** what lost its copies, and the
+  weakenings hung in the erased box, on the literal the erased `?`
+  vertex hung on: it lies in the cut's depth or a box inside it, outside
+  the erased box in a proof net (the box would otherwise be a door of the
+  `?` vertex it is cut against, a cycle), so within the box of every
+  vertex rehung. The choice is checked, not derived from a source: the
+  criterion accepted every one of the 73 weakening steps' nets and their
+  sequentializations checked.
+- **`Placed::parent` is an `Option`** (a break of 0.1.0's API, below, the
+  supervisor's question answered): the additive alternative, naming a
+  cut link's other end as the parent, would let a walk down the parents
+  go round forever.
+- **The command's files**: `FILE-k` is the net step k was taken on (the
+  lines are numbered from 1), and `FILE` the net reached, which is what
+  `check --net --output FILE` writes for a proof's net; an SVG file's
+  first line is a comment naming its step.
+
+### Departures from the design
+
+- **The strategy on nets is the first cut link of the list**
+  (`Strategy::Topmost`, departs from the design: the term strategy's name
+  says "no cut above it", which a net has no notion of); documented on
+  `nets::cut` and in README.
+- **`eliminate` takes a callback** (departs from the term elimination's
+  signature): the command draws every step's net, which the record does
+  not hold, and the callback sees each step once the net it made passed.
+- **`Bound::Vertices`** (departs from the design's reuse of `nodes`
+  alone): `cut::Options::nodes` bounds a net's vertices, and the refusal
+  says vertices, not nodes; the settings key stays `cut.nodes`.
+
+### Options, front ends and quantifiers (D15, D16, D17)
+
+- No new option: `cut::Options` (`steps`, `nodes` as vertices,
+  `strategy`) and the styles' `svg` (`net`, `net_look`) govern it. The
+  command maps `--steps`, `--node-limit` and `--style`; the bindings
+  (41d) hold `Settings::cut` and the styles as JSON; a library caller
+  passes them.
+- Quantifiers: a first-order cut link joins the same two trees; its key
+  step (`∀`/`∃` against each other) substitutes the witness into the box
+  above, as a term step would, and joins `reduce`'s match as one more
+  pair of kinds.
+
+### The closed enums' new variants, for step 45
+
+None of `Node`, `Rule`, `Term`, `Kind`. Marked enums gained
+`NetError::NoCut` (code `no_cut`), `NetError::Reduction` (code
+`reduction_rejected`, kind defect), `Placement::Cut` and
+`Placement::Uncut` (kinds `cut`, `uncut`) and `Bound::Vertices`. **A
+break of 0.1.0's API**: `Placed::parent` is `Option<VertexId>` (code that
+read it reads the `Option`; `Placed::new` keeps its signature; the
+changelog's `[Unreleased]`, Changed, says so). New public items:
+`nets::cut::{step, eliminate, Net, Step, Reduction, Elimination}`,
+`ProofStructure::{with_cuts, cuts, cut_partner, is_cut_free, vertices}`,
+`MellStructure::{cuts, cut_partner, is_cut_free}`, `Parts::cuts`,
+`Placed::cut`, `svg::{net_step, mell_net_step}`, `Serialize` for
+`nets::cut::Elimination` of either structure.
+
+### The target sets
+
+From a release build of "Add eliminate --net, drawing every step of an
+elimination on a net" (its search code is the first commit's), the
+focused set (`bench/targets.sh cut-nets`) and the net set
+(`bench/net-targets.sh cut-nets`) ran one after the other in one detached
+unit (`step41c-targets`) under the machine lock, on cores 2 and 3.
+`linlog-bench summary --against bench/targets/elimination.csv
+bench/targets/cut-nets.csv --counters`: no verdict differs, and of the 145
+problems both decide alike on one thread, 0 differ in `nodes`, `splits`,
+`memo_hits`, `memo_entries`, `links` or `tests`. Against
+`bench/targets/net-elimination.csv`, `net-cut-nets.csv`: no verdict
+differs, 0 of 64.
+
+### Gating
+
+Every code commit passed the gate (`systemd-run --user … -p
+MemoryMax=8G -p MemorySwapMax=0`, `taskset -c 4-7 nix develop -c gate`),
+each at its own tree, the later ones in a workspace of their own
+(`../linlog-step41c-gate`) so that the session's edits went on beside
+them: "Add cut links to proof nets and cut elimination on them", "Note
+the break of Placed::parent and cite strong normalisation of net
+elimination", "Format the code of cut links in nets" (the formatter, run
+by hand after edits made from the shell), "Draw cut links and every step
+of an elimination on a net", "Add eliminate --net, drawing every step of
+an elimination on a net", "Give a proof that cuts one occurrence twice a
+net with boxes" and "Keep a step on a net with boxes linear and write
+each drawing as it is made": clippy, the tests, both `cargo hack` runs
+and the ratchet, every journey within its ceiling (the largest change
+`search-wide-m2-256`, +1.75 %, the net engine's journey, the same count
+from the first commit on). The behaviour
+lock did not move (no help it pins changed).
+
+### The panel
+
+Each member worked in a fresh context with the change, the claim and the
+code but not this session's reasoning, in a jj workspace of its own at
+the frozen tree of "Add eliminate --net, drawing every step of an
+elimination on a net" (`yswsxmmt`: `../linlog-step41c-arg`,
+`../linlog-step41c-counter`, `../linlog-step41c-integers`) and a scratch
+directory of its own, briefed with conduct.md's rules on cores (4 to 7),
+memory (8 GiB per scope) and bounded runs, and told to report only what
+breaks soundness, termination, the conclusion or a stated requirement;
+one round each. The claim: a checked proof with cuts in classical mode
+(with or without Mix) or intuitionistic mode over unit-free MLL or MELL
+has a net with a cut link per cut that the criterion accepts and that
+sequentializes into a proof the checker accepts; the criteria with cut
+links are sound; every step at any cut link makes a net the criterion
+accepts over the same forest with the same conclusion, never
+`NetError::Reduction`; `eliminate` ends; the normal forms agree with the
+term elimination's where compared; no integer wraps and every bound
+holds.
+
+- **The argument** (Fable 5.1 at `high`): **no finding.** It derived
+  from the code that a cut link's two ends are positional duals and that
+  `live` makes every live vertex's parent live but at a cut end, so slot
+  0 is the cut edge and `deletable`'s slot count is the parent edge;
+  that `looped` is the one parallel pair and runs first; that a
+  sequentialization's cut has the `A` end in its first premise as the
+  checker wants; that the MELL cut vertex turns a `?` end's copy or
+  weakening inside the `!` end's box into a properly coloured 3-cycle,
+  which the weakening and contraction cases rely on; each exponential
+  case site by site (the rehanging within every rehung vertex's box,
+  the dereliction's moved vertices, the doors after a box enters a box,
+  the duplicated doors and hangs); the intuitionistic invariant (outputs
+  less one is additive over `⊗` and cut); the measure (two vertices per
+  MLL step, the cited strong normalisation with boxes). It ran random
+  orders of steps on 391 nets (11 645 steps, every case), every
+  rehanging of every weakening (430 variants), nets no term makes (641)
+  and every structure of 14 MLL sequents with one or two cut formulas
+  (664, `sequentialize` succeeding exactly where `is_correct` does).
+  **Answer**: nothing to change.
+- **The counterexamples** (Opus 5.5 at `high`): **one finding, which
+  held.** About 9 300 proofs with cuts in the three modes (5 700 with two
+  cuts or more, 1 500 cut on an exponential), about 380 000 steps at both
+  ends of every cut link on random walks (every case), about 283 000 MLL
+  mutants against its own brute-force switching judge (cut links as
+  always-kept edges, both directions agreeing), 32 000 MELL mutants and
+  every box placement of 1 900 small nets, every accepted one
+  sequentialized and checked, 8 500 normal forms against the term
+  elimination's and 7 139 proof files through `eliminate --net`: no
+  `NetError::Reduction`, every walk ended, no disagreement. The finding:
+  the checker accepts an MLL proof that cuts one occurrence in two
+  branches (witness: `⊢ a ⊗ a, ~a, ~a` with the cut formula `a` cut under
+  each premise of the `⊗`), or an occurrence in one branch and its
+  subformula in another, whose net needs two vertices of one occurrence;
+  `ProofStructure::from_proof` refused it (`Placement::Cut`) and
+  `eliminate --net` and `check --net` called the valid proof "not a proof
+  net" (exit 2). **Answer**: holds; reproduced (both witnesses, exit 2),
+  fixed at the cause in "Give a proof that cuts one occurrence twice a
+  net with boxes": a `ProofStructure`'s vertices are occurrences by
+  design, so such a proof's net is a `MellStructure` (which already has
+  instances and eliminates it soundly, as the member found): the
+  command's `net_of` takes `MellStructure::from_proof` where
+  `ProofStructure::from_proof` refuses with `Placement::Cut`, and
+  `ProofStructure::from_proof` documents the refusal. Both witnesses now
+  eliminate cut-free (exit 0), and
+  `a_cut_occurrence_twice_needs_a_structure_with_boxes` and the command
+  test hold them. The claim narrows to: every checked proof has a
+  `MellStructure`, and a `ProofStructure` where no occurrence is cut
+  twice or with a subformula.
+- **The integers and limits** (Sonnet 5.5 at `high`): **two findings,
+  which held, and a minor one.** About 160 000 mutated JSON nets with
+  `"cuts"` (every integer at 18 boundary values), nests of 400 000 boxes,
+  20 000 cut links, every flag at its limits and 11 208 drawings against
+  their estimates: no panic, no wrap, every estimate at least its bytes.
+  First: a step on a net with boxes was quadratic (`Work::premises`
+  scanned every vertex, `Work::contents` walked every vertex's chain of
+  boxes, and the weakening case asked premises per `?` vertex), and a
+  contraction checked `cut::Options::nodes` only after copying the box,
+  so one step on 100 000 nested boxes took 5.6 s past the default 2 s
+  time limit, and refused by `--node-limit 1000` only after 5.4 s.
+  **Answer**: holds; reproduced (5.6 s and 8.1 s on the member's two
+  witnesses), fixed at the cause in "Keep a step on a net with boxes
+  linear and write each drawing as it is made": premises are read off
+  the net, `contents` lists each box's vertices in one pass and walks
+  the boxes down, and the contraction checks the bound on the net it
+  will make before copying; the two steps now take 0.1 s and 0.3 s, and
+  the bound refuses at once. Second: `eliminate --net --format svg`
+  collected every step's drawing before writing them, 7.7 GB for 1 952
+  steps against a memory limit of 1 GiB. **Answer**: holds; reproduced,
+  fixed in the same commit: each drawing is written as soon as it is
+  made (a write error stops the elimination through its stop and is
+  returned); the same 1 952 steps ran within a 2 GiB cap. The minor
+  one: the files' total on disk is unbounded beyond `--steps` times
+  `--derivation-limit` (7.6 GB there). **Answer**: as designed, a file
+  per step is what was asked; the help, README and the guide now say the
+  bound.
+
+### What the next sessions must know
+
+- **The page (41d)**: the bindings need `nets::cut::step(&net, at,
+  &options, &limits, stop)` with `at` a vertex at either end of a cut
+  link (the page lets a student pick one) and `eliminate`; a `Step` is
+  `{cut: (x, y), case, above}` in vertices of the net the step was taken
+  on, which the page drew, so highlight it there and keep that net to
+  undo. The ids to highlight: a cut link is `c<x>-<y>` (`Step::cut`'s
+  order), a link `l<x>-<y>`, a box `b<k>`, a formula `o<n>` or `v<k>`;
+  `svg::net_step` and `svg::mell_net_step` draw a step's marks
+  already. MLL steps keep vertex ids (the forest's occurrences), MELL
+  steps renumber, so a client cannot match vertices across a MELL step
+  by id. The net of an MLL proof that cuts one occurrence twice is a
+  `MellStructure` (the command's `net_of`, which the bindings'
+  `draw_net` should follow). `Error::Net(NetError::NoCut)` answers a
+  vertex at no cut link.
+- **Free choice of cut links** cannot cycle on nets (every strategy ends,
+  as the term elimination's free choice may not), so the page can let a
+  student pick any cut link.
+- **The essential drawing** is off for nets with cut links: an
+  intuitionistic net is drawn plain at every step, the cut-free one
+  essential only when the style asks for it.
+- **`Placed::parent` is an `Option`**, the one break of 0.1.0's API this
+  session made, for step 45's release notes.
+
+### Open
+
+- The term and net eliminations' normal forms are compared with boxes
+  only where no occurrence has two vertices (97 of 143); where one has,
+  the net of a term is one of several nets of it, and no comparison up
+  to instances was built.
+- The weakening case's rehanging rests on the criterion's check at every
+  step and on the argument member's derivation, not on a source read.
+- `search-wide-m2-256` stands 1.75 % above its ceiling's count within the
+  tolerance; the base's count was not measured.
+
+### Checklist
+
+- [x] Proofs with cuts desequentialize to nets with cut links, MLL
+  (`ProofStructure`) and with boxes (`MellStructure`), classical with
+  and without Mix and intuitionistic; the criteria accept them and
+  sequentialization gives a proof with its cuts that the checker
+  accepts (`every_step_keeps_the_criterion_and_the_conclusion`).
+- [x] One step on a net at the cut link the caller names, named by its
+  case (axiom, tensor_par, dereliction, contraction, weakening,
+  box_into_box), and elimination to the end by the documented strategy,
+  bounded by `cut::Options`, ending with its reason and the net reached
+  (`nets::cut::{step, eliminate}`, `a_bound_stops_with_a_net`).
+- [x] Tests on 380 generated proofs with cuts in every mode a net exists
+  for (359 nested, 100 exponential, 2 447 steps): every step's net
+  passes the criterion and sequentializes for the same conclusion;
+  every elimination ends cut-free; the normal forms compared with the
+  term elimination's (237 MLL exactly, 97 with boxes up to isomorphism),
+  where they need not agree said why.
+- [x] Every step drawn in SVG in both looks with the cut link and the
+  marks (`cut_elimination_is_drawn`, `net-cut.svg`,
+  `net-cut-boxes.svg`); the command writes each step's drawing; README's
+  usage section shows it with real output that `cli/tests/readme.rs`
+  runs; the guide for AI models updated and its tests passing; the
+  changelog under `[Unreleased]`.
+- [x] The panel on a frozen tree (Fable 5.1, Opus 5.5, Sonnet 5.5, each at
+  `high`): three findings held, all fixed at the cause with their
+  witnesses reproduced; every finding answered above.
+- [x] Both target sets against `elimination` and `net-elimination`: no
+  verdict differs, every decided row's counters equal (145 and 64).
+- [x] Every code commit gated; `nix flake check` at the session's last
+  commit, under the machine lock (below).
+- [x] `.claude/rules/` amended (`core-nets`, `core-export`, `cli`),
+  README, the guide and the changelog true.
+- [x] No new variant of a closed enum; the marked enums' new variants and
+  the one API break (`Placed::parent`) listed for step 45.
