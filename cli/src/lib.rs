@@ -12,6 +12,8 @@ mod argument_parsing;
 mod batch;
 /// The `check` command.
 mod check;
+/// The `eliminate` command.
+mod eliminate;
 /// The `interact` command.
 mod interact;
 /// Reading input and writing output.
@@ -283,6 +285,7 @@ fn run(cli: &Cli, given: &settings::Given) -> Result<Status> {
     match &cli.command {
         Command::Prove(args) => prove::prove(args, given),
         Command::Check(args) => check::check(args, given),
+        Command::Eliminate(args) => eliminate::eliminate(args, given),
         Command::Interact(args) => interact::interact(args, given),
         Command::Seq { command } => seq::run(command, given),
     }

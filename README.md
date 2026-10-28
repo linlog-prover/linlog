@@ -977,6 +977,65 @@ session goes on, and 2 means the session could not start or read its
 input. The same operations are the library's `Interactive`
 type, whose JSON form is what a web client will hold between requests.
 
+`linlog eliminate` reads a proof file, as `proof FILE` or `prove
+--format json` writes it, checks it in the mode the flags give, and
+eliminates its cuts one step at a time: each step reduces the cut that
+comes first in the proof, the one with no cut above it, and is printed
+with its case (the axiom case, the key case of a connective and its
+dual, a commutative case, and for the exponentials weakening,
+dereliction, contraction and a box entering a box) and the cut
+formula, every proof reached is checked, and the proof the elimination
+ends with is drawn as `check` draws it. `--steps N` takes N steps at
+most (10 000 by default) and `--node-limit N` refuses a step that makes
+a proof of more than N nodes (100 000 by default): the exponentials can
+make a proof grow beyond any practical size, and a bound reached prints
+the proof reached, cuts and all. With `--format json` the output is the
+record `{"version", "proof", "steps", "end"}`: the proof reached, each
+step's `cut` (a node of the proof it was taken on), `formula` and
+`case`, and `end`, `cut_free` or `refused` with its `reason`. The exit
+status is 0 when no cut is left or the steps asked for were taken, 1
+for a proof that is not valid, 3 when another bound or the time limit
+stopped it, and 2 for an error.
+
+```console
+$ linlog interact -i "!a |- a * a"
+> cut 0 !a 0
+opened goal 1: 0: !a ⊢ 1: !a
+opened goal 2:, 1: !a ⊢ 0: a ⊗ a
+> close
+goal 1: provable (IMELL, intuitionistic, two-sided engine)
+goal 2: provable (IMELL, intuitionistic, horn engine)
+no goal is open: `proof` checks the proof
+> proof contraction.json
+valid proof written to contraction.json
+$ linlog eliminate -q -i contraction.json
+step 1: contraction on the cut of !a
+step 2: dereliction on the cut of !a
+step 3: a commutative case on the cut of a
+step 4: the axiom case on the cut of a
+step 5: a commutative case on the cut of a
+step 6: the axiom case on the cut of a
+cut-free proof of !a ⊢ a ⊗ a (intuitionistic) after 6 steps
+$ linlog eliminate -i --steps 2 contraction.json
+step 1: contraction on the cut of !a
+step 2: dereliction on the cut of !a
+proof of !a ⊢ a ⊗ a (intuitionistic) with 2 cuts left after 2 steps: the elimination took the most steps allowed, 2; --steps N allows more
+            ───── ax    ───── ax   ───── ax
+            a ⊢ a       a ⊢ a      a ⊢ a
+───── ax    ────── !L   ──────────────── ⊗R
+a ⊢ a       !a ⊢ a        a, a ⊢ a ⊗ a
+────── !L   ────────────────────────── cut
+!a ⊢ a            !a, a ⊢ a ⊗ a
+─────────────────────────────── cut
+        !a, !a ⊢ a ⊗ a
+        ────────────── !c
+          !a ⊢ a ⊗ a
+```
+
+The library's `proofs::cut::step` reduces a cut the caller names, or the
+strategy's, and says which cut and which case; `proofs::cut::eliminate`
+runs to the end within `cut::Options`.
+
 `linlog seq` prints a sequent one-sided in negation normal form, or
 two-sided as intuitionistic linear logic reads it, converts it to JSON
 (which a `.json` file or `--input-format json` reads back; with `-i` the
@@ -2006,6 +2065,11 @@ Built:
   draws the cut, the two-sided ones with the cut formula as it was
   typed, every export writes it, and a certificate in linlog's Rocq
   library states the calculus with cut. The search stays cut-free.
+- Cut elimination on proof terms, in every mode that has the cut
+  (classical, affine, with Mix, intuitionistic): one step at a time, on
+  the cut the caller names or the one with no cut above it, each step
+  named by its case and checked, and to the end within a bound on steps
+  and on the proof's size, which stops with the proof reached.
 - Export of sequents and derivations, finished or in progress, to LaTeX
   (ebproof proof trees) and Typst (curryst proof trees, and trees of any
   height in a layout of linlog's own), as fragments or standalone
@@ -2136,8 +2200,7 @@ Planned, in roughly this order:
   countermodels of the other logics, failure certificates of the
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
-- Later: cut elimination on proofs and on nets, and first-order linear
-  logic.
+- Later: cut elimination on proof nets, and first-order linear logic.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.

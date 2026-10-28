@@ -411,6 +411,38 @@ second number (0.1.x to 0.2.0), anything else the third.
   refuses it, and NanoYalla's certificate too (`Unsupported::Cut`): the
   kernel by default is then linlog's library, whose calculi have the cut
   as an optional rule.
+- Cut elimination on proof terms, `proofs::cut`: `step(&proof, mode,
+  at, &options, &limits, stop)` reduces the cut at `at`, or the one the
+  strategy picks, checks the proof it makes in `mode` and returns it with
+  the `Step` (`cut`, the cut formula's occurrence `formula`, its `Case`
+  and the node `above` it acted at); `eliminate` takes steps until no
+  cut is left or a bound is reached and returns the `Elimination`: the
+  last proof reached, which the checker accepted, the steps, and the
+  `End` (`CutFree`, or `Refused` with the refusal). Every proof made lives
+  over the same forest and cuts only occurrences of the cut formulas'
+  trees. The cases (`Case`): `Axiom`, `TensorPar`, `OneBot`, `WithPlus`,
+  `Weakening` (also affine weakening, which erases the other premise),
+  `Dereliction`, `Contraction`, `BoxIntoBox` and `Commutative`; the
+  strategy `Strategy::Topmost`, the cut with no cut above it. Every mode
+  with the cut: classical, affine, with Mix, intuitionistic (every
+  proof made stays intuitionistic).
+- `cut::Options` (`Settings::cut`, in JSON `"cut"`): `strategy`, `steps`
+  (`DEFAULT_STEPS`, 10 000) and `nodes`, the most nodes of a proof a
+  step makes (`DEFAULT_NODES`, 100 000); `Refusal::Elimination` with its
+  `Bound` (`steps` or `nodes`), code `elimination_limit`, settings keys
+  `cut.steps` and `cut.nodes`; `Phase::Eliminate`; `Error::NoCut` (code
+  `no_cut`, kind unsupported) for a step asked of a node that is no cut
+  or of a cut-free proof, and `Error::Reduction` (code
+  `reduction_rejected`, kind defect) were the checker ever to refuse a
+  proof a step made. `Proof::is_cut_free`.
+- The record of an elimination, written only: `{"version", "proof",
+  "steps": [{"cut", "formula", "case", "above"}], "end"}`, `end`
+  `cut_free` or `refused` with the `reason` in an error's form, at wire
+  level 6.
+- `linlog eliminate PROOF`: checks a proof file in the flags' mode and
+  eliminates its cuts, printing each step's case and cut formula and the
+  derivation of the proof reached, or the record with `--format json`;
+  `--steps N` (one step with `--steps 1`) and `--node-limit N` bound it.
 - The search decides a goal of a forest with cut formulas on a cut-free
   forest of the goal's formulas, so no engine sees a cut formula and
   every proof found is cut-free, carried back to the goal and checked

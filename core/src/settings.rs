@@ -7,6 +7,7 @@
 //! reads.
 
 use crate::export::Styles;
+use crate::proofs::cut;
 #[cfg(feature = "interactive")]
 use crate::proofs::interactive;
 use crate::search::{Jobs, Options, batch};
@@ -90,8 +91,8 @@ impl Default for Clock {
 
 /// Everything that configures a front end's calls, in one value: the
 /// clock, the limits, the search's options, the view of a derivation, the
-/// options of every output format, the batch's, ordinary logic's and an
-/// interactive session's.
+/// options of every output format, the batch's, ordinary logic's, an
+/// interactive session's and cut elimination's.
 ///
 /// `Settings::default()` is the command's behaviour: no copy bound (a
 /// front end with a clock deepens until its time limit), every thread
@@ -132,6 +133,8 @@ pub struct Settings {
     pub interactive: interactive::Options,
     /// How the input is read.
     pub input: InputOptions,
+    /// How cut elimination proceeds and when it stops.
+    pub cut: cut::Options,
 }
 
 impl Default for Settings {
@@ -148,6 +151,7 @@ impl Default for Settings {
             #[cfg(feature = "interactive")]
             interactive: interactive::Options::default(),
             input: InputOptions::default(),
+            cut: cut::Options::default(),
         }
     }
 }
@@ -199,6 +203,12 @@ impl Settings {
     #[must_use]
     pub fn with_ordinary(self, ordinary: ordinary::Options) -> Self {
         Self { ordinary, ..self }
+    }
+
+    /// Returns the settings with another [`cut`](Self::cut).
+    #[must_use]
+    pub fn with_cut(self, cut: cut::Options) -> Self {
+        Self { cut, ..self }
     }
 
     /// Returns the settings with another [`interactive`](Self::interactive).

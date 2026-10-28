@@ -3,6 +3,7 @@ paths:
   - "core/src/proofs/mod.rs"
   - "core/src/proofs/check/**"
   - "core/src/proofs/oracle.rs"
+  - "core/src/proofs/cut/**"
 ---
 
 # linlog core: proof terms and the checker
@@ -348,6 +349,81 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   (`Invalid::write`), so a new `Fault` gets one arm (and one in its
   written form, `serialize/errors.rs`), and the test-only
   first implementation (`oracle.rs`) reports the same faults.
+
+## Cut elimination (`proofs/cut/`)
+
+- **A step rewrites the arena copy-on-write**: the proof's nodes are kept
+  as they are, a changed node is a new one appended (`Rewrite::push`),
+  the cut's replacement takes its place wherever the proof reads it
+  (`replace` makes anew every node below it), and `Proof::new` drops what
+  the root no longer reaches. A shared cut node is reduced for every
+  place that reads it, in one step; a subproof a step duplicates (the
+  other premise in a commutation over `&`, the box in a contraction) is
+  shared, not copied, so the arena grows by the nodes a step makes, not
+  by the subproofs it duplicates.
+- **Every proof made lives over the same forest and cuts only
+  occurrences of the cut formulas' `A` trees**: a key case cuts the
+  children of the occurrence cut, an exponential case its child inside
+  the box (the dual of the copied occurrence), and the other cases the
+  occurrence they were given. The test asserts the sequent, cut formulas
+  included, equal at every step. No copy needs a new occurrence: a
+  dyadic copy repeats an occurrence in the linear zone (a multiset), and
+  a box's context lives in `Θ`, which every place shares.
+- **What a step reads off the checker**: one pass (`Record`, an
+  `Observer`) per step over the proof it is given, keeping whether each
+  node absorbs (a `⊤` above) and the derived linear zone of every
+  premise of `⊗`, Mix and cut; that pass is also the check of the proof
+  the previous step made, so `eliminate` checks every proof it reaches
+  at no extra pass, and the last one by the pass that finds no cut.
+- **Which premise holds an occurrence** (`holder`): the one whose derived
+  zone holds it beyond what the rule takes, else an absorbing premise; in
+  an intuitionistic mode an absorbed formula right of `⊢` goes to an
+  absorbing premise that has no formula there yet (`absorber`). Taking
+  the first absorbing premise made a `⊤` premise with two goals in
+  intuitionistic affine mode, which the checker refused (the test found
+  it).
+- **The order of the cases** (`Rewrite::reduce`): an axiom on the cut
+  formula first (either premise: the other premise renames the traced
+  occurrence, `rename`), then in affine mode a weakened cut formula
+  (erasure: the other premise's formulas weakened over the weakening's
+  premise), then a commutation into the first premise if its last rule
+  does not introduce the cut formula, then into the second, then the
+  key case. A copy never introduces (it adds to the zone); `⊤` absorbing
+  the cut formula is a commutation that drops the cut and the other
+  premise.
+- **The exponentials are dyadic**: a box `!A` against a `?` step whose
+  premise uses `A⊥` from `Θ` moves up that premise with the `?` step
+  (`exponential`): a copy is a dereliction, or a contraction where the
+  copy's premise uses `A⊥` again (the content cut, and the box kept for
+  the rest); a `!` above is a box entering a box; a rule both of whose
+  premises use `A⊥` copies the box into both (contraction), `&` too (a
+  commutation); a subproof that does not use it is weakening. "Uses" is
+  the checker's least `Θ` (`uses`: a copy adds, a `?` step of the same
+  formula below discharges).
+- **The one context-sensitive case**: an affine erasure whose erased
+  premise absorbs through a `⊤` while the kept one does not cannot take
+  the formulas the checker derived, since a rule below may have given
+  that `⊤` more; it specializes every path from the root to the cut by
+  the exact conclusion each place gives (`specialize`, `above`: the
+  top-down instantiation the derivation view makes), so each place gets
+  its own weakenings. `an_erasure_weakens_what_each_place_gives` pins a
+  cut shared under both premises of a `&` with two contexts. The pairs
+  are bounded by `cut.nodes`.
+- **Bounds**: `cut::Options::steps` and `nodes` (named defaults, flags
+  `--steps` and `--node-limit`) end `eliminate` with
+  `Refusal::Elimination` and the last proof checked; a refusal of the
+  pass that checks the latest proof returns the one before it with one
+  step fewer, so the proof returned has always passed the checker.
+  `limits` bound each pass; the stop is asked between steps and by the
+  passes. A proof made of more than `nodes` nodes, or of more than
+  `memory_bytes` at 16 bytes a node, is refused.
+- **Termination** of `Strategy::Topmost` (the cut first in the arena,
+  whose premises are cut-free): each step on such a cut either lowers
+  the cut formula's size (key cases, dereliction) or keeps it and
+  lowers the height of a premise (commutations, the exponential moves),
+  and the cuts it makes are again topmost until reduced: Gentzen's
+  double induction. A step on a cut the caller names may move a cut
+  above another, which the strategy never does.
 
 ## Decisions
 

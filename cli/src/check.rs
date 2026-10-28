@@ -83,24 +83,24 @@ pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
 
 /// The wire level of `check`'s JSON: level 1 holds a verdict, a mode and
 /// an error whole.
-const CHECKED_LEVEL: u32 = 1;
+pub(crate) const CHECKED_LEVEL: u32 = 1;
 
 /// What `check --format json` writes.
 #[derive(serde::Serialize)]
-struct Checked {
+pub(crate) struct Checked {
     /// The wire level.
-    version: u32,
+    pub(crate) version: u32,
     /// `valid`, `invalid` or `unknown`.
-    verdict: &'static str,
+    pub(crate) verdict: &'static str,
     /// The mode checked in.
-    mode: Mode,
+    pub(crate) mode: Mode,
     /// Why the proof is not valid, as the library writes its errors.
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<Error>,
+    pub(crate) error: Option<Error>,
     /// The error's message with formulas for its ids, or why the check
     /// was not made.
     #[serde(skip_serializing_if = "Option::is_none")]
-    message: Option<String>,
+    pub(crate) message: Option<String>,
 }
 
 /// Reads a proof file, its sequent within `limits.occurrences`; the
@@ -109,7 +109,7 @@ struct Checked {
 /// # Errors
 ///
 /// A document that is no proof, or past the limit.
-fn read_proof(text: &str, limits: &Limits) -> Result<Proof> {
+pub(crate) fn read_proof(text: &str, limits: &Limits) -> Result<Proof> {
     let mut document = serde_json::Deserializer::from_str(text);
     match linlog::wire::upgrade::<Proof, _>(&mut document, limits) {
         Ok(proof) => {

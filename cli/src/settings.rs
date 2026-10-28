@@ -6,7 +6,7 @@
 //! the flags given on the command line, each the spelling of one key.
 
 use crate::argument_parsing::{
-    CheckArgs, CoresArg, InteractArgs, LogicArgs, ProveArgs, SearchArgs,
+    CheckArgs, CoresArg, EliminateArgs, InteractArgs, LogicArgs, ProveArgs, SearchArgs,
 };
 use crate::io;
 use anyhow::{Context, Result};
@@ -321,6 +321,29 @@ impl CheckArgs {
     }
 }
 
+impl EliminateArgs {
+    /// Returns the settings `eliminate` runs under: `check`'s, and the
+    /// bounds of the elimination.
+    ///
+    /// # Errors
+    ///
+    /// Those of reading the settings file.
+    pub(crate) fn settings(&self, given: &Given) -> Result<Settings> {
+        let mut settings = self.check.settings(given)?;
+        let apply = Apply {
+            file: self.check.settings.is_some(),
+            given,
+        };
+        if apply.set("steps") {
+            settings.cut.steps = self.steps.0;
+        }
+        if apply.set("node_limit") {
+            settings.cut.nodes = self.node_limit.0;
+        }
+        Ok(settings)
+    }
+}
+
 /// Returns the settings `seq print` runs under: the bound of a render
 /// and the occurrences of the sequent.
 ///
@@ -487,6 +510,7 @@ mod tests {
             Command::Prove(args) => args.settings(&given).unwrap(),
             Command::Interact(args) => args.settings(&given).unwrap(),
             Command::Check(args) => args.settings(&given).unwrap(),
+            Command::Eliminate(args) => args.settings(&given).unwrap(),
             Command::Seq {
                 command:
                     crate::argument_parsing::SeqCommand::Print {
@@ -554,6 +578,9 @@ mod tests {
             --occurrence-limit 12   /limits/occurrences        11                12
             --derivation-limit 3KiB /limits/derivation_bytes   1024              3072
             --compact never         /view/compact              "always"          "never""#;
+        const ELIMINATE: &str = r#"
+            --steps 4               /cut/steps                 3                 4
+            --node-limit 9          /cut/nodes                 8                 9"#;
         const INTERACT: &str = r#"
             --invertible            /interactive/invertible    false             true
             --ill-syntax one-sided  /input/intuitionistic      "strict"          "one-sided""#;
@@ -568,6 +595,7 @@ mod tests {
             (&["prove"][..], "A |- A", [SEARCH, PROVE].concat()),
             (&["interact"], "A |- A", [SEARCH, INTERACT].concat()),
             (&["check"], "proof.json", CHECK.to_owned()),
+            (&["eliminate"], "proof.json", [CHECK, ELIMINATE].concat()),
             (&["seq", "print"], "A |- A", PRINT.to_owned()),
         ] {
             let cases: Vec<(Vec<&str>, &str, Value, Value)> = table
@@ -676,6 +704,7 @@ mod tests {
             &["linlog", "prove", "A |- A"][..],
             &["linlog", "interact", "A |- A"],
             &["linlog", "check", "proof.json"],
+            &["linlog", "eliminate", "proof.json"],
             &["linlog", "seq", "print", "A |- A"],
         ] {
             ASKED.with_borrow_mut(Vec::clear);
@@ -684,6 +713,7 @@ mod tests {
                 Command::Prove(args) => drop(args.settings(&given).unwrap()),
                 Command::Interact(args) => drop(args.settings(&given).unwrap()),
                 Command::Check(args) => drop(args.settings(&given).unwrap()),
+                Command::Eliminate(args) => drop(args.settings(&given).unwrap()),
                 Command::Seq { .. } => {
                     drop(of_print(None, None, None, linlog::IllSyntax::Strict, &given).unwrap())
                 }

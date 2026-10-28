@@ -128,7 +128,8 @@ impl Serialize for Details<'_> {
             }
             #[cfg(any(feature = "png", feature = "pdf"))]
             NotSvg { message } | RenderFailed { message } => entries!(s; "message" => message),
-            Rejected(e) => e.serialize(s),
+            Rejected(e) | Reduction(e) => e.serialize(s),
+            NoCut { node } => entries!(s; "node" => node),
             ReadBack { calculus, reason } => {
                 entries!(s; "calculus" => calculus; "reason" => reason)
             }

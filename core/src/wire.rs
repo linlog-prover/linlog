@@ -30,7 +30,8 @@
 //! (`"cuts": […]`, without which a proof's cut nodes would name
 //! occurrences past its forest) and the proof's tag `cut`, so a document
 //! whose sequent holds a cut formula is written at level 6, and so is a
-//! proof with a cut, whose sequent holds the cut's formula; every other
+//! proof with a cut, whose sequent holds the cut's formula, and the
+//! record of a cut elimination, whose proof's sequent holds them; every other
 //! document is written at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes
@@ -102,6 +103,10 @@
 //!   {"inputs": […], "implications": […]}`, a key that raises no level,
 //!   since a reader that ignores it reads the session as it is and draws
 //!   it one-sided; see `Interactive` (feature `interactive`).
+//! - **Cut elimination** (written only): `{"version": 6, "proof": {…},
+//!   "steps": [{"cut": 7, "formula": 9, "case": "tensor_par"}, …],
+//!   "end": "cut_free"}`, or `"end": "refused"` with the `reason` in an
+//!   error's form; see [`Elimination`](crate::proofs::cut::Elimination).
 //! - **Outcome** (written only): `{"version": 1, "linlog": "0.1.0",
 //!   "verdict": "proved", "checked": true, "fragment": "MLL", "mode":
 //!   "classical", "engine": "net", "statistics": {…}, "sequent": {…},

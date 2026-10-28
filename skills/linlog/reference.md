@@ -495,6 +495,37 @@ goal 2: provable (IMLL, intuitionistic, two-sided engine)
 no goal is open: `proof` checks the proof
 ```
 
+`linlog eliminate FILE` eliminates the cuts of a proof file step by
+step: it checks the proof in the flags' mode (`check`'s flags and
+formats), reduces the cut with no cut above it, prints each step's case
+(`the axiom case`, `the key case of ⊗ and ⅋`, `of 1 and ⊥`, `of & and
+⊕`, `a commutative case`, `weakening`, `dereliction`, `contraction`, `a
+box entering a box`) and cut formula, checks every proof reached, and
+draws the last. `--steps N` (`cut.steps`) bounds the steps, 10 000 by
+default, and `--node-limit N` (`cut.nodes`) the nodes of a proof a step
+makes, 100 000; a bound prints the proof reached with its cuts. One
+step is `--steps 1`. Exit 0 when no cut is
+left or the steps were taken, 1 for an invalid proof, 3 when another
+bound or the time limit stopped it. `--format json` writes `{"version",
+"proof", "steps": [{"cut", "formula", "case", "above"}], "end"}`, `end`
+`cut_free` or `refused` with `reason`, at wire level 6.
+
+```console
+$ printf 'cut 0 !a 0\nclose\nproof c.json\n' | linlog interact -i "!a |- a * a" > /dev/null
+$ linlog eliminate -q -i --steps 2 c.json
+step 1: contraction on the cut of !a
+step 2: dereliction on the cut of !a
+proof of !a ⊢ a ⊗ a (intuitionistic) with 2 cuts left after 2 steps: the elimination took the most steps allowed, 2; --steps N allows more
+$ linlog eliminate -q -i c.json
+step 1: contraction on the cut of !a
+step 2: dereliction on the cut of !a
+step 3: a commutative case on the cut of a
+step 4: the axiom case on the cut of a
+step 5: a commutative case on the cut of a
+step 6: the axiom case on the cut of a
+cut-free proof of !a ⊢ a ⊗ a (intuitionistic) after 6 steps
+```
+
 ## 11. A sequent alone: `seq`
 
 - `seq print` prints the sequent one-sided in negation normal form, or
@@ -608,7 +639,7 @@ provable (IMLL, Lambek, essential engine)
 
 `--settings FILE` reads every setting the flags set from one JSON object
 with any of `clock`, `limits`, `search`, `view`, `styles`, `batch`,
-`ordinary` and `input`; each flag's help names its key in parentheses
+`ordinary`, `input` and `cut`; each flag's help names its key in parentheses
 (`--copies` is `search.copies`, `--timeout` `clock.time_limit_ms`,
 `--memory-limit` `limits.memory_bytes`). A key left out keeps the
 default, a misspelt one is an error, and a flag beside the file
@@ -676,6 +707,11 @@ bound under its time limit. `prove_within(&sequent, mode, &options,
 &limits, stop)` takes `Limits` and a stop closure (the crate reads no
 clock), and `Settings::default()` is the command's behaviour as data.
 Every error is `linlog::Error`, whose `code()` is the stable reason.
+`proofs::cut::step(&proof, mode, at, &options, &limits, stop)` reduces
+one cut (the node `at`, or the strategy's with `None`) and returns the
+checked proof and the `Step` (`cut`, `formula`, `case`);
+`proofs::cut::eliminate` runs to the end within `cut::Options` and
+returns the proof reached, the steps and the `End`.
 
 ## 17. The web bindings
 

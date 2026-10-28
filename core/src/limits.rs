@@ -257,6 +257,8 @@ pub enum Phase {
     Net,
     /// Reading a linear proof back as one of ordinary logic.
     ReadBack,
+    /// Eliminating the cuts of a proof.
+    Eliminate,
 }
 
 impl Phase {
@@ -272,6 +274,7 @@ impl Phase {
             Self::Render => "render",
             Self::Net => "net",
             Self::ReadBack => "read-back",
+            Self::Eliminate => "elimination",
         }
     }
 }
@@ -332,6 +335,21 @@ impl Space {
             Self::Formula => "formulas",
         }
     }
+}
+
+/// Which bound of cut elimination a [`Refusal::Elimination`] reached.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(Serialize),
+    serde(rename_all = "snake_case")
+)]
+pub enum Bound {
+    /// The number of steps.
+    Steps,
+    /// The nodes of a proof a step makes.
+    Nodes,
 }
 
 /// Why a call was given up without an answer: a bound the caller set, or
@@ -398,6 +416,15 @@ pub enum Refusal {
         /// The bound of the image's options.
         limit: u64,
     },
+    /// Cut elimination reached its bound on steps or on a proof's nodes.
+    #[non_exhaustive]
+    Elimination {
+        /// The bound reached.
+        what: Bound,
+        /// Its value, [`cut::Options::steps`](crate::proofs::cut::Options::steps)
+        /// or [`cut::Options::nodes`](crate::proofs::cut::Options::nodes).
+        limit: u64,
+    },
     /// A count passes what a representation's indices can name, whatever
     /// a bound says.
     #[non_exhaustive]
@@ -421,6 +448,7 @@ impl Refusal {
             Self::Output { .. } => "output_too_large",
             Self::Work { .. } => "work_limit",
             Self::Pixels { .. } => "too_many_pixels",
+            Self::Elimination { .. } => "elimination_limit",
             Self::Index { .. } => "index_limit",
         }
     }
@@ -434,6 +462,12 @@ impl Refusal {
             Self::Output { .. } => Some("limits.derivation_bytes"),
             Self::Work { .. } => Some("limits.work"),
             Self::Pixels { .. } => Some("styles.png.pixels"),
+            Self::Elimination {
+                what: Bound::Steps, ..
+            } => Some("cut.steps"),
+            Self::Elimination {
+                what: Bound::Nodes, ..
+            } => Some("cut.nodes"),
             Self::Stopped { .. } | Self::Index { .. } => None,
         }
     }
@@ -511,6 +545,18 @@ impl Display for Refusal {
                 f,
                 "the image would have {}, more than the limit of {limit}",
                 counted(*pixels, "pixel", "pixels")
+            ),
+            Self::Elimination {
+                what: Bound::Steps,
+                limit,
+            } => write!(f, "the elimination took the most steps allowed, {limit}"),
+            Self::Elimination {
+                what: Bound::Nodes,
+                limit,
+            } => write!(
+                f,
+                "the next step of the elimination makes a proof of more than {}",
+                counted(*limit, "node", "nodes")
             ),
             Self::Index { what, count, most } => write!(
                 f,

@@ -5,7 +5,7 @@ use clap::builder::TypedValueParser;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use linlog::export::rocq::Kernel;
 use linlog::export::svg::MathFont;
-use linlog::proofs::Compact;
+use linlog::proofs::{Compact, cut};
 use linlog::search::{Cadence, Engine, Options, Schedule};
 use linlog::{Bias, Clock, Fragment, Limits, Mode};
 use std::path::PathBuf;
@@ -93,6 +93,25 @@ pub(crate) enum Command {
     /// `invalid` or `unknown`, with the library's `error` object and its
     /// `message` with formulas for the last two.
     Check(CheckArgs),
+    /// Eliminate the cuts of a proof read from JSON, step by step
+    ///
+    /// The proof is checked in the mode the flags give, then its cuts are
+    /// reduced one step at a time, each step on the cut that comes first in
+    /// the proof (no cut above it), until no cut is left or a bound is
+    /// reached: `--steps 1` takes one step. Each step is printed with its
+    /// case (the axiom case, a key case such as that of ⊗ and ⅋, a
+    /// commutative case, weakening, dereliction, contraction, a box
+    /// entering a box) and the cut formula, then the proof reached, drawn
+    /// as `check` draws it; every proof reached is checked. The exit
+    /// status is 0 when the elimination ended cut-free or after the steps
+    /// asked for, 1 for a proof that is not valid, 3 when another bound or
+    /// the time limit stopped it (the proof reached is still printed), and
+    /// 2 for an error. With `--format json` the record `{"version",
+    /// "proof", "steps", "end"}`: the proof reached, each step's `cut`
+    /// (the node of the proof it was taken on), `formula` (the occurrence
+    /// cut) and `case`, and `end`, `cut_free` or `refused` with the
+    /// `reason`.
+    Eliminate(EliminateArgs),
     /// Prove a sequent step by step, reading commands from standard input
     ///
     /// The session starts with the whole sequent as the one open goal; the
@@ -602,6 +621,26 @@ pub(crate) struct CheckArgs {
     /// `ordinary` applies under --logic, which names the logic
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
+}
+
+/// The arguments of `eliminate`.
+#[derive(Args, Debug)]
+pub(crate) struct EliminateArgs {
+    /// The most steps to take, or `none` (cut.steps)
+    ///
+    /// Past it the proof reached is printed with the cuts it still has.
+    #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(cut::Options::DEFAULT_STEPS)))]
+    pub(crate) steps: Count<u64>,
+    /// The most nodes a proof a step makes may have, or `none` (cut.nodes)
+    ///
+    /// The exponentials can make a proof grow beyond any practical size;
+    /// a step that would pass the limit is not taken, and the proof
+    /// reached is printed (exit status 3).
+    #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(cut::Options::DEFAULT_NODES)))]
+    pub(crate) node_limit: Count<u64>,
+    /// The bounds, the mode and the output, as `check` takes them.
+    #[command(flatten)]
+    pub(crate) check: CheckArgs,
 }
 
 /// The subcommands of `seq`.

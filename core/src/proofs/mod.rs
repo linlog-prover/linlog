@@ -16,6 +16,7 @@
 //! and the derivation view shows it.
 
 pub mod check;
+pub mod cut;
 pub mod derivation;
 /// Text rendering of derivations.
 pub(crate) mod fmt;
@@ -697,6 +698,11 @@ impl Proof {
     /// Returns the sequent the proof is of.
     pub fn sequent(&self) -> &Sequent {
         self.forest.sequent()
+    }
+
+    /// Returns whether the proof has no cut.
+    pub fn is_cut_free(&self) -> bool {
+        !self.nodes.iter().any(|node| matches!(node, Node::Cut(..)))
     }
 
     /// Returns the arena: every node, premises before conclusions, the root

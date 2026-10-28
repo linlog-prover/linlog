@@ -6,7 +6,7 @@ use crate::occurrences::{Member, OccId};
 /// A multiset of occurrence ids, kept as an ascending list with repeats: the
 /// linear zone of a sequent, which holds an occurrence more than once after
 /// copies from the unrestricted zone.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub(crate) struct Multiset(Vec<OccId>);
 
 impl Multiset {

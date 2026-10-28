@@ -218,6 +218,73 @@ impl Readable for Prf {
     }
 }
 
+/// A step of an elimination as its record writes it.
+#[derive(Serialize)]
+struct StepForm {
+    /// The cut reduced, a node of the proof the step was taken on.
+    cut: u32,
+    /// The occurrence of the cut formula.
+    formula: u32,
+    /// The case.
+    case: crate::proofs::cut::Case,
+    /// The node the step acted at besides the cut.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    above: Option<u32>,
+}
+
+/// An elimination as its record writes it.
+#[derive(Serialize)]
+struct EliminationForm<'a> {
+    /// The wire level.
+    version: u32,
+    /// The proof reached, nested.
+    proof: Proof,
+    /// The steps.
+    steps: Vec<StepForm>,
+    /// `cut_free`, or `refused` with the reason.
+    end: &'static str,
+    /// Why the elimination was refused, in an error's form.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<&'a crate::Error>,
+}
+
+impl serde::Serialize for crate::proofs::cut::Elimination {
+    /// Serializes the elimination as a document: the proof reached, the
+    /// steps and how it ended.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use crate::proofs::cut::End;
+        let reason = match &self.end {
+            End::CutFree => None,
+            End::Refused(refusal) => Some(crate::Error::Refused(refusal.clone())),
+        };
+        let document = Proof::document(&self.proof);
+        EliminationForm {
+            version: document.version.unwrap_or(wire::BASE),
+            proof: Proof {
+                version: None,
+                ..document
+            },
+            steps: self
+                .steps
+                .iter()
+                .map(|step| StepForm {
+                    cut: step.cut.get(),
+                    formula: step.formula.get(),
+                    case: step.case,
+                    above: step.above.map(NodeId::get),
+                })
+                .collect(),
+            end: if reason.is_some() {
+                "refused"
+            } else {
+                "cut_free"
+            },
+            reason: reason.as_ref(),
+        }
+        .serialize(serializer)
+    }
+}
+
 impl serde::Serialize for Named {
     /// Serializes the rule as its name.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {

@@ -174,6 +174,13 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - `prove.rs` is `prove` and what the batch and a session share with
   it (the search's thread, `searched`, `Stop`, the verdict line, the
   statistics); `check.rs` is `check` (`read_proof`, `check_into`);
+  `eliminate.rs` is `eliminate` (`EliminateArgs` flattens `CheckArgs`, so
+  its bounds, mode and output are `check`'s, plus `--steps` and
+  `--node-limit` for `cut.steps` and `cut.nodes`): the verdict is a line
+  per step and the end, as one multi-line note so that every format
+  comments each line; exit 0 at `CutFree` or the steps bound (what was
+  asked), 3 at any other refusal, 1 for an invalid proof, the record of
+  the library with `--format json`;
   `show.rs` is how a derivation, a net or a sequent is shown (`Show`,
   `Shown`, `derivation`, `shown`, `render`, `net_into`, the lines that
   say why one is left out). Together they hold `--net`'s refusal of

@@ -11,7 +11,7 @@ compatibility: Needs the `linlog` command, from `cargo install --locked linlog-c
 
 [reference.md](reference.md) beside this file has every command, flag, format and JSON form with examples; `linlog COMMAND --help` documents every flag.
 
-**Commands.** `linlog prove SEQUENT` decides a sequent and prints a proof; `linlog check FILE` checks a proof that `prove --format json` wrote; `linlog interact SEQUENT` applies proof steps read from standard input; `linlog seq print|json|fragment SEQUENT` prints the sequent, writes its JSON or names its fragment (MLL, MALL, MELL, LL, …).
+**Commands.** `linlog prove SEQUENT` decides a sequent and prints a proof; `linlog check FILE` checks a proof that `prove --format json` wrote; `linlog eliminate FILE` eliminates its cuts step by step; `linlog interact SEQUENT` applies proof steps read from standard input; `linlog seq print|json|fragment SEQUENT` prints the sequent, writes its JSON or names its fragment (MLL, MALL, MELL, LL, …).
 
 **Syntax.** Quote the sequent for the shell: `"A, A -o B |- B"` (`⊢` also works; either side may be empty). Connectives: `*` (⊗), `par` or `|` (⅋), `&`, `+` (⊕), `-o` (⊸), `~A` or `A^` (negation), `!A`, `?A`; units `1`, `bot`, `top`, `0`. Binding, tightest first: `~ ! ?`, then `*`, `|`, `&`, `+`, and `-o`, which groups to the right. Atoms are identifiers.
 

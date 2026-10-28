@@ -428,6 +428,21 @@ pub enum Error {
     #[cfg(feature = "pdf")]
     #[error("a PDF/A document needs the date it was made: give pdf::Options::date")]
     NoDate,
+    /// A step of cut elimination was asked of a node that is no cut, or of
+    /// a proof without one.
+    #[error("{}", match .node {
+        Some(node) => format!("node {node} is no cut"),
+        None => "the proof has no cut".to_owned(),
+    })]
+    #[non_exhaustive]
+    NoCut {
+        /// The node named, or `None` where the strategy found no cut.
+        node: Option<u32>,
+    },
+    /// The checker refused the proof a step of cut elimination made: a
+    /// defect of this crate, which never returns such a proof.
+    #[error("a step of cut elimination made a proof the checker refuses: {0}")]
+    Reduction(Box<CheckError>),
     /// The checker rejected the proof a search found: a defect of the
     /// engine that found it, and no verdict on the sequent.
     #[error("{}{}", describe::REJECTED, .0)]
@@ -555,6 +570,7 @@ impl Error {
         "output_too_large",
         "work_limit",
         "too_many_pixels",
+        "elimination_limit",
         "index_limit",
         "thread_pool",
         "write_failed",
@@ -563,6 +579,8 @@ impl Error {
         "no_date",
         "rejected",
         "read_back",
+        "no_cut",
+        "reduction_rejected",
     ];
 
     /// Returns what sort of failure this is; a wrapped error answers with
@@ -620,7 +638,8 @@ impl Error {
             Self::RenderFailed { .. } => Failed,
             #[cfg(feature = "pdf")]
             Self::NoDate => Malformed,
-            Self::Rejected(_) | Self::ReadBack { .. } => Defect,
+            Self::Rejected(_) | Self::ReadBack { .. } | Self::Reduction(_) => Defect,
+            Self::NoCut { .. } => Unsupported,
         }
     }
 
@@ -690,6 +709,8 @@ impl Error {
             Self::NoDate => "no_date",
             Self::Rejected(_) => "rejected",
             Self::ReadBack { .. } => "read_back",
+            Self::NoCut { .. } => "no_cut",
+            Self::Reduction(_) => "reduction_rejected",
         }
     }
 
@@ -885,6 +906,10 @@ mod tests {
                 pixels: 2,
                 limit: 1,
             },
+            Refusal::Elimination {
+                what: crate::limits::Bound::Steps,
+                limit: 1,
+            },
             Refusal::Index {
                 what: Space::Node,
                 count: 2,
@@ -973,7 +998,9 @@ mod tests {
                 because: NotTaken::Goal,
             },
             Error::WriteFailed,
-            Error::Rejected(Box::new(invalid)),
+            Error::Rejected(Box::new(invalid.clone())),
+            Error::Reduction(Box::new(invalid)),
+            Error::NoCut { node: Some(3) },
             Error::ReadBack {
                 calculus: "LK",
                 reason: message(),
@@ -1156,7 +1183,9 @@ mod tests {
             | Error::EngineRefused { .. }
             | Error::WriteFailed
             | Error::Rejected(_)
-            | Error::ReadBack { .. } => {}
+            | Error::ReadBack { .. }
+            | Error::NoCut { .. }
+            | Error::Reduction(_) => {}
         }
     }
 
@@ -1170,6 +1199,7 @@ mod tests {
             | Refusal::Output { .. }
             | Refusal::Work { .. }
             | Refusal::Pixels { .. }
+            | Refusal::Elimination { .. }
             | Refusal::Index { .. } => {}
         }
     }
