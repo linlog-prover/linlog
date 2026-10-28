@@ -7,11 +7,12 @@ Decide, check, prove step by step and export sequents of linear logic, and ordin
 Usage: linlog <COMMAND>
 
 Commands:
-  prove     Decide whether a sequent is provable, and print a proof if it is
-  check     Check a proof read from JSON, as `prove --format json` writes it
-  interact  Prove a sequent step by step, reading commands from standard input
-  seq       Print a sequent, convert it to JSON, or name its fragment
-  help      Print this message or the help of the given subcommand(s)
+  prove      Decide whether a sequent is provable, and print a proof if it is
+  check      Check a proof read from JSON, as `prove --format json` writes it
+  eliminate  Eliminate the cuts of a proof read from JSON, step by step
+  interact   Prove a sequent step by step, reading commands from standard input
+  seq        Print a sequent, convert it to JSON, or name its fragment
+  help       Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
