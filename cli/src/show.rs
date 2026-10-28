@@ -1198,11 +1198,29 @@ pub(crate) fn net_of<'a>(
         return Ok(Ok(Net::Mll(Cow::Borrowed(net))));
     }
     let criterion = Criterion::of(mode)?;
-    let made = if proof.sequent().fragment().has_exponentials() {
+    let boxed = |proof: &Proof| {
         MellStructure::from_proof(proof, criterion, limits, |_| stop()).map(Net::Mell)
+    };
+    let made = if proof.sequent().fragment().has_exponentials() {
+        boxed(proof)
     } else {
-        ProofStructure::from_proof(proof, criterion, limits, |_| stop())
-            .map(|net| Net::Mll(Cow::Owned(net)))
+        // A proof that cuts one occurrence twice, or an occurrence and one
+        // of its subformulas, needs two vertices of one occurrence, which
+        // only a structure with boxes has.
+        match ProofStructure::from_proof(proof, criterion, limits, |_| stop()) {
+            Err(Error::Net(error))
+                if matches!(
+                    *error,
+                    linlog::NetError::Placement {
+                        fault: linlog::Placement::Cut,
+                        ..
+                    }
+                ) =>
+            {
+                boxed(proof)
+            }
+            made => made.map(|net| Net::Mll(Cow::Owned(net))),
+        }
     };
     match made {
         Ok(net) => Ok(Ok(net)),

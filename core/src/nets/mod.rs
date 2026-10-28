@@ -886,7 +886,11 @@ impl ProofStructure {
     /// `⊗`, `⅋`, Mix and the cut); otherwise as [`from_links`](Self::from_links)
     /// does, and with the criterion's error if the links are not a proof
     /// net, which happens only for a proof the checker rejects or one that
-    /// uses Mix where the criterion forbids it; [`NetError::Refused`] when
+    /// uses Mix where the criterion forbids it; [`NetError::Placement`]
+    /// with [`Placement::Cut`] for a proof that cuts one occurrence in two
+    /// branches, or an occurrence in one and a subformula of it in
+    /// another, whose net needs two vertices of one occurrence: the
+    /// checker accepts it, and [`MellStructure::from_proof`] makes its net; [`NetError::Refused`] when
     /// the bound or the stop ended it.
     pub fn from_proof(
         proof: &Proof,

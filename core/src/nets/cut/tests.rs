@@ -537,3 +537,74 @@ fn cut_links_are_checked() {
     ));
     assert!(!net.is_acyclic(&mut net.scratch()));
 }
+
+/// A proof the checker accepts may cut one occurrence in two branches, or
+/// an occurrence in one and its subformula in another: its net needs two
+/// vertices of one occurrence, which a `ProofStructure` refuses
+/// (`Placement::Cut`) and a `MellStructure` has; that net eliminates to
+/// the end, every step's net sequentializing into a proof that checks.
+#[test]
+fn a_cut_occurrence_twice_needs_a_structure_with_boxes() {
+    use crate::occurrences::{Member, OccId};
+    use crate::proofs::NodeId;
+    let m = |o: u32| Member::from(OccId::new(o));
+    let n = NodeId::new;
+    let made = |text: &str, cut: &str, nodes: Vec<Node>| {
+        let mut sequent: Sequent = text.parse().unwrap();
+        sequent.add_cut(cut.parse().unwrap()).unwrap();
+        let forest = Forest::new(&sequent).unwrap();
+        let root = n(nodes.len() as u32 - 1);
+        Proof::new(forest, nodes, root).unwrap()
+    };
+    // ⊢ a ⊗ a, ~a, ~a: 0 ⊗, 1 a, 2 a, 3 ~a, 4 ~a; the cut formula a, 5,
+    // and its dual, 6, cut under each premise of the ⊗.
+    let twice = made(
+        "|- a * a, ~a, ~a",
+        "|- a",
+        vec![
+            Node::Ax(m(5), m(3)),
+            Node::Ax(m(1), m(6)),
+            Node::Cut(m(5), n(0), n(1)),
+            Node::Ax(m(5), m(4)),
+            Node::Ax(m(2), m(6)),
+            Node::Cut(m(5), n(3), n(4)),
+            Node::Tensor(m(0), n(2), n(5)),
+        ],
+    );
+    // ⊢ ((~a ⅋ ~b) ⅋ (a ⊗ b)) ⊗ (~a ⅋ a), the cut formula a ⊗ b at 11:
+    // one branch cuts it, the other its left operand a, 12.
+    let nested = made(
+        "|- ((~a par ~b) par (a * b)) * (~a par a)",
+        "|- a * b",
+        vec![
+            Node::Ax(m(12), m(3)),
+            Node::Ax(m(13), m(4)),
+            Node::Tensor(m(11), n(0), n(1)),
+            Node::Ax(m(15), m(6)),
+            Node::Ax(m(16), m(7)),
+            Node::Tensor(m(5), n(3), n(4)),
+            Node::Par(m(14), n(5)),
+            Node::Cut(m(11), n(2), n(6)),
+            Node::Par(m(2), n(7)),
+            Node::Par(m(1), n(8)),
+            Node::Ax(m(12), m(9)),
+            Node::Ax(m(15), m(10)),
+            Node::Cut(m(12), n(10), n(11)),
+            Node::Par(m(8), n(12)),
+            Node::Tensor(m(0), n(9), n(13)),
+        ],
+    );
+    for proof in [twice, nested] {
+        for mode in [Mode::CLASSICAL, Mode::CLASSICAL.with_mix()] {
+            assert_eq!(proof.check(mode), Ok(()));
+            let criterion = Criterion::of(mode).unwrap();
+            assert!(matches!(
+                ProofStructure::of(&proof, criterion),
+                Err(Error::Net(e)) if matches!(*e, NetError::Placement { fault: Placement::Cut, .. })
+            ));
+            let mut seen = Seen::default();
+            let net: MellStructure = eliminated(&proof, mode, &mut seen);
+            assert_eq!(net.cuts(), []);
+        }
+    }
+}

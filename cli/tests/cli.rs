@@ -810,6 +810,20 @@ fn interactive_session() {
     let (status, _, err) = linlog(&["eliminate", "--net", "--format", "svg", file], "");
     assert!(err.contains("--output FILE"), "{err}");
     assert_eq!(status, 2);
+    // A proof that cuts one occurrence in two branches has a net with
+    // boxes, two vertices of that occurrence, and eliminates there.
+    let twice = dir.join("twice.json");
+    std::fs::write(
+        &twice,
+        r#"{"version":6,"sequent":{"terms":[{"V":0},{"⊗":[0,0]},{"D":0},{"V":0}],"roots":[1,2,2],"atoms":["a"],"antecedents":0,"cuts":[3]},"nodes":[{"ax":[5,3]},{"ax":[1,6]},{"cut":[5,0,1]},{"ax":[5,4]},{"ax":[2,6]},{"cut":[5,3,4]},{"⊗":[0,2,5]}]}"#,
+    )
+    .unwrap();
+    let (status, out, _) = linlog(&["eliminate", "-q", "--net", twice.to_str().unwrap()], "");
+    assert!(
+        out.contains("cut-free proof net of ⊢ a ⊗ a, ~a, ~a"),
+        "{out}"
+    );
+    assert_eq!(status, 0);
     std::fs::remove_dir_all(&dir).unwrap();
 
     // With the invertible rules on from the start, a search's graft is

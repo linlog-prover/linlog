@@ -192,7 +192,12 @@ code relies on:
   cut link's end may not lie in the tree above another's
   (`Placement::Cut`): a term that cuts an occurrence and one of its
   subformulas would need two vertices of one occurrence, which only
-  `MellStructure` has. A forest without cut formulas has `live: None`,
+  `MellStructure` has; so would one that cuts the same occurrence in two
+  branches, which the checker accepts too (the counterexample panel's
+  witness, `a_cut_occurrence_twice_needs_a_structure_with_boxes`). The
+  command's `net_of` takes `MellStructure::from_proof` for an MLL proof
+  that `ProofStructure::from_proof` refuses with `Placement::Cut`; a
+  front end that draws an MLL proof's net does the same. A forest without cut formulas has `live: None`,
   and the net engine's structures are always of such a forest (the
   search re-roots a cut forest's goal), so the engine never sees one.
 - **The MLL graph**: a dead occurrence has no slot at all (it is
