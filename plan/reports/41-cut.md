@@ -1404,3 +1404,382 @@ holds.
   README, the guide and the changelog true.
 - [x] No new variant of a closed enum; the marked enums' new variants and
   the one API break (`Placed::parent`) listed for step 45.
+
+## Session 41d: cut on the web page
+
+### Outcome
+
+**The page has the cut rule and cut elimination, on the derivation and on
+the net, built on six new calls of the bindings that are tested under
+Node; every linlog code commit passed the gate, and the client's flake
+input sits on linlog's pushed `main`.** In a tab's proof the dock's
+"Cut" opens a chooser under the goal's row: the cut formula is typed in
+the tab's syntax (ILL's in an intuitionistic tab), the goal's formulas
+are clicked over to the premise that proves it, and both premises open
+as goals. A parse error or a refused step stays said in the chooser.
+The page's undo per branch replays a cut from its formula as typed. On a
+finished proof with cuts, a cluster at the stage's top left eliminates
+them on the view shown, the derivation or the net. "Next step" takes the
+strategy's step, and a button over each cut on the drawing reduces that
+cut. Each step is named by its case ("1. The key case of ⊗ and ⅋ on the
+cut of A⊥ ⅋ B"). "Before" shows the drawing the step was taken on, with
+the reduced cut in the highlight colour; without it the stage shows the
+result. "Undo step" takes back one step, a step of a run to the end
+included. "To the end" runs within Settings' new "Elimination steps"
+(`cut.steps`) and the tab's `cut.nodes` and `cut.drawn_bytes`, and says
+which bound stopped it.
+
+The supervisor found, before "linlog ready", that an intuitionistic net
+with cut links was drawn as the one-sided net, with ⅋, ⊥ and ~. That
+finding held, and the cause is fixed in the library (below).
+
+### What was built
+
+In linlog:
+
+- **`Inference::node`** (`proofs/derivation/view.rs`, set in `build.rs`):
+  in a derivation of a proof term, the node whose rule an inference
+  shows. The derivation had no link from an inference back to the proof,
+  so the bindings could not find a cut node's `i<n>` in the drawing.
+  `None` marks an inference the view adds (the weakenings of `pad`, the
+  contractions below a split) and every inference of a session's
+  derivation. The test `every_inference_names_its_node` covers the
+  checker's differential proofs, cuts among them, one-sided and
+  two-sided.
+- **`proofs::cut::eliminate` takes a callback `each`**, as
+  `nets::cut::eliminate` does. It sees every step once the proof the
+  step made has passed its check, together with the proof the step was
+  taken on. The bindings draw each step there. This is an unreleased
+  function, changed in place; `every_step_keeps_the_conclusion` checks
+  that the callback sees the steps that stepping one at a time takes.
+- **The bindings' calls** (`web/src/calls.rs`), each over the finished
+  session and the proof or net the page holds (`""` for the session's
+  own):
+  - `cuts`, `cut_step` and `eliminate` on terms;
+  - `net_cuts`, `net_cut_step` and `net_eliminate` on nets. These also
+    take a proof's document of the session's sequent, and build its net
+    as the command's `net_of` does, with boxes where `ProofStructure`
+    refuses with `Placement::Cut`.
+
+  A step answers its case in snake case and as a phrase, its cut, its
+  formula as the mode reads it, `above`, and `highlight`: the drawing's
+  ids of the cut (`i<n>`, or the link `c<x>-<y>`) and of where the step
+  acted (`i<n>`, `o<n>`, `v<k>`, `b<k>`). On a net the step also answers
+  `marked`, the net before it drawn with linlog's marks. The answer
+  carries the view of what was reached: its cuts with their drawn ids,
+  the strategy's `next`, and its drawing, or `refused` past the bound.
+
+  A run answers every step with the drawing it was taken on, while
+  `cut.drawn_bytes` holds them all (the command's rule, `undrawn` naming
+  the first left out). It also answers `end`, and the bound as `reason`.
+  Nothing is kept between calls. The tab's `cut.drawn_bytes` is 16 MiB
+  (`tab::DRAWN_BYTES`), four drawings at the tab's 4 MiB bound on one, as
+  the command's 256 MiB is four at its own; 256 MiB is past a tab's whole
+  memory bound.
+- **The view's `cuts`** (`View::cuts`): each cut's inference and its
+  formula as typed. In an intuitionistic mode that is the reading's
+  text. In a classical session that keeps its record it is
+  `Interactive::formula_as_written`, a new public method; otherwise it is
+  one-sided. A replay types this text again.
+- **`Interactive::within` starts from a sequent's conclusion**, its cut
+  formulas left out. A session started on a sequent with cut formulas
+  could not be read back, because a session's cut formulas must be its
+  cuts' in the order made. The page replays every undo from the
+  session's sequent, which holds its cuts' formulas. The same cut typed
+  again now adds the same terms, which `a_cut_opens_two_goals_and_undo_takes_it_back`
+  and the bindings' `a_cut_opens_two_goals` pin.
+- **Intuitionistic nets with cut links in their syntax**
+  (`export/svg/mod.rs`): with `Style::essential`, which the front ends
+  set in an intuitionistic mode, a net with cut links was drawn as the
+  one-sided net, because the reading was applied only to cut-free nets.
+  The net drawing already drew cut bars and a reading together; the
+  condition is gone, the cut formula's tree is drawn as an output one
+  and its dual's as an input one.
+  `an_intuitionistic_elimination_is_drawn_in_its_syntax`
+  (`core/tests/export.rs`) draws every step of four intuitionistic
+  eliminations, MLL and with boxes, in both drawings. It failed on the
+  old condition and passes on the new one. The bindings'
+  `no_intuitionistic_text_writes_a_classical_symbol` now checks every
+  step of each session's elimination, on the derivation and on the net.
+- **Tests** (`web/tests/calls.rs`, natively and under Node):
+  - `a_proof_with_cuts_is_eliminated_step_by_step`: classical as written
+    and intuitionistic. It checks the cut listed with its drawn
+    inferences, the named cut and the strategy's taking the same step,
+    the highlight ids present in the drawing before, stepping to the end
+    equal to `eliminate`, `no_cut` for an axiom, and `foreign_proof`.
+  - `an_elimination_stops_at_its_bounds`: `cut.steps` 1, and
+    `cut.drawn_bytes` 1 on terms and nets.
+  - `a_net_with_cuts_is_eliminated_step_by_step`: either end and the
+    strategy taking the same step, the marks, `net_eliminate` equal to
+    stepping, and `no_cut`. It also covers a net with boxes whose
+    `above` ids are elements of the drawing, and the twice-cut proof's
+    boxed net.
+  - Extended: `a_cut_opens_two_goals` (the view's `cuts` and a replay)
+    and the intuitionistic property test.
+- **Docs**: `CHANGELOG.md` `[Unreleased]` (Added: `Inference::node`,
+  `Interactive::formula_as_written`, the calls; Changed: the callback,
+  `within`, the drawing); `plan/web/README.md`'s table of calls and of
+  the tab's defaults; `.claude/rules/web.md`, `core-derivations.md`,
+  `core-proofs.md` and `core-export.md`; the guide for AI models'
+  section 17 and its `eliminate` signature.
+
+In the client (`linlog-prover.github.io`):
+
+- `src/lib/steps.ts`: the action `cut` (`{formula, left, made}`), which
+  `actions` and `retract` build from the view's `cuts`. `leftOf` takes
+  each premise's own formula count. `play` replays a cut through `cut`
+  and checks the premises it made, as a step's replay does.
+- `src/lib/api.ts`, `src/lib/linlog.ts`, `src/worker/linlog.worker.ts`:
+  the seven calls and their documents.
+- `src/islands/state.tsx`: `cut`, and per proof `elim.tree` and
+  `elim.net`. These are never stored and are cleared by any change of
+  the session. They hold the reached proof or net, the steps with their
+  drawings, and the way back: a state, or a run's start and a step
+  count, taken again on undo with `cut.steps` and `cut.drawn_bytes` 0.
+  Settings has "Elimination steps" (`cutSteps`, 10 000 by default,
+  linlog's `DEFAULT_STEPS`).
+- `src/islands/Stage.tsx`: the cut chooser (`ui.cutting`), the
+  elimination cluster, the cut buttons `.cb` (the strategy's next cut
+  outlined in the accent, `next-cut` on its drawn ids), and the stage
+  drawing an elimination's drawing in place of the session's. The step
+  list is the drawn steps' lines, bounded by `cut.drawn_bytes`.
+- `src/styles/app.css`: the classes `reduced` and `acted`, in the net's
+  highlight token `--color-net-highlight`, and the cluster. Every value
+  is a token.
+- Tests: `tests/cut.spec.ts` has four Playwright tests (the cut in both
+  logics with a parse error said; elimination on the derivation, picked,
+  next, before, undo, to the end and its undo; on the net; a bound
+  stopping a run). `src/lib/steps.test.ts` replays a cut in both logics
+  through an undo elsewhere.
+- `.claude/rules/web.md` and README updated.
+
+### Decisions
+
+- **The bindings take the finished session and the proof or net the page
+  holds.** The session gives the mode, and for a classical proof drawn
+  as written its record. A step keeps the forest, so one record serves
+  every proof of an elimination; `proof_in` refuses a proof of another
+  sequent (`foreign_proof`), since the record is indexed by occurrence.
+  The page holds a term's proof document or a net's document, as it
+  holds the session.
+- **A cut's ids come from the library** (`Inference::node`), not from
+  matching the proof against its drawing: the builder knows the node of
+  every inference it unfolds, and a matcher outside it would have to
+  repeat the builder's structural rules and compact runs.
+- **Undo of a run's step takes the run again** from its start, with
+  `cut.steps` one fewer and `cut.drawn_bytes` 0. The strategy is
+  deterministic (41b's test makes `eliminate` and stepping one by one
+  agree step for step), so the page keeps no proof per step, only the
+  drawings `cut.drawn_bytes` allows.
+- **"Before" and the result**: after a step the stage shows the result
+  with the strategy's next cut outlined. "Before" switches to the drawing
+  the step was taken on, its cut marked (`reduced`, and `acted` where the
+  step acted besides). On a net, linlog's own marks (`svg::net_step`)
+  are the drawing, recoloured by the page's highlight token.
+- **The step list shows the drawn steps** (bounded by
+  `cut.drawn_bytes`), each line opening that step's drawing; a step
+  left undrawn is named in the status line as it is taken, and the list
+  says from which step they are undrawn.
+- **Settings gets "Elimination steps"** (`cut.steps`, 10 000 as in
+  linlog). Without it no visitor could change the bound, as D16 asks of
+  every default, and no test could reach a bound in a page's run. The
+  tab's `cut.nodes` (100 000) and `cut.drawn_bytes` (16 MiB) are the
+  bindings' defaults and are not in Settings.
+- **The cut chooser is a third chooser like the split's**, under the
+  goal's row and a sheet on a phone. The goal's formulas are clicked over
+  to the premise proving the cut formula (`L` marks them, as for a
+  split). Its labels name the premises by what they do ("Proves",
+  "Uses"), which reads the same in both logics.
+- **The elimination's cluster stands at the stage's top left.** The dock
+  follows the active goal, and a finished proof has none.
+- **The client's change is one commit**: the cut rule and its replay,
+  and the elimination, share the worker's calls, the types, the stage's
+  drawing effect and the test file. Splitting them hunk by hunk would
+  have left a first commit that does not build on its own.
+
+### Departures from the design
+
+- **The essential drawing of nets with cut links is on** (departs from
+  the brief, which kept it off "as 41c left it"). The supervisor's
+  finding showed that off meant classical symbols in an intuitionistic
+  tab. The library now draws a net with cut links under the reading,
+  the cut bar joining an output tree to an input tree, and the bindings
+  draw intuitionistic nets so at every step.
+- **The net calls also take a proof's document** (beyond the brief's
+  "on nets"). A session's own proof never cuts one occurrence twice,
+  since each cut adds a cut formula, so the `MellStructure` fallback the
+  brief asks for could not be reached without such a proof.
+- **`Interactive::within` leaves a sequent's cut formulas out**, a fix
+  the page's undo needs (said under What was built). It is a library
+  change that the brief did not name.
+
+### The review
+
+One fresh-context reviewer (Opus 5.5 at `high`) read the bindings' calls
+and the page's cut and elimination against the requirements, the tokens
+and the targets, without running anything. Its findings, and the
+answers:
+
+1. **Undo per branch lost another branch's cut** (held, severe). A cut
+   puts its formula's occurrences after every occurrence the session
+   has. A replay that leaves out an earlier cut (an undo in that cut's
+   branch), or redoes one later, therefore gives the remaining cuts
+   other occurrence ids. The replay's check of what each step made
+   then refused them, and the page reported them lost. Fixed at the
+   cause in `play` (`src/lib/steps.ts`): each recorded cut's block (its
+   formula's tree, then its dual's) is moved to where its replay put
+   it, and every later comparison goes through the moves. The new
+   Vitest case "keeps a cut on another branch through an undo of an
+   earlier cut, and redoes it" failed before the fix (`failed` was
+   `[[1]]`) and passes after.
+2. **The steps' disclosure was under 44 px on a phone** (held). Its
+   `summary` now has the control's height. A new Playwright test, "the
+   cut chooser and the elimination's controls are 44 by 44 pixels at
+   least", measures the chooser, the panel, and the opened step list on
+   a phone; it passes. Whether it failed before the fix was not run.
+3. **`Inference`'s equality changed** (held, low). The derived
+   `PartialEq` now compared the node, so the same step from terms
+   numbered apart, or from a session, compared unequal where 0.1.0 said
+   equal. Fixed in linlog by a hand-written `PartialEq` that leaves the
+   node out (commit "Leave an inference's node out of its equality").
+   The test `inferences` pins the nodes explicitly.
+
+### Options, front ends and quantifiers (D15, D16, D17)
+
+- No option was added to the library. The tab's defaults gain
+  `cut.drawn_bytes` 16 MiB (`tab::DRAWN_BYTES`, in `plan/web/README.md`'s
+  table); `cut.steps` and `cut.nodes` stay linlog's. The page sets
+  `cut.steps` through Settings' "Elimination steps", a library caller
+  through `cut::Options`, and the command keeps `--steps`,
+  `--node-limit` and `--drawings-limit`.
+- Quantifiers: `Inference::node` names a node whatever the rule, so a
+  first-order cut's inference is found the same way. The page's replay
+  moves a cut's block of occurrences whatever its formula.
+
+### The closed enums' new variants, for step 45
+
+None. New public items: `Inference::node` and
+`Interactive::formula_as_written`. Changed in place:
+`proofs::cut::eliminate` gained its `each` argument, an item added after
+0.1.0. Behaviour changed:
+- `Interactive::new` and `within` leave a sequent's cut formulas out;
+  0.1.0's sequents had none.
+- With `Style::essential` a net with cut links is drawn under the
+  reading; 0.1.0 had no cut links.
+
+`Inference`'s equality is 0.1.0's.
+
+### The target sets
+
+Not run: no commit changes a search or a criterion. The derivation
+builder's change is in the views, which the search does not use, and the
+ratchet's journeys passed within their ceilings in every gate.
+
+### Gating
+
+Each linlog code commit passed the gate, CLAUDE.md's command on cores 4
+to 9 in a detached unit, run in a workspace of its own at the commit:
+`rqowrmts`, `luqmvumz`, `pvuwrssq`, `yrtytylx` and `otuywozq`. The first
+`nix flake check`, at `yrtytylx`, failed on `treefmt`: rustfmt's layout
+of two test files that I had edited from a script. The layout was folded
+into `pvuwrssq`, and the two rewritten commits were gated again. A rerun
+of the flake check on a stale workspace checked the old tree and is no
+result. After that, `nix flake check` passed at `yrtytylx` and at the
+last code commit, `otuywozq` (exit 0, no failed build, the bindings' 23
+tests passing under Node in `web-wasm-tests`). The supervisor pushed
+`main` at `otuywozq` (`1276c3b6df21`).
+
+In the client, on its moved lock: Biome, `astro check` (0 errors), Vitest
+(529 tests) and Playwright (114 tests, desktop and phone) passed, and
+`nix flake check` was run at the last commit (below).
+
+### What the next sessions must know
+
+- **A cut's occurrences depend on the cuts made before it**: a session
+  appends a cut formula's tree and its dual's after every occurrence it
+  has. A replay that leaves out or reorders cuts numbers them apart,
+  and the page's `play` moves each recorded cut's block to where its
+  replay put it before comparing what an action made. A new kind of
+  action that adds occurrences needs the same.
+- **A session starts from its sequent's conclusion**: a sequent's cut
+  formulas are left out by `Interactive::within`, and a cut adds them
+  again. Code that starts a session to replay one relies on this.
+- **The page's elimination keeps drawings, not proofs**: undoing a run's
+  step takes the run again, so the strategy must stay deterministic for
+  given settings (41b's test holds it so).
+- **An intuitionistic net with cut links is drawn under the reading**:
+  a cut bar joins an output tree to an input tree. The highlight of such
+  a drawing is `is_essential`'s verdict, which for cut links is the
+  switching criterion's.
+- **Lesson and practice content on cut is step 43d's**: the page has the
+  rule and the elimination but no text that teaches them.
+
+### Open
+
+- On a phone the goal bar now wraps its last icon ("Open this goal in a
+  new tab") to a second row, since "Cut" joined it; every target keeps
+  44 pixels.
+- The tour's stop in `tests/targets.spec.ts` ("every control is a target
+  of 44 by 44 pixels at least", phone) failed twice locally with a
+  formula button 39 px wide, once on the unchanged client at
+  `lltvnnlv`. It passed in the final full run. It looks
+  timing-dependent and predates this session; it is not changed here.
+- A replay starts from the session's sequent as JSON, so a replayed
+  classical session keeps no record of how it was written; this was so
+  before this session too. Its cut formula, typed again from the view's
+  text, still reads, but the two-sided view of a replayed session shows
+  it one-sided. A follow-up could carry the record through a replay.
+- "Whether it failed before the fix" was not run for the phone target
+  test of finding 2. The reviewer measured the old disclosure at about
+  19–27 px.
+
+The client's `nix flake check` at its last commit, `olvxtklw`
+(`4a3c26fb`, "Add the cut rule and cut elimination to the stage"),
+exited 0: Vitest 529 tests and Playwright 114 tests in its sandbox,
+with the linlog input at `1276c3b6df21`.
+
+### Screenshots
+
+Under `/home/tux/Projects/own/linlog-step41d-screenshots/`, each at a
+phone's width (Pixel 7) and a desktop's (1280 × 800), light and dark.
+`before/` (the client at `lltvnnlv`) and `after/` share `proof` (a
+finished proof's tree) and `net` (its net). `after/` adds `cut-chooser`
+(a cut being made), `proof-with-cut`, `elimination-tree-step` and
+`elimination-net-step` (an elimination step with the reduced cut
+highlighted, on the derivation and on the net), `elimination-net-cuts`
+(the net's cut buttons, the strategy's next outlined) and
+`elimination-tree-end` (the cut-free proof reached).
+
+### Checklist
+
+- [x] The bindings' calls for one step (the cut named or the strategy's)
+  and to the end, on terms and on nets, with the step's case and the
+  ids to highlight; nothing kept between calls; tested natively and
+  under Node (`web-wasm-tests`, 23 tests).
+- [x] What the library lacked, added and said so: `Inference::node`, the
+  term elimination's callback, `Interactive::formula_as_written`, a
+  session started from a sequent's conclusion, and intuitionistic nets
+  with cut links drawn in their syntax (the supervisor's finding).
+- [x] Every linlog code commit gated; `nix flake check` at the last code
+  commit (`otuywozq`, exit 0); "linlog ready" sent; linlog pushed by the
+  supervisor at `1276c3b6df21`.
+- [x] The client's input moved to linlog's pushed `main` in a commit of
+  its own ("flake.lock: Update linlog").
+- [x] The cut rule on the page: the formula typed in the tab's syntax,
+  the premises' formulas chosen, both premises open, errors said, and
+  undo per branch with cuts (Playwright, Vitest).
+- [x] Elimination step by step on the derivation and on the net: a cut
+  picked or the strategy's next step, each step named, its cut
+  highlighted on the drawing before and the result drawn after, every
+  step undoable (a run's too), "To the end" within the bounds and
+  saying which stopped it (`tests/cut.spec.ts`, four tests).
+- [x] Step 38's tokens, grammar and targets: every value a token,
+  44-pixel targets on a phone tested for the chooser and the panel.
+- [x] Before and after screenshots at both widths in both themes.
+- [x] The fresh-context reviewer's round, each finding answered: three
+  held, all fixed at the cause with a test.
+- [x] The client's `nix flake check` at its last commit (exit 0).
+- [x] `.claude/rules/` amended in both repositories (linlog: `web`,
+  `core-derivations`, `core-proofs`, `core-export`; client: `web`), the
+  changelog, `plan/web/README.md`, the guide's section 17, and the
+  client's README.
