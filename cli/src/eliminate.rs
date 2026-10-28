@@ -193,8 +193,8 @@ fn counted(count: usize, one: &str, many: &str) -> String {
     format!("{count} {}", if count == 1 { one } else { many })
 }
 
-/// Returns the lines that say what the elimination did: a line per step
-/// with its case and the cut formula, then how it ended.
+/// Returns the lines that say what the elimination did: a numbered line
+/// per step with its case and the cut formula, then how it ended.
 fn report(elimination: &Elimination, mode: Mode, sequent: &str, deadline: &Deadline) -> String {
     let proof = &elimination.proof;
     let reading = Reading::of_mode(proof.forest(), mode)
@@ -209,11 +209,7 @@ fn report(elimination: &Elimination, mode: Mode, sequent: &str, deadline: &Deadl
                 Some(reading) => reading.formula(proof.occurrence(step.formula)).to_string(),
                 None => proof.formula(step.formula).to_string(),
             };
-            format!(
-                "step {}: {} on the cut of {formula}",
-                k + 1,
-                step.case.name()
-            )
+            format!("{}. {} on the cut of {formula}", k + 1, step.case.name())
         })
         .collect();
     let steps = counted(elimination.steps.len(), "step", "steps");

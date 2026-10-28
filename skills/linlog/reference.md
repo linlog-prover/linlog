@@ -513,16 +513,16 @@ bound or the time limit stopped it. `--format json` writes `{"version",
 ```console
 $ printf 'cut 0 !a 0\nclose\nproof c.json\n' | linlog interact -i "!a |- a * a" > /dev/null
 $ linlog eliminate -q -i --steps 2 c.json
-step 1: contraction on the cut of !a
-step 2: dereliction on the cut of !a
+1. contraction on the cut of !a
+2. dereliction on the cut of !a
 proof of !a ⊢ a ⊗ a (intuitionistic) with 2 cuts left after 2 steps: the elimination took the most steps allowed, 2; --steps N allows more
 $ linlog eliminate -q -i c.json
-step 1: contraction on the cut of !a
-step 2: dereliction on the cut of !a
-step 3: a commutative case on the cut of a
-step 4: the axiom case on the cut of a
-step 5: a commutative case on the cut of a
-step 6: the axiom case on the cut of a
+1. contraction on the cut of !a
+2. dereliction on the cut of !a
+3. a commutative case on the cut of a
+4. the axiom case on the cut of a
+5. a commutative case on the cut of a
+6. the axiom case on the cut of a
 cut-free proof of !a ⊢ a ⊗ a (intuitionistic) after 6 steps
 ```
 

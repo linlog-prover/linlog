@@ -1009,16 +1009,16 @@ no goal is open: `proof` checks the proof
 > proof contraction.json
 valid proof written to contraction.json
 $ linlog eliminate -q -i contraction.json
-step 1: contraction on the cut of !a
-step 2: dereliction on the cut of !a
-step 3: a commutative case on the cut of a
-step 4: the axiom case on the cut of a
-step 5: a commutative case on the cut of a
-step 6: the axiom case on the cut of a
+1. contraction on the cut of !a
+2. dereliction on the cut of !a
+3. a commutative case on the cut of a
+4. the axiom case on the cut of a
+5. a commutative case on the cut of a
+6. the axiom case on the cut of a
 cut-free proof of !a ⊢ a ⊗ a (intuitionistic) after 6 steps
-$ linlog eliminate -i --steps 2 contraction.json
-step 1: contraction on the cut of !a
-step 2: dereliction on the cut of !a
+$ linlog eliminate -i --steps=2 contraction.json
+1. contraction on the cut of !a
+2. dereliction on the cut of !a
 proof of !a ⊢ a ⊗ a (intuitionistic) with 2 cuts left after 2 steps: the elimination took the most steps allowed, 2; --steps N allows more
             ───── ax    ───── ax   ───── ax
             a ⊢ a       a ⊢ a      a ⊢ a

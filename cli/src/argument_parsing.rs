@@ -98,7 +98,7 @@ pub(crate) enum Command {
     /// The proof is checked in the mode the flags give, then its cuts are
     /// reduced one step at a time, each step on the cut that comes first in
     /// the proof (no cut above it), until no cut is left or a bound is
-    /// reached: `--steps 1` takes one step. Each step is printed with its
+    /// reached: `--steps=1` takes a single one. Each step is printed with its
     /// case (the axiom case, a key case such as that of ⊗ and ⅋, a
     /// commutative case, weakening, dereliction, contraction, a box
     /// entering a box) and the cut formula, then the proof reached, drawn
