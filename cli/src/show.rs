@@ -1059,7 +1059,7 @@ impl Display for Net<'_> {
 impl Net<'_> {
     /// Returns the net's text form as `mode` reads it: in an
     /// intuitionistic mode with the formulas two-sided.
-    fn written_in(&self, mode: Mode) -> String {
+    pub(crate) fn written_in(&self, mode: Mode) -> String {
         match self {
             Self::Mll(net) => net.written_in(mode).to_string(),
             Self::Mell(net) => net.written_in(mode).to_string(),
@@ -1092,6 +1092,68 @@ impl Net<'_> {
             ),
         };
         drawn.map_err(|error| net_too_large(size, &error))
+    }
+}
+
+impl Net<'_> {
+    /// Returns the net drawn as an SVG document with what `step`, a step
+    /// of cut elimination taken on it, acted on highlighted, or the line
+    /// that says why it is not drawn. Drawn as the style says: a net with
+    /// cut links has no essential net, so an elimination's nets are drawn
+    /// alike in every mode.
+    pub(crate) fn step_drawing(
+        &self,
+        step: Option<&linlog::nets::cut::Step>,
+        show: &Show,
+        stop: &dyn Fn() -> bool,
+    ) -> std::result::Result<String, String> {
+        let style = &show.styles.svg;
+        let limits = &show.limits;
+        let (drawn, size) = match (self, step) {
+            (Self::Mll(net), Some(step)) => (
+                svg::net_step(net, step, style, limits, |_| stop()),
+                (net.forest().len(), "occurrences", net.links().len()),
+            ),
+            (Self::Mll(net), None) => (
+                svg::net(net, style, limits, |_| stop()),
+                (net.forest().len(), "occurrences", net.links().len()),
+            ),
+            (Self::Mell(net), Some(step)) => (
+                svg::mell_net_step(net, step, style, limits, |_| stop()),
+                (net.len(), "vertices", net.links().len()),
+            ),
+            (Self::Mell(net), None) => (
+                svg::mell_net(net, style, limits, |_| stop()),
+                (net.len(), "vertices", net.links().len()),
+            ),
+        };
+        drawn.map_err(|error| net_too_large(size, &error))
+    }
+
+    /// Returns the formula of a vertex as `mode` reads it.
+    pub(crate) fn formula(&self, v: linlog::VertexId, mode: Mode) -> String {
+        let (forest, o) = match self {
+            Self::Mll(net) => (net.forest(), net.occurrence(v)),
+            Self::Mell(net) => (net.forest(), net.occurrence(v)),
+        };
+        let Some(o) = o else {
+            return v.get().to_string();
+        };
+        match Reading::of_mode(forest, mode)
+            .ok()
+            .filter(|_| mode.is_intuitionistic())
+        {
+            Some(reading) => reading.formula(o).to_string(),
+            None => forest.formula(o).to_string(),
+        }
+    }
+
+    /// Returns the number of cut links.
+    pub(crate) fn cuts(&self) -> usize {
+        match self {
+            Self::Mll(net) => net.cuts().len(),
+            Self::Mell(net) => net.cuts().len(),
+        }
     }
 }
 

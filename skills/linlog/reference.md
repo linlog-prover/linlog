@@ -511,6 +511,18 @@ limit stopped it with cuts left. `--format json` writes `{"version",
 "proof", "steps": [{"cut", "formula", "case", "above"}], "end"}`, `end`
 `cut_free` or `refused` with `reason`, at wire level 6.
 
+`--net` eliminates on the proof's net instead (for the sequents `--net`
+takes): the cuts are cut links, each step reduces the first cut link
+(`the axiom case`, `the key case of ⊗ and ⅋`, and on boxes `weakening`,
+`dereliction`, `contraction`, `a box entering a box`; no commutative
+case), every net reached passes the criterion, and the net reached is
+printed as text, a cut link as `cut A[x] — A⊥[y]`; `--node-limit`
+counts a net's vertices. `--format svg|png|pdf --output FILE` writes
+`FILE-k` (the net step k was taken on, its cut link and what it acts
+on highlighted) and `FILE` (the net reached); `--format json` writes
+`{"version", "net", "steps": [{"cut": [x, y], "case", "above"}],
+"end"}`.
+
 ```console
 $ printf 'cut 0 !a 0\nclose\nproof c.json\n' | linlog interact -i "!a |- a * a" > /dev/null
 $ linlog eliminate -q -i --steps 2 c.json
@@ -525,6 +537,13 @@ $ linlog eliminate -q -i c.json
 5. a commutative case on the cut of a
 6. the axiom case on the cut of a
 cut-free proof of !a ⊢ a ⊗ a (intuitionistic) after 6 steps
+$ linlog eliminate -q -i --net c.json
+1. contraction on the cut of !a
+2. dereliction on the cut of !a
+3. the axiom case on the cut of a
+4. dereliction on the cut of !a
+5. the axiom case on the cut of a
+cut-free proof net of !a ⊢ a ⊗ a (intuitionistic) after 5 steps
 ```
 
 ## 11. A sequent alone: `seq`
@@ -712,7 +731,12 @@ Every error is `linlog::Error`, whose `code()` is the stable reason.
 one cut (the node `at`, or the strategy's with `None`) and returns the
 checked proof and the `Step` (`cut`, `formula`, `case`);
 `proofs::cut::eliminate` runs to the end within `cut::Options` and
-returns the proof reached, the steps and the `End`.
+returns the proof reached, the steps and the `End`. On nets,
+`nets::cut::step(&net, at, &options, &limits, stop)` (a `ProofStructure`
+or a `MellStructure`, `at` a vertex of a cut link) and
+`nets::cut::eliminate(&net, &options, &limits, stop, each)` (`each` sees
+every step and the net it was taken on); `svg::net_step` and
+`svg::mell_net_step` draw a step, the cut link `c<x>-<y>`.
 
 ## 17. The web bindings
 

@@ -112,6 +112,17 @@ pub(crate) enum Command {
     /// (the node of the proof it was taken on), `formula` (the occurrence
     /// cut) and `case`, and `end`, `cut_free` or `refused` with the
     /// `reason`.
+    ///
+    /// With `--net` the cuts are eliminated on the proof's net instead,
+    /// for the sequents `--net` takes: each step reduces the first cut
+    /// link (the axiom case, the key case of ⊗ and ⅋, and on boxes
+    /// weakening, dereliction, contraction and a box entering a box), and
+    /// the net reached is printed as text; `--format svg`, `png` or `pdf`
+    /// with `--output FILE` draws every net into a file of its own, FILE-k
+    /// (net-1.svg for net.svg) the net step k was taken on, with its cut
+    /// link and what it acts on highlighted, and FILE the net reached, and
+    /// `--format json` writes the record `{"version", "net", "steps",
+    /// "end"}`, each step's `cut` the two vertices of its cut link.
     Eliminate(EliminateArgs),
     /// Prove a sequent step by step, reading commands from standard input
     ///
@@ -634,7 +645,8 @@ pub(crate) struct EliminateArgs {
     /// 3 at the default, which only keeps the call bounded.
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(cut::Options::DEFAULT_STEPS)))]
     pub(crate) steps: Count<u64>,
-    /// The most nodes a proof a step makes may have, or `none` (cut.nodes)
+    /// The most nodes a proof a step makes may have, or with --net the most
+    /// vertices of a net, or `none` (cut.nodes)
     ///
     /// The exponentials can make a proof grow beyond any practical size;
     /// a step that would pass the limit is not taken, and the proof

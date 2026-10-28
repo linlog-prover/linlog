@@ -7,11 +7,17 @@ use crate::io;
 use crate::limit::Deadline;
 use crate::prove::{Stop, on_large_stack, stopped};
 use crate::settings::{Given, time_limit};
-use crate::show::{Show, Shown, abbreviated, derivation, every_steps};
+use crate::show::{
+    Net, Rendered, Show, Shown, abbreviated, derivation, every_steps, net_of, nets_exist, note,
+    render,
+};
 use crate::{Status, exit_on_interrupt, interrupted};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use linlog::proofs::cut::{self, Elimination, End};
 use linlog::{CheckError, Error, Forest, Mode, Node, Proof, Reading, Refusal, Settings};
+use std::fmt::Write as _;
+use std::io::Write as _;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 /// Runs `eliminate`: reads a proof, eliminates its cuts in the mode the
@@ -68,6 +74,21 @@ pub(crate) fn eliminate(args: &EliminateArgs, given: &Given) -> Result<Status> {
     let proof = proof?;
     if proof.goal().is_some() {
         return Err(Error::GoalProof.into());
+    }
+    if show.net {
+        let quiet = args.check.output.quiet;
+        return on_large_stack(settings.limits.stack_bytes(), move || {
+            eliminate_net(
+                &proof,
+                mode,
+                &settings,
+                &show,
+                quiet,
+                asked,
+                &deadline,
+                path.as_deref(),
+            )
+        })?;
     }
     on_large_stack(settings.limits.stack_bytes(), move || {
         let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
@@ -209,6 +230,366 @@ fn eliminate_into(
         status,
         show.close(out, shown, show.verdict.then_some(line.as_str()))?,
     ))
+}
+
+/// Returns the sequent of a proof as the verdict lines write it: in an
+/// intuitionistic mode two-sided, abbreviated as `show` says.
+fn sequent_of(proof: &Proof, mode: Mode, show: &Show) -> String {
+    let formulas = proof.sequent().roots().len();
+    match Forest::new(proof.sequent())
+        .ok()
+        .filter(|_| mode.is_intuitionistic())
+        .and_then(|forest| {
+            Reading::of_mode(&forest, mode)
+                .ok()
+                .map(|reading| abbreviated(&reading, show.abbreviate, formulas))
+        }) {
+        Some(two_sided) => two_sided,
+        None => abbreviated(proof.sequent(), show.abbreviate, formulas),
+    }
+}
+
+/// Eliminates the cuts of the proof's net and writes the steps and the
+/// end, with the net reached as text, or the record as JSON, or each
+/// step's net drawn into a file of its own: `FILE-k` (`net-1.svg` for
+/// `net.svg`) the net step `k` was taken on, with its cut link and what
+/// it acts on marked, and `FILE` the net reached.
+/// Returns the status as [`eliminate_into`] does.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the command's state, as `eliminate_into` takes it"
+)]
+fn eliminate_net(
+    proof: &Proof,
+    mode: Mode,
+    settings: &Settings,
+    show: &Show,
+    quiet: bool,
+    asked: bool,
+    deadline: &Deadline,
+    path: Option<&Path>,
+) -> Result<Status> {
+    let over = || interrupted() || deadline.passed() || io::closed();
+    let drawn = matches!(show.format, Format::Svg | Format::Png | Format::Pdf);
+    if !drawn {
+        return eliminate_net_into(proof, mode, settings, show, quiet, asked, deadline, path);
+    }
+    let Some(path) = path else {
+        bail!(
+            "eliminate --net draws each step into a file of its own: --output FILE names them \
+             FILE-1, FILE-2, … and the net reached FILE"
+        );
+    };
+    nets_exist(proof.sequent(), mode)?;
+    let why = || Stop::why(stopped(deadline));
+    if let Some(status) = unchecked(proof, mode, settings, show, deadline, None)? {
+        return Ok(status);
+    }
+    let net = match net_of(None, proof, mode, &show.limits, &over, &why)? {
+        Ok(net) => net,
+        Err(line) => {
+            eprintln!("{line}");
+            return Ok(Status::Unknown);
+        }
+    };
+    // Each drawing with the line its file notes, or why it is left out.
+    let mut drawings = Vec::new();
+    let (reached, steps, end) = run(&net, mode, settings, &over, |before, step, line| {
+        if !quiet {
+            drawings.push((line, before.step_drawing(Some(step), show, &over)));
+        }
+    })?;
+    let line = net_report(
+        &steps,
+        &end,
+        &reached,
+        mode,
+        &sequent_of(proof, mode, show),
+        deadline,
+    );
+    let last = line.lines().last().unwrap_or_default().to_owned();
+    if !quiet {
+        drawings.push((last, reached.step_drawing(None, show, &over)));
+    }
+    let last = drawings.len();
+    for (k, (comment, drawing)) in drawings.into_iter().enumerate() {
+        let file = if k + 1 == last {
+            path.to_owned()
+        } else {
+            numbered(path, k + 1)
+        };
+        let drawing = match drawing {
+            Ok(drawing) => drawing,
+            Err(left_out) => {
+                eprintln!("{}: {left_out}", file.display());
+                continue;
+            }
+        };
+        let mut out = io::Output::open(Some(&file), show.format.is_binary())?;
+        if show.format == Format::Svg {
+            if show.verdict {
+                out.stream()
+                    .write_all(note(Format::Svg, &comment).as_bytes())?;
+                out.stream().write_all(b"\n")?;
+            }
+            out.stream().write_all(drawing.as_bytes())?;
+        } else {
+            match render(
+                drawing,
+                show.format,
+                &show.styles,
+                show.limits.memory_bytes,
+                &over,
+            )? {
+                Rendered::Bytes(bytes) => out.stream().write_all(&bytes)?,
+                Rendered::Refused(line) => bail!("{line}"),
+                Rendered::Stopped => {
+                    bail!("the drawing of {} was stopped: {}", file.display(), why())
+                }
+            }
+        }
+        out.finish()?;
+    }
+    if show.verdict {
+        println!("{line}");
+    }
+    Ok(status(&end, asked))
+}
+
+/// Returns the file of step `k`'s drawing: `FILE-k` with the output's
+/// extension.
+fn numbered(path: &Path, k: usize) -> PathBuf {
+    let stem = path
+        .file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    let name = match path.extension() {
+        Some(ext) => format!("{stem}-{k}.{}", ext.to_string_lossy()),
+        None => format!("{stem}-{k}"),
+    };
+    path.with_file_name(name)
+}
+
+/// Eliminates the cuts of the proof's net and writes the steps, the end
+/// and the net reached as text, or the record as JSON, into the output.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the command's state, as `eliminate_into` takes it"
+)]
+fn eliminate_net_into(
+    proof: &Proof,
+    mode: Mode,
+    settings: &Settings,
+    show: &Show,
+    quiet: bool,
+    asked: bool,
+    deadline: &Deadline,
+    path: Option<&Path>,
+) -> Result<Status> {
+    let over = || interrupted() || deadline.passed() || io::closed();
+    nets_exist(proof.sequent(), mode)?;
+    let mut out = io::Output::open(path, false)?;
+    if let Some(status) = unchecked(proof, mode, settings, show, deadline, Some(&mut out))? {
+        out.finish()?;
+        return Ok(status);
+    }
+    let why = || Stop::why(stopped(deadline));
+    let net = match net_of(None, proof, mode, &show.limits, &over, &why)? {
+        Ok(net) => net,
+        Err(line) => {
+            eprintln!("{line}");
+            return Ok(Status::Unknown);
+        }
+    };
+    if show.format == Format::Json {
+        let status = match &net {
+            Net::Mll(net) => {
+                let e = linlog::nets::cut::eliminate(
+                    net.as_ref(),
+                    &settings.cut,
+                    &settings.limits,
+                    |_| over(),
+                    |_, _| {},
+                )?;
+                serde_json::to_writer(out.stream(), &e)?;
+                status(&e.end, asked)
+            }
+            Net::Mell(net) => {
+                let e = linlog::nets::cut::eliminate(
+                    net,
+                    &settings.cut,
+                    &settings.limits,
+                    |_| over(),
+                    |_, _| {},
+                )?;
+                serde_json::to_writer(out.stream(), &e)?;
+                status(&e.end, asked)
+            }
+        };
+        out.finish()?;
+        return Ok(status);
+    }
+    let (reached, steps, end) = run(&net, mode, settings, &over, |_, _, _| {})?;
+    let line = net_report(
+        &steps,
+        &end,
+        &reached,
+        mode,
+        &sequent_of(proof, mode, show),
+        deadline,
+    );
+    let prefix = show.open(&mut out, show.verdict.then_some(line.as_str()))?;
+    if quiet {
+        if show.close(&mut out, Shown::Nothing, Some(&line))? {
+            out.finish()?;
+        }
+        return Ok(status(&end, asked));
+    }
+    let text = format!("{}{}", prefix.unwrap_or_default(), reached.written_in(mode));
+    out.write_str(&text)?;
+    if show.close(
+        &mut out,
+        Shown::Written,
+        show.verdict.then_some(line.as_str()),
+    )? {
+        out.finish()?;
+    }
+    Ok(status(&end, asked))
+}
+
+/// Eliminates the cut links of a net by the settings, giving `each` the
+/// net every step was taken on, the step and its line, and returns the
+/// net reached, each step's line and how it ended.
+fn run<'n>(
+    net: &Net<'n>,
+    mode: Mode,
+    settings: &Settings,
+    over: &dyn Fn() -> bool,
+    mut each: impl FnMut(&Net<'_>, &linlog::nets::cut::Step, String),
+) -> Result<(Net<'n>, Vec<String>, End)> {
+    use std::borrow::Cow;
+    let mut lines = Vec::new();
+    let mut seen = |before: &Net<'_>, step: &linlog::nets::cut::Step| {
+        let line = format!(
+            "{}. {} on the cut of {}",
+            lines.len() + 1,
+            step.case.name(),
+            before.formula(step.cut.0, mode)
+        );
+        each(before, step, line.clone());
+        lines.push(line);
+    };
+    let (reached, end) = match net {
+        Net::Mll(net) => {
+            let e = linlog::nets::cut::eliminate(
+                net.as_ref(),
+                &settings.cut,
+                &settings.limits,
+                |_| over(),
+                |before, step| seen(&Net::Mll(Cow::Borrowed(before)), step),
+            )?;
+            (Net::Mll(Cow::Owned(e.net)), e.end)
+        }
+        Net::Mell(net) => {
+            let e = linlog::nets::cut::eliminate(
+                net,
+                &settings.cut,
+                &settings.limits,
+                |_| over(),
+                |before, step| seen(&Net::Mell(before.clone()), step),
+            )?;
+            (Net::Mell(e.net), e.end)
+        }
+    };
+    Ok((reached, lines, end))
+}
+
+/// Returns the lines that say what an elimination on a net did: a line
+/// per step, then how it ended.
+fn net_report(
+    steps: &[String],
+    end: &End,
+    reached: &Net<'_>,
+    mode: Mode,
+    sequent: &str,
+    deadline: &Deadline,
+) -> String {
+    let mut lines = steps.to_vec();
+    let count = counted(steps.len(), "step", "steps");
+    lines.push(match end {
+        End::CutFree => format!("cut-free proof net of {sequent} ({mode}) after {count}"),
+        end => {
+            let End::Refused(refusal) = end else {
+                unreachable!("an elimination ends cut-free or refused")
+            };
+            format!(
+                "proof net of {sequent} ({mode}) with {} left after {count}: {refusal}{}",
+                counted(reached.cuts(), "cut link", "cut links"),
+                advice(refusal, deadline)
+            )
+        }
+    });
+    lines.join("\n")
+}
+
+/// Checks the proof as the elimination on terms does before its first
+/// step and writes what it says when it is no proof in the mode, or its
+/// check is given up, into `out`, or to standard error without one;
+/// returns the status then, `None` for a proof that checks.
+fn unchecked(
+    proof: &Proof,
+    mode: Mode,
+    settings: &Settings,
+    show: &Show,
+    deadline: &Deadline,
+    out: Option<&mut io::Output>,
+) -> Result<Option<Status>> {
+    let over = || interrupted() || deadline.passed() || io::closed();
+    let Err(error) = proof.check_within(mode, &settings.limits, |_| over()) else {
+        return Ok(None);
+    };
+    let (status, message) = match &error {
+        CheckError::Refused(refused) => (
+            Status::Unknown,
+            format!(
+                "unknown: the proof of {} ({mode}) is not checked: {error}{}",
+                sequent_of(proof, mode, show),
+                advice(&refused.refusal, deadline)
+            ),
+        ),
+        _ => (
+            Status::No,
+            format!(
+                "invalid proof of {} ({mode}): {}",
+                sequent_of(proof, mode, show),
+                error
+                    .describe(proof.forest())
+                    .in_mode(mode)
+                    .abbreviated(show.abbreviate)
+            ),
+        ),
+    };
+    match out {
+        Some(out) if show.format == Format::Json => {
+            let checked = Checked {
+                version: CHECKED_LEVEL,
+                verdict: if matches!(status, Status::No) {
+                    "invalid"
+                } else {
+                    "unknown"
+                },
+                mode,
+                error: Some(Error::Check(error)),
+                message: Some(message),
+            };
+            serde_json::to_writer(out.stream(), &checked)?;
+        }
+        Some(out) => {
+            show.open(out, Some(&message))?;
+            show.close(out, Shown::Nothing, Some(&message))?;
+        }
+        None => eprintln!("{message}"),
+    }
+    Ok(Some(status))
 }
 
 /// Returns `count` and the noun for one or for many.

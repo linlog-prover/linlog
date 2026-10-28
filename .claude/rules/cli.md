@@ -182,7 +182,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   set (`--steps`, or a settings file's `cut.steps` other than the
   default: `asked_steps`), 3 at the default steps bound with cuts left
   (exit 0 there read as done) and at any other refusal, 1 for an invalid
-  proof, the record of the library with `--format json`;
+  proof, the record of the library with `--format json`. With `--net`
+  (`eliminate_net`) it eliminates on the proof's net through `Net`
+  (`net_of`, then `nets::cut::eliminate` with a callback that collects
+  each step's line and, in a drawing format, its drawing,
+  `Net::step_drawing`): the proof is checked first (`unchecked`, the
+  same verdicts as the terms' path), the statuses are the same, a
+  drawing format needs `--output FILE` (files `FILE-k` for step k's net,
+  numbered like the lines, and `FILE` for the net reached, so that the
+  README test finds the file `--output` names), each SVG file starts
+  with a comment of its step's line, a drawing past the derivation limit
+  is left out with a line on standard error, and `-q` writes no file;
   `show.rs` is how a derivation, a net or a sequent is shown (`Show`,
   `Shown`, `derivation`, `shown`, `render`, `net_into`, the lines that
   say why one is left out). Together they hold `--net`'s refusal of

@@ -998,6 +998,25 @@ were taken, 1 for a proof that is not valid, 3 when the default bound
 on steps, another bound or the time limit stopped it with cuts left,
 and 2 for an error.
 
+With `--net` the cuts are eliminated on the proof's net instead, for the
+sequents `--net` takes (MLL without units, and nets with boxes of MELL
+without units, classical with or without `--mix` or intuitionistic): the
+proof's cuts are the net's cut links, each step reduces the first cut
+link (nets have no commutative cases: the axiom case, the key case of ⊗
+and ⅋, and on boxes weakening, which erases a box, dereliction, which
+opens one, contraction, which duplicates one, and a box entering a box),
+every net reached passes the correctness criterion, and the net reached
+is printed as text, every cut link as a line `cut A[x] — A⊥[y]`; the
+bound on nodes counts a net's vertices. `--format svg`, `png` or `pdf`
+with `--output FILE` draws every net into a file of its own: `FILE-k`
+(`net-1.svg` for `net.svg`) the net step k was taken on, with its cut
+link, a bar under its two formulas, and what the step acts on (the links
+at its ends, its `⊗` and `⅋`, the box of its `!`, the box it enters)
+highlighted, and `FILE` the net reached; an SVG file's first line is a
+comment naming its step. `--format json` writes the record `{"version",
+"net", "steps", "end"}` with the net reached, each step's `cut` the two
+vertices of its cut link.
+
 ```console
 $ linlog interact -i "!a |- a * a"
 > cut 0 !a 0
@@ -1031,11 +1050,36 @@ a ⊢ a       !a ⊢ a        a, a ⊢ a ⊗ a
         !a, !a ⊢ a ⊗ a
         ────────────── !c
           !a ⊢ a ⊗ a
+$ linlog eliminate -i --net --steps=1 contraction.json
+1. contraction on the cut of !a
+proof net of !a ⊢ a ⊗ a (intuitionistic) with 2 cut links left after 1 step: the elimination took the most steps allowed, 1; --steps N allows more
+!a ⊢ a ⊗ a
+!a[0]: a[2] in !a[10], a[3] in !a[6]
+!a[8]: a[9]
+!a[12]: a[13]
+cut !a[6] — !a[8]
+cut !a[10] — !a[12]
+a[2] — a[11]
+a[3] — a[7]
+a[4] — a[13]
+a[5] — a[9]
+proof net
+$ linlog eliminate -i --net --format svg --output net.svg contraction.json
+1. contraction on the cut of !a
+2. dereliction on the cut of !a
+3. the axiom case on the cut of a
+4. dereliction on the cut of !a
+5. the axiom case on the cut of a
+cut-free proof net of !a ⊢ a ⊗ a (intuitionistic) after 5 steps
 ```
 
 The library's `proofs::cut::step` reduces a cut the caller names, or the
 strategy's, and says which cut and which case; `proofs::cut::eliminate`
 runs to the end within `cut::Options`.
+
+The library's `nets::cut::step` and `nets::cut::eliminate` do the same
+on a `ProofStructure` or a `MellStructure`, and `svg::net_step` and
+`svg::mell_net_step` draw a step.
 
 `linlog seq` prints a sequent one-sided in negation normal form, or
 two-sided as intuitionistic linear logic reads it, converts it to JSON
@@ -2071,6 +2115,14 @@ Built:
   the cut the caller names or the one with no cut above it, each step
   named by its case and checked, and to the end within a bound on steps
   and on the proof's size, which stops with the proof reached.
+- Cut elimination on proof nets, with and without boxes (classical, with
+  Mix, intuitionistic): a proof's cuts become cut links of its net, which
+  the correctness criteria accept and sequentialization gives back as
+  cuts; one step at a time on the cut link the caller names or the first
+  one, named by its case (the axiom case, ⊗ against ⅋, and for boxes
+  weakening, dereliction, contraction and a box entering a box), every
+  net reached checked by the criterion, and every step drawn with the
+  cut link and what the step acts on highlighted.
 - Export of sequents and derivations, finished or in progress, to LaTeX
   (ebproof proof trees) and Typst (curryst proof trees, and trees of any
   height in a layout of linlog's own), as fragments or standalone
@@ -2201,7 +2253,7 @@ Planned, in roughly this order:
   countermodels of the other logics, failure certificates of the
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
-- Later: cut elimination on proof nets, and first-order linear logic.
+- Later: first-order linear logic.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.

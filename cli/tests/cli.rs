@@ -764,6 +764,52 @@ fn interactive_session() {
     ];
     let (status, _, _) = linlog(&args, "");
     assert_eq!(status, 0);
+    // On its net: the steps, the end cut-free and the net reached; each
+    // step's drawing in a file of its own, the cut link the next step
+    // reduces highlighted, the last without one; the record in JSON; no
+    // drawing without a file to number.
+    let (status, out, _) = linlog(&["eliminate", "--net", file], "");
+    assert!(
+        out.starts_with("1. the key case of ⊗ and ⅋ on the cut of ~A ⅋ B\n"),
+        "{out}"
+    );
+    assert!(
+        out.contains("cut-free proof net of ⊢ ~A, A ⊗ ~B, B"),
+        "{out}"
+    );
+    assert!(out.ends_with("proof net\n"), "{out}");
+    assert!(!out.lines().any(|line| line.starts_with("cut ")), "{out}");
+    assert_eq!(status, 0);
+    let drawing = dir.join("net.svg");
+    let args = ["eliminate", "--net", "--format", "svg", "--output"];
+    let (status, out, _) = linlog(
+        &[&args[..], &[drawing.to_str().unwrap(), file]].concat(),
+        "",
+    );
+    assert_eq!(status, 0);
+    let steps = out.lines().count() - 1;
+    for k in 1..=steps + 1 {
+        let name = match k {
+            k if k <= steps => format!("net-{k}.svg"),
+            _ => "net.svg".to_owned(),
+        };
+        let svg = std::fs::read_to_string(dir.join(name)).unwrap();
+        assert!(svg.starts_with("<!-- ") && svg.contains("<svg"), "{svg}");
+        assert_eq!(svg.contains(r#"id="c"#), k <= steps, "{k}: {svg}");
+    }
+    assert!(!dir.join(format!("net-{}.svg", steps + 1)).exists());
+    assert!(!dir.join("net-0.svg").exists());
+    let (status, json, _) = linlog(&["eliminate", "--net", "--format", "json", file], "");
+    assert!(
+        json.starts_with(r#"{"version":6,"net":{"sequent":"#)
+            && json.contains(r#""steps":[{"cut":["#)
+            && json.trim_end().ends_with(r#""end":"cut_free"}"#),
+        "{json}"
+    );
+    assert_eq!(status, 0);
+    let (status, _, err) = linlog(&["eliminate", "--net", "--format", "svg", file], "");
+    assert!(err.contains("--output FILE"), "{err}");
+    assert_eq!(status, 2);
     std::fs::remove_dir_all(&dir).unwrap();
 
     // With the invertible rules on from the start, a search's graft is

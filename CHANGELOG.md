@@ -471,6 +471,23 @@ second number (0.1.x to 0.2.0), anything else the third.
   link or a net without one, and `NetError::Reduction` (code
   `reduction_rejected`, kind defect) were the criterion ever to refuse a
   net a step made.
+- `linlog eliminate --net PROOF`: the elimination on the proof's net, in
+  every mode a net exists for: the steps, each with its case and cut
+  formula, the end and the net reached as text, every cut link a line
+  `cut A[x] — A⊥[y]`; with `--format svg`, `png` or `pdf` and `--output
+  FILE`, a drawing per step, `FILE-k` the net step k was taken on with
+  its cut link and what it acts on highlighted, `FILE` the net reached;
+  with `--format json` the record `{"version", "net", "steps": [{"cut":
+  [x, y], "case", "above"}], "end"}` (`Serialize` for
+  `nets::cut::Elimination` of either structure). `--node-limit` counts
+  a net's vertices there.
+- Drawings of nets with cut links and of the steps of an elimination:
+  `svg::net` and `svg::mell_net` draw a cut link as a bar under its two
+  formulas (id `c<x>-<y>`), at the bottom after the conclusions or
+  inside its box; `svg::net_step` and `svg::mell_net_step` draw the net
+  a step was taken on with the cut link reduced and what the step acts
+  on (the axiom links at its ends, its `⊗` and `⅋`, the box of its `!`,
+  the box it enters, the wire to its copy) in the highlight colour.
 - `linlog eliminate PROOF`: checks a proof file in the flags' mode and
   eliminates its cuts, printing each step's case and cut formula and the
   derivation of the proof reached, or the record with `--format json`;

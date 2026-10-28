@@ -63,32 +63,32 @@ impl From<OrderForm> for Order {
 
 impl Serialize for ProofStructure {
     /// Serializes the structure as a document: its level, sequent,
-    /// criterion and links.
+    /// criterion, cut links and links.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let order = match self.criterion().order {
-            Order::Commutative => None,
-            Order::Cyclic => Some(OrderForm::Cyclic),
-        };
-        let pair = |&(x, y): &(VertexId, VertexId)| (x.get(), y.get());
-        Net {
-            // The cyclic order is level 2's, the cut formulas level 6's.
-            version: Some(if order.is_some() {
-                2
-            } else {
-                wire::level_of_sequent(self.sequent())
-            }),
-            sequent: Sequent::from(self.sequent()),
-            mix: self.criterion().mix,
-            order,
-            vertices: None,
-            cuts: self.cuts().iter().map(pair).collect(),
-            links: self
-                .links()
-                .iter()
-                .map(|&(x, y)| (x.get(), y.get()))
-                .collect(),
-        }
-        .serialize(serializer)
+        form(self).serialize(serializer)
+    }
+}
+
+/// Returns the form of a proof structure, with its level.
+fn form(net: &ProofStructure) -> Net {
+    let order = match net.criterion().order {
+        Order::Commutative => None,
+        Order::Cyclic => Some(OrderForm::Cyclic),
+    };
+    let pair = |&(x, y): &(VertexId, VertexId)| (x.get(), y.get());
+    Net {
+        // The cyclic order is level 2's, the cut formulas level 6's.
+        version: Some(if order.is_some() {
+            2
+        } else {
+            wire::level_of_sequent(net.sequent())
+        }),
+        sequent: Sequent::from(net.sequent()),
+        mix: net.criterion().mix,
+        order,
+        vertices: None,
+        cuts: net.cuts().iter().map(pair).collect(),
+        links: net.links().iter().map(pair).collect(),
     }
 }
 
@@ -166,30 +166,117 @@ struct Boxed {
 
 impl Serialize for MellStructure {
     /// Serializes the structure as a document: its level, sequent,
-    /// criterion, vertices, links and weakenings.
+    /// criterion, vertices, cut links, links and weakenings.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let parts = self.parts();
-        let pair = |&(x, y): &(VertexId, VertexId)| (x.get(), y.get());
-        Boxed {
-            version: Some(wire::BOXES.max(wire::level_of_sequent(self.forest().sequent()))),
-            sequent: Sequent::from(self.forest().sequent()),
-            mix: self.criterion().mix,
-            vertices: parts
-                .vertices
-                .iter()
-                .map(|p| {
-                    (
-                        p.occurrence.get(),
-                        p.parent.map(VertexId::get),
-                        p.inside.map(VertexId::get),
-                    )
-                })
-                .collect(),
-            cuts: parts.cuts.iter().map(pair).collect(),
-            links: parts.links.iter().map(pair).collect(),
-            weakenings: parts.weakenings.iter().map(pair).collect(),
-        }
-        .serialize(serializer)
+        boxed(self).serialize(serializer)
+    }
+}
+
+/// Returns the form of a proof structure with boxes, with its level.
+fn boxed(net: &MellStructure) -> Boxed {
+    let parts = net.parts();
+    let pair = |&(x, y): &(VertexId, VertexId)| (x.get(), y.get());
+    Boxed {
+        version: Some(wire::BOXES.max(wire::level_of_sequent(net.forest().sequent()))),
+        sequent: Sequent::from(net.forest().sequent()),
+        mix: net.criterion().mix,
+        vertices: parts
+            .vertices
+            .iter()
+            .map(|p| {
+                (
+                    p.occurrence.get(),
+                    p.parent.map(VertexId::get),
+                    p.inside.map(VertexId::get),
+                )
+            })
+            .collect(),
+        cuts: parts.cuts.iter().map(pair).collect(),
+        links: parts.links.iter().map(pair).collect(),
+        weakenings: parts.weakenings.iter().map(pair).collect(),
+    }
+}
+
+/// A step of an elimination on a net as its record writes it.
+#[derive(Serialize)]
+struct StepForm {
+    /// The cut link reduced, from its end in a cut formula's tree.
+    cut: (u32, u32),
+    /// The case.
+    case: crate::proofs::cut::Case,
+    /// The vertex the step acted at besides the cut link.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    above: Option<u32>,
+}
+
+/// An elimination on a net as its record writes it.
+#[derive(Serialize)]
+struct EliminationForm<'a, F> {
+    /// The wire level.
+    version: u32,
+    /// The net reached, nested.
+    net: F,
+    /// The steps.
+    steps: Vec<StepForm>,
+    /// `cut_free`, or `refused` with the reason.
+    end: &'static str,
+    /// Why the elimination was refused, in an error's form.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<&'a crate::Error>,
+}
+
+/// Writes the record of an elimination on a net whose form, with its
+/// level, is `net`.
+fn record<S: Serializer, F: Serialize>(
+    serializer: S,
+    net: F,
+    version: u32,
+    steps: &[crate::nets::cut::Step],
+    end: &crate::proofs::cut::End,
+) -> Result<S::Ok, S::Error> {
+    use crate::proofs::cut::End;
+    let reason = match end {
+        End::CutFree => None,
+        End::Refused(refusal) => Some(crate::Error::Refused(refusal.clone())),
+    };
+    EliminationForm {
+        version,
+        net,
+        steps: steps
+            .iter()
+            .map(|step| StepForm {
+                cut: (step.cut.0.get(), step.cut.1.get()),
+                case: step.case,
+                above: step.above.map(VertexId::get),
+            })
+            .collect(),
+        end: if reason.is_some() {
+            "refused"
+        } else {
+            "cut_free"
+        },
+        reason: reason.as_ref(),
+    }
+    .serialize(serializer)
+}
+
+impl Serialize for crate::nets::cut::Elimination<ProofStructure> {
+    /// Serializes the elimination as a document: the net reached, at the
+    /// level of its form, the steps and how it ended.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut net = form(&self.net);
+        let version = net.version.take().unwrap_or(wire::BASE);
+        record(serializer, net, version, &self.steps, &self.end)
+    }
+}
+
+impl Serialize for crate::nets::cut::Elimination<MellStructure> {
+    /// Serializes the elimination as a document: the net reached, at the
+    /// level of its form, the steps and how it ended.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut net = boxed(&self.net);
+        let version = net.version.take().unwrap_or(wire::BOXES);
+        record(serializer, net, version, &self.steps, &self.end)
     }
 }
 
@@ -222,7 +309,9 @@ impl Readable for MellStructure {
                     .vertices
                     .iter()
                     .map(|&(o, p, b)| match p {
-                        Some(p) => Placed::new(OccId::new(o), VertexId::new(p), b.map(VertexId::new)),
+                        Some(p) => {
+                            Placed::new(OccId::new(o), VertexId::new(p), b.map(VertexId::new))
+                        }
                         None => Placed::cut(OccId::new(o), b.map(VertexId::new)),
                     })
                     .collect(),
