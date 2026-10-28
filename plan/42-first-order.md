@@ -94,6 +94,63 @@ instance, and step 40's round trip extends to first-order sequents and
 their proofs. Step 41's cut, if it reaches first order, cuts on an
 instance with the same rule for its sides.
 
+## What steps 38 to 41 left you (finished 2026-10-28, at the review of 41d)
+
+- **Cut** (step 41): a sequent keeps its cut formulas
+  (`Sequent::cuts`, each formula and its dual as trees of their own
+  after the conclusion), `Node::Cut` and the checker's rule in every
+  commutative mode, `Interactive::cut` with the formula typed as
+  written; elimination on terms (`proofs::cut::step` and `eliminate`,
+  nine cases, every step checked) and on nets (`nets::cut`, cut links in
+  `ProofStructure` and `MellStructure`), drawn step by step, on the page
+  too. Each session's section "Options, front ends and quantifiers" in
+  `plan/reports/41-cut.md` says where quantifiers go: a first-order cut
+  formula is a term of the sequent's arena, `Term::dual` swaps `∀` and
+  `∃`, and the key case of `∀` against `∃` substitutes the witness into
+  the subproof (on terms a renaming of the arena's terms, as `rename`
+  renames an occurrence; on nets into the box), one more pair of the
+  key match. Decide in the plan whether this step brings cut and its
+  elimination to first order or leaves them propositional, said so.
+- **The surfaces** (step 40) and the drawings (36, 38i, 39): the place
+  for `∀` and `∃` in the ILL formula type and its strict parser, the
+  classical sequent's record of sides, the two-sided view, the nets'
+  looks; `Inference::node` names a proof node whatever the rule (41d).
+- **The wire forms are at level 6** (`wire.rs`, `LEVEL`); a quantified
+  sequent, a witness or an eigenvariable is a new level, raised only as
+  `wire.rs` says.
+- **The oracles for D17** are now `bench/targets/cut-nets.csv` (the
+  focused set, `bench/targets.sh`) and `bench/targets/net-cut-nets.csv`
+  (the net set, `bench/net-targets.sh`), compared with `linlog-bench
+  summary --against … --counters`, every decided row's counters equal;
+  and the ratchet's instruction counts (`bench/ceilings.csv`, run by the
+  gate) for the pinned CPU cost: a propositional journey that rises is
+  the regression D17 forbids, never a ceiling raised to let it pass.
+- **0.1.0 is released, 0.2.0 comes after this step** (step 45): the
+  closed enums' new variants (`Term`, `Kind`, `Rule`, `Node` and their
+  kin) are the planned break; every one is listed in the report, and a
+  public item otherwise changes only by addition.
+- **The Rocq library** still lives under `rocq/` (it moves to its own
+  repository in step 45); its first-order development is this step's,
+  as the goal says, its certificates checked by the flake.
+- **The guide for AI models** (`skills/linlog/`, step 44) is kept true
+  by every session that changes what it describes (`conduct.md`).
+
+## The first session (2026-10-28)
+
+Fable 5.1 at `high`, unattended. It writes `plan/first-order/README.md`
+(the step's own plan: its sessions, each with its scope, model,
+effort, checks and the panel where a search, a criterion or the checker
+changes) and builds the data model by itself (D17's "the data model
+comes first"): terms and predicates in the arena, `∀` and `∃` in both
+surfaces, the parser, the printer, the JSON forms at a new wire level,
+the propositional case unchanged (the oracles above, every decided row's
+counters equal, the ratchet within its ceilings). It settles in the
+plan, precisely enough for the next sessions to build on without
+re-deciding, the proof term with witnesses and eigenvariables and the
+checker's eigenvariable condition; building them is a later session's,
+reviewed by the panel. Every engine refuses a quantified goal with a
+clear error until a later session teaches it.
+
 ## How the step runs
 
 Several sessions, a plan of their own (`plan/first-order/README.md`).
