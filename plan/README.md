@@ -3602,3 +3602,7 @@ client follows it (step 32).
   an `.rpm`, a macOS `.pkg` or archive and a Windows `.msi`, each tried
   in a container or on a runner; code signing (Apple's notarisation,
   a Windows certificate) is put to the author.
+- 2026-10-28: the author's go, unattended, after the stop of 2026-10-24;
+  the planning session now runs on the second account (`claude2`, Max
+  5x) from `plan/handoff.md`. Next: session 41b, cut elimination on
+  proof terms (Opus 5.5 at high, with the panel).
