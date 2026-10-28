@@ -531,6 +531,11 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
+- A proof net with cut links is drawn under the intuitionistic reading
+  with `svg::Style::essential`, as a cut-free one is (the cut formula's
+  tree an output one, its dual's an input one), so that every step of an
+  intuitionistic elimination is written in its syntax; it was drawn as
+  the one-sided net, with classical symbols.
 - Breaking: `Placed::parent`, a public field of a type 0.1.0 released,
   is an `Option<VertexId>`, `None` for an end of a cut link (a vertex of
   a structure with boxes that stands for a cut formula's occurrence and

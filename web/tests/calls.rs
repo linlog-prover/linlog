@@ -695,7 +695,7 @@ fn ill_formula(state: &mut u64, depth: u32) -> String {
 fn no_intuitionistic_text_writes_a_classical_symbol() {
     const CLASSICAL: [&str; 8] = ["~", "⅋", "⊥", "?", r"\parr", r"\bot", r"\wn", "perp"];
     let mut state = 41;
-    let mut finished = 0;
+    let (mut finished, mut nets) = (0, 0);
     for _ in 0..16 {
         let hypotheses: Vec<String> = (0..state % 3).map(|_| ill_formula(&mut state, 2)).collect();
         let goal = ill_formula(&mut state, 3);
@@ -753,17 +753,52 @@ fn no_intuitionistic_text_writes_a_classical_symbol() {
         if let Ok(net) = calls::draw_net(&session(&closed), "") {
             check("the net", &net);
         }
-        // Every step of the cut's elimination, each drawn as its proof's
-        // intuitionistic derivation; a net with cut links is drawn plain,
-        // as the one-sided net it is, and is no text of this check.
+        // Every step of the cut's elimination, on the derivation and on
+        // the net, each drawn in the intuitionistic syntax.
         let ran = value(&calls::eliminate(&session(&closed), "", "").unwrap());
         for step in ran["steps"].as_array().unwrap() {
             check("a step's formula", step["formula"].as_str().unwrap());
             check("a step's drawing", step["drawing"].as_str().unwrap());
         }
         check("the proof reached", ran["drawing"].as_str().unwrap());
+        if let Ok(ran) = calls::net_eliminate(&session(&closed), "", "") {
+            let ran = value(&ran);
+            for step in ran["steps"].as_array().unwrap() {
+                check("a net step's formula", step["formula"].as_str().unwrap());
+                check("a net step's drawing", step["drawing"].as_str().unwrap());
+            }
+            check("the net reached", ran["drawing"].as_str().unwrap());
+            nets += 1;
+        }
     }
     assert!(finished > 3, "{finished} of 16 finished");
+    // Sequents with nets, which the random ones, with units and additives,
+    // seldom have.
+    for (sequent, formula, left) in [
+        ("a, a -o b |- b", "a -o b", "[1]"),
+        ("a * b |- b * a", "b * a", "[0]"),
+        ("!a |- a * a", "!a", "[0]"),
+    ] {
+        let closed = cut_session(sequent, "intuitionistic", formula, left);
+        let ran = value(&calls::net_eliminate(&closed, "", "").unwrap());
+        for step in ran["steps"].as_array().unwrap() {
+            for key in ["formula", "drawing"] {
+                let text = step[key]
+                    .as_str()
+                    .unwrap()
+                    .replace("<?xml", "")
+                    .replace("?>", "");
+                for symbol in CLASSICAL {
+                    assert!(
+                        !text.contains(symbol),
+                        "{sequent:?}: a net step's {key}: {text}"
+                    );
+                }
+            }
+        }
+        nets += 1;
+    }
+    assert!(nets >= 3, "{nets} nets");
     let refused = failure(&calls::read_as("~a |- b", "intuitionistic", "").unwrap_err());
     assert!(
         refused["message"].as_str().unwrap().contains("no negation"),

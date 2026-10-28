@@ -1767,3 +1767,87 @@ fn disproof_certificates() {
         snapshot(&format!("not_valid_{name}.v"), &out);
     }
 }
+
+/// Every step of an elimination on the net of an intuitionistic proof,
+/// with and without boxes, drawn under `Style::essential` as the front
+/// ends draw an intuitionistic net, is written in the intuitionistic
+/// syntax: no classical symbol, every cut link's bar and the reduced one
+/// in the highlight colour, in both drawings; the net reached too.
+#[test]
+fn an_intuitionistic_elimination_is_drawn_in_its_syntax() {
+    use linlog::nets::cut;
+    use linlog::proofs::cut::Options as Bounds;
+    const CLASSICAL: [&str; 4] = ["~", "⅋", "⊥", "?"];
+    let classical = |svg: &str| {
+        let body = svg.replace("<?xml", "").replace("?>", "");
+        CLASSICAL.into_iter().find(|symbol| body.contains(symbol))
+    };
+    let styles = [NetDrawing::Formulas, NetDrawing::Compact]
+        .map(|d| Style::default().with_net(d).with_essential(true));
+    let (mut drawn, mut steps) = (0, 0);
+    for (input, formula, left) in [
+        ("a, a -o b |- b", "a -o b", &[1][..]),
+        ("a * b |- b * a", "b * a", &[0][..]),
+        ("!a, !b |- !(a * b) * a", "!a", &[0][..]),
+        ("!a |- a * a", "!a", &[0][..]),
+    ] {
+        let proof = cut_proof(input, Mode::INTUITIONISTIC, formula, left);
+        let criterion = Criterion::of(Mode::INTUITIONISTIC).unwrap();
+        let mut check = |svg: String, what: &str| {
+            assert_eq!(classical(&svg), None, "{input}: {what}:\n{svg}");
+            drawn += 1;
+        };
+        if proof.sequent().fragment().has_exponentials() {
+            let net = MellStructure::from_proof(&proof, criterion, &Limits::default(), |_| false)
+                .unwrap();
+            let mut seen = Vec::new();
+            let end = cut::eliminate(&net, &Bounds::default(), &Limits::default(), |_| false, {
+                |before: &MellStructure, step: &cut::Step| seen.push((before.clone(), *step))
+            })
+            .unwrap();
+            for (before, step) in &seen {
+                let (x, y) = step.cut;
+                for style in &styles {
+                    let svg =
+                        svg::mell_net_step(before, step, style, &unbounded(), |_| false).unwrap();
+                    assert!(svg.contains(&format!(r#"id="c{}-{}""#, x.get(), y.get())));
+                    check(svg, "a step");
+                }
+            }
+            steps += seen.len();
+            for style in &styles {
+                check(
+                    svg::mell_net(&end.net, style, &unbounded(), |_| false).unwrap(),
+                    "the net reached",
+                );
+            }
+        } else {
+            let net = ProofStructure::from_proof(&proof, criterion, &Limits::default(), |_| false)
+                .unwrap();
+            let mut seen = Vec::new();
+            let end = cut::eliminate(&net, &Bounds::default(), &Limits::default(), |_| false, {
+                |before: &ProofStructure, step: &cut::Step| seen.push((before.clone(), *step))
+            })
+            .unwrap();
+            for (before, step) in &seen {
+                let (x, y) = step.cut;
+                for style in &styles {
+                    let svg = svg::net_step(before, step, style, &unbounded(), |_| false).unwrap();
+                    assert!(svg.contains(&format!(r#"id="c{}-{}""#, x.get(), y.get())));
+                    check(svg, "a step");
+                }
+            }
+            steps += seen.len();
+            for style in &styles {
+                check(
+                    svg::net(&end.net, style, &unbounded(), |_| false).unwrap(),
+                    "the net reached",
+                );
+            }
+        }
+    }
+    assert!(
+        steps >= 8 && drawn > 2 * steps,
+        "{steps} steps, {drawn} drawings"
+    );
+}

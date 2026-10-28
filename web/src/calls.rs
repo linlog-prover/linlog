@@ -1826,8 +1826,8 @@ impl<'a> NetRef<'a> {
         mode: Mode,
         settings: &Settings,
     ) -> Result<String, Error> {
-        // An intuitionistic net is drawn as its essential net where it has
-        // one: a net with cut links has none, and is drawn plain.
+        // An intuitionistic net is drawn as its essential net, with cut
+        // links too, whose formulas are the intuitionistic ones.
         let style = &settings
             .styles
             .svg
@@ -1923,8 +1923,8 @@ fn net_in(net: &str, state: &Interactive, settings: &Settings) -> Result<Net, Fa
 /// twice. Answers `{"net", "boxes", "cuts": [{"ends",
 /// "id", "formula"}], "next", "drawing"}`, `id` the cut link's bar,
 /// `c<x>-<y>`. The session gives the mode, whose reading writes the
-/// formulas; a net with cut links is drawn plain, one without as
-/// [`draw_net`] draws it.
+/// formulas; the net is drawn as [`draw_net`] draws one, in an
+/// intuitionistic mode as its essential net, cut links and all.
 ///
 /// # Errors
 ///

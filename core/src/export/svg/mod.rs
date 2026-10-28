@@ -1259,11 +1259,11 @@ fn net_marked(
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<String, Error> {
     style.check()?;
-    // A structure with cut links has no essential net to draw.
-    let reading = net
-        .reading()
-        .ok()
-        .filter(|_| style.essential && net.is_cut_free());
+    // A structure with cut links is drawn under the reading too, its cut
+    // formula's tree an output one and its dual's an input one, so that an
+    // intuitionistic net is written in the intuitionistic syntax at every
+    // step of an elimination.
+    let reading = net.reading().ok().filter(|_| style.essential);
     if let Some(limit) = limits.derivation_bytes {
         let estimate = net::estimate(net, style, reading.is_some(), limit);
         if estimate > limit {
@@ -1349,10 +1349,7 @@ fn mell_net_marked(
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<String, Error> {
     style.check()?;
-    let reading = net
-        .reading()
-        .ok()
-        .filter(|_| style.essential && net.is_cut_free());
+    let reading = net.reading().ok().filter(|_| style.essential);
     if let Some(limit) = limits.derivation_bytes {
         let estimate = mell::estimate(net, style, reading.is_some(), limit);
         if estimate > limit {

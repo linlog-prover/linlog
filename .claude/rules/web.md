@@ -193,12 +193,12 @@ for `THIRD-PARTY-NOTICES.txt`.
   (`Net::of`): with boxes for exponentials and where `ProofStructure`
   refuses with `Placement::Cut`, which a session's own proof never
   makes (each cut adds a cut formula) but a proof an elimination on
-  terms made may: hence the net calls take a proof's document too. A
-  net with cut links is drawn plain even in an intuitionistic mode,
-  since it has no essential net: its formulas are the one-sided net's,
-  the one place an intuitionistic answer writes classical symbols, and
-  `no_intuitionistic_text_writes_a_classical_symbol` leaves it out. A
-  MELL step renumbers the vertices, so a net's ids are those of the net
+  terms made may: hence the net calls take a proof's document too. In
+  an intuitionistic mode a net with cut links is drawn under the
+  reading as `draw_net` draws a cut-free one (the library draws a cut
+  link's two trees as an output and an input one), so no step writes a
+  classical symbol: `no_intuitionistic_text_writes_a_classical_symbol`
+  checks every step's drawing on the net too. A MELL step renumbers the vertices, so a net's ids are those of the net
   the step was taken on, and the vertex ids of `id` follow
   `svg::mell_net`'s rule (`o<n>` for an occurrence's only vertex, `v<k>`
   otherwise, `b<k>` for the box a box entered).

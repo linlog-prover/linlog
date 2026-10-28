@@ -449,9 +449,14 @@ for NanoYalla. What the code relies on:
   its ends (axiom), the premise edges of its ends (`tensor_par`), the box
   of its `!` end (every exponential case), the box entered
   (`box_into_box`) and the wire to the copy acted on (dereliction,
-  contraction), all in the highlight group. A net with cut links has no
-  essential drawing (`style.essential` is ignored for it), so every step
-  of an elimination is drawn alike. `cut_elimination_is_drawn` checks
+  contraction), all in the highlight group. A net with cut links is
+  drawn under the reading with `style.essential` as a cut-free one is
+  (the cut formula's tree an output one, its dual's an input one, the
+  cut bar joining them): otherwise an intuitionistic elimination's steps
+  would write the one-sided net's classical symbols, which no
+  intuitionistic output does (`an_intuitionistic_elimination_is_drawn_in_its_syntax`).
+  Its highlight is still `is_essential`'s verdict, which for cut links
+  is the switching criterion's. `cut_elimination_is_drawn` checks
   every step of three eliminations in both looks and both drawings, and
   pins `net-cut.svg` and `net-cut-boxes.svg`.
 - **A net with boxes** (`svg::mell_net`, `export/svg/mell.rs`) is the
