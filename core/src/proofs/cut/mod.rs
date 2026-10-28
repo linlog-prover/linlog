@@ -346,9 +346,11 @@ pub fn step(
 /// step, until none is left or a bound of `options` or `limits` or the
 /// stop ends it: the proof reached is then returned with its cuts and the
 /// refusal that ended it. Every proof reached is checked in `mode` before
-/// the next step is taken on it, and the last before it is returned.
-/// `limits` bound each check; the stop is asked between steps and by the
-/// checks.
+/// the next step is taken on it, and the last before it is returned;
+/// `each` is given every step once the proof it made has passed its
+/// check, with the proof it was taken on, which is how a caller draws
+/// every step. `limits` bound each check; the stop is asked between steps
+/// and by the checks.
 ///
 /// # Errors
 ///
@@ -361,6 +363,7 @@ pub fn eliminate(
     options: &Options,
     limits: &Limits,
     mut stop: impl FnMut(Progress) -> bool,
+    mut each: impl FnMut(&Proof, &Step),
 ) -> Result<Elimination, Error> {
     let mut steps: Vec<Step> = Vec::new();
     // The proof reached last and the one before it, which is the last one
@@ -387,6 +390,9 @@ pub fn eliminate(
             Err(invalid) if checked.is_none() => return Err(Error::Check(invalid)),
             Err(invalid) => return Err(Error::Reduction(Box::new(invalid))),
         };
+        if let (Some(before), Some(last)) = (&checked, steps.last()) {
+            each(before, last);
+        }
         let Some(cut) = options.strategy.pick(&current) else {
             return Ok(Elimination {
                 proof: current,

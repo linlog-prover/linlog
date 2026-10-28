@@ -514,6 +514,7 @@ impl Interactive {
             premises: vec![],
             times: 1,
             cut: None,
+            node: None,
         };
         Ok(Self {
             forest,
@@ -718,6 +719,7 @@ impl Interactive {
                     rule: inference.rule,
                     principal: inference.principal,
                     cut: inference.cut,
+                    node: None,
                     premises: inference
                         .premises
                         .iter()

@@ -135,6 +135,7 @@ impl Interactive {
                 premises: vec![],
                 times: 1,
                 cut: None,
+                node: None,
             });
         }
         let inference = &mut self.inferences[goal.index()];

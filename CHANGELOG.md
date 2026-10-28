@@ -419,7 +419,8 @@ second number (0.1.x to 0.2.0), anything else the third.
   strategy picks, checks the proof it makes in `mode` and returns it with
   the `Step` (`cut`, the cut formula's occurrence `formula`, its `Case`
   and the node `above` it acted at); `eliminate` takes steps until no
-  cut is left or a bound is reached and returns the `Elimination`: the
+  cut is left or a bound is reached, gives every step and the proof it
+  was taken on to a callback, and returns the `Elimination`: the
   last proof reached, which the checker accepted, the steps, and the
   `End` (`CutFree`, or `Refused` with the refusal). Every proof made lives
   over the same forest and cuts only occurrences of the cut formulas'
@@ -512,7 +513,9 @@ second number (0.1.x to 0.2.0), anything else the third.
   another number of formulas than one. The command's `interact` has
   `cut G C [P…]`, and the bindings' `cut(session, goal, formula, left,
   settings)`.
-
+- `Inference::node`: in a derivation of a proof term, the node of the
+  term whose rule an inference shows, which turns a node (a cut a step
+  reduced) into the inferences drawn for it.
 ### Changed
 
 - Breaking: `Placed::parent`, a public field of a type 0.1.0 released,

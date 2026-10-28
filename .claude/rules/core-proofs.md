@@ -375,6 +375,11 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   premise of `⊗`, Mix and cut; that pass is also the check of the proof
   the previous step made, so `eliminate` checks every proof it reaches
   at no extra pass, and the last one by the pass that finds no cut.
+- **`eliminate`'s callback** (`each`) sees a step once the proof it made
+  passed that pass, with the proof it was taken on, as the net
+  elimination's does: a step that ends refused (the pass refuses the
+  latest proof) was never seen, and the steps returned are exactly those
+  seen. The bindings draw each step there.
 - **Which premise holds an occurrence** (`holder`): the one whose derived
   zone holds it beyond what the rule takes, else an absorbing premise; in
   an intuitionistic mode an absorbed formula right of `⊢` goes to an

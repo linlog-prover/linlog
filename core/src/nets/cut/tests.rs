@@ -282,6 +282,7 @@ fn every_step_keeps_the_criterion_and_the_conclusion() {
             &terms::Options::default(),
             &Limits::default(),
             never,
+            |_, _| {},
         )
         .unwrap();
         assert_eq!(normal.end, End::CutFree);

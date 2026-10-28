@@ -156,6 +156,7 @@ impl Interactive {
                 premises: step.premises.into_iter().map(InfId::new).collect(),
                 times: 1,
                 cut: step.cut.map(Member::new),
+                node: None,
             })
             .collect();
         let history = proxy.history.into_iter().map(InfId::new).collect();

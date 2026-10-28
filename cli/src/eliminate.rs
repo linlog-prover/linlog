@@ -144,7 +144,14 @@ fn eliminate_into(
     out: &mut io::Output,
 ) -> Result<(Status, bool)> {
     let over = || interrupted() || deadline.passed() || io::closed();
-    let result = cut::eliminate(proof, mode, &settings.cut, &settings.limits, |_| over());
+    let result = cut::eliminate(
+        proof,
+        mode,
+        &settings.cut,
+        &settings.limits,
+        |_| over(),
+        |_, _| {},
+    );
     let sequent = |proof: &Proof| {
         let formulas = proof.sequent().roots().len();
         match Forest::new(proof.sequent())
@@ -747,7 +754,7 @@ mod tests {
         session.close_all(&options, &view, &limits, |_| false);
         let proof = session.proof(&limits, |_| false).unwrap();
         let end = |options: cut::Options| {
-            cut::eliminate(&proof, mode, &options, &limits, |_| false)
+            cut::eliminate(&proof, mode, &options, &limits, |_| false, |_, _| {})
                 .unwrap()
                 .end
         };

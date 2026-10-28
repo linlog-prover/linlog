@@ -10,7 +10,7 @@ use crate::fragment::Mode;
 use crate::limits::{Limits, Progress};
 use crate::occurrences::{Forest, Member, OccId, Reading};
 use crate::proofs::check;
-use crate::proofs::{Named, Proof};
+use crate::proofs::{Named, NodeId, Proof};
 
 /// The index of an inference in a derivation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -182,6 +182,9 @@ pub struct Inference {
     /// For a cut, the occurrence of the cut formula `A` it cuts, which
     /// its first premise holds, its second holding the dual.
     pub(crate) cut: Option<Member>,
+    /// In a derivation of a proof term, the node whose rule the inference
+    /// shows.
+    pub(crate) node: Option<NodeId>,
 }
 
 impl Inference {
@@ -225,6 +228,19 @@ impl Inference {
     /// rule.
     pub const fn cut(&self) -> Option<Member> {
         self.cut
+    }
+
+    /// Returns, in a derivation of a proof term, the node of the term
+    /// whose rule the inference shows, which is what turns a node into
+    /// the inferences drawn for it: one or more, a node the term shares
+    /// unfolding once for every place that reads it. `None` for an
+    /// inference the derivation adds below a node (a weakening of a `?`
+    /// formula the subproof does not use, a contraction of the `?`
+    /// formulas both premises of a `⊗`, Mix or cut use) and in a
+    /// session's derivation. A run of a compact view has its lowest
+    /// application's node.
+    pub const fn node(&self) -> Option<NodeId> {
+        self.node
     }
 }
 
@@ -392,7 +408,12 @@ impl<'a> Derivation<'a> {
         let reading = check::reading(proof, mode)?;
         // A graft is read rule by rule, never drawn compact.
         let view = view.with_compact(Compact::Never);
-        unfold(proof, goal, mode, reading.as_ref(), &view, limits, stop)
+        let mut grafted = unfold(proof, goal, mode, reading.as_ref(), &view, limits, stop)?;
+        // A session keeps no proof term whose nodes these would name.
+        for inference in &mut grafted {
+            inference.node = None;
+        }
+        Ok(grafted)
     }
 
     /// Returns the forest the sequents' members index.

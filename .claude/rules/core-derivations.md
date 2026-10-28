@@ -170,6 +170,18 @@ builder needs no stack to speak of, so a front end on a small one (the
 web) builds what the bounds allow; `Size::height` is what it asks to
 know whether a tree fits a view.
 
+**The node of an inference** (`Inference::node`): `Build` sets it on
+every inference a node unfolds into (`Task::Infer` carries it, `leaf`
+sets it), and leaves `None` on what the view adds below a node (the
+weakenings of `pad`, the contractions of `Task::Contract`); a run of a
+compact view takes its lowest application's, as its principal. A
+session's derivation has none: `of_goal` clears the grafts' (they name
+nodes of a proof the session does not keep) and
+`Interactive::derivation_within` writes `None`. The web bindings
+highlight a cut by it, so a change that unfolds a cut into another
+inference must keep the cut's node on it
+(`every_inference_names_its_node`).
+
 **The compact view** (`ViewOptions::compact`, set with `with_compact`, `Compact::Auto` by
 default, `Always`, `Never`; `Inference::times`, how many applications of
 its rule an inference stands for). What the code relies on:

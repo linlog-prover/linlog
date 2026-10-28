@@ -574,6 +574,54 @@ mod tests {
         assert!(exact > 0, "no sample without a structural rule");
     }
 
+    /// Every inference of a proof's derivation names the node whose rule
+    /// it shows, on the proofs of the checker's differential test (cuts
+    /// among them), one-sided and two-sided: a cut inference its cut
+    /// node, on that node's formula, every node but a `?` step shown by
+    /// one inference at least, and an inference without a node a
+    /// structural rule the derivation adds.
+    #[test]
+    fn every_inference_names_its_node() {
+        let mut cuts = 0;
+        let limits = crate::Limits::default().with_derivation_bytes(None);
+        let view = ViewOptions::default().with_compact(Compact::Never);
+        for (proof, mode) in crate::proofs::oracle::proofs() {
+            for two_sided in [false, true] {
+                let derivation = match two_sided {
+                    false => Derivation::new(&proof, &view, &limits, |_| false),
+                    true if mode.intuitionistic => {
+                        Derivation::two_sided(&proof, &view, &limits, |_| false)
+                    }
+                    true => continue,
+                }
+                .unwrap();
+                let context = format!("{} ({mode}, two-sided: {two_sided})", proof.sequent());
+                let mut shown = vec![false; proof.nodes().len()];
+                for inference in derivation.inferences() {
+                    let Some(node) = inference.node() else {
+                        assert!(inference.rule().is_structural(), "{context}");
+                        continue;
+                    };
+                    shown[node.index()] = true;
+                    match proof.node(node) {
+                        Node::Cut(a, ..) => {
+                            assert_eq!(inference.cut(), Some(a), "{context}");
+                            cuts += 1;
+                        }
+                        _ => assert_eq!(inference.cut(), None, "{context}"),
+                    }
+                }
+                for (id, node) in proof.nodes().iter().enumerate() {
+                    assert!(
+                        shown[id] || matches!(node, Node::Quest(..)),
+                        "{context}: node {id} is not shown"
+                    );
+                }
+            }
+        }
+        assert!(cuts > 100, "{cuts} cut inferences");
+    }
+
     /// A chain of affine weakenings is one run of a compact view, planned
     /// in one step: the builder asks its stop once per step, so a chain
     /// walked node by node, with a sequent per node, asked it per node.
@@ -791,7 +839,9 @@ mod tests {
     }
 
     /// The inferences carry the sequents as ids with repeats, the rule, the
-    /// principal formula's position and the premises, premises first.
+    /// principal formula's position, the premises, premises first, and
+    /// the node each shows (none for the contraction the derivation adds
+    /// below the `⊗`).
     #[test]
     fn inferences() {
         use Node::*;
@@ -809,28 +859,49 @@ mod tests {
         );
         let d = p.derivation().unwrap();
         let i = InfId::new;
-        let inference = |sequent: &[u32], rule, principal, premises: &[InfId]| Inference {
-            sequent: sequent.iter().map(|&x| o(x)).collect(),
-            rule,
-            principal,
-            premises: premises.to_vec(),
-            times: 1,
-            cut: None,
-        };
+        let inference =
+            |sequent: &[u32], rule, principal, premises: &[InfId], node: Option<u32>| Inference {
+                sequent: sequent.iter().map(|&x| o(x)).collect(),
+                rule,
+                principal,
+                premises: premises.to_vec(),
+                times: 1,
+                cut: None,
+                node: node.map(n),
+            };
         assert_eq!(
             d.inferences(),
             [
-                inference(&[1, 3], Named::from(Rule::Ax), None, &[]),
-                inference(&[0, 3], Named::from(Rule::Dereliction), Some(0), &[i(0)]),
-                inference(&[1, 4], Named::from(Rule::Ax), None, &[]),
-                inference(&[0, 4], Named::from(Rule::Dereliction), Some(0), &[i(2)]),
+                inference(&[1, 3], Named::from(Rule::Ax), None, &[], Some(0)),
+                inference(
+                    &[0, 3],
+                    Named::from(Rule::Dereliction),
+                    Some(0),
+                    &[i(0)],
+                    Some(1)
+                ),
+                inference(&[1, 4], Named::from(Rule::Ax), None, &[], Some(2)),
+                inference(
+                    &[0, 4],
+                    Named::from(Rule::Dereliction),
+                    Some(0),
+                    &[i(2)],
+                    Some(3)
+                ),
                 inference(
                     &[0, 0, 2],
                     Named::from(Rule::Tensor),
                     Some(2),
-                    &[i(1), i(3)]
+                    &[i(1), i(3)],
+                    Some(4)
                 ),
-                inference(&[0, 2], Named::from(Rule::Contraction), Some(0), &[i(4)]),
+                inference(
+                    &[0, 2],
+                    Named::from(Rule::Contraction),
+                    Some(0),
+                    &[i(4)],
+                    None
+                ),
             ]
         );
         assert_eq!(d.root(), i(5));

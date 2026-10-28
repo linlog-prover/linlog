@@ -733,8 +733,10 @@ Every error is `linlog::Error`, whose `code()` is the stable reason.
 `proofs::cut::step(&proof, mode, at, &options, &limits, stop)` reduces
 one cut (the node `at`, or the strategy's with `None`) and returns the
 checked proof and the `Step` (`cut`, `formula`, `case`);
-`proofs::cut::eliminate` runs to the end within `cut::Options` and
-returns the proof reached, the steps and the `End`. On nets,
+`proofs::cut::eliminate(&proof, mode, &options, &limits, stop, each)`
+runs to the end within `cut::Options` (`each` sees every step and the
+proof it was taken on) and returns the proof reached, the steps and the
+`End`. On nets,
 `nets::cut::step(&net, at, &options, &limits, stop)` (a `ProofStructure`
 or a `MellStructure`, `at` a vertex of a cut link) and
 `nets::cut::eliminate(&net, &options, &limits, stop, each)` (`each` sees

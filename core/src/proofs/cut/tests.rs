@@ -83,8 +83,9 @@ fn proofs() -> Vec<(Proof, Mode)> {
 /// strategy, makes a proof over the same sequent, cut formulas included,
 /// with the same conclusion, that the checker accepts in the proof's
 /// mode, every cut of it on a cut formula's tree; each elimination ends
-/// cut-free, as `eliminate` does in the same steps; and every case is
-/// met, in every commutative mode.
+/// cut-free, as `eliminate` does in the same steps, giving its callback
+/// each step with the proof it was taken on; and every case is met, in
+/// every commutative mode.
 #[test]
 fn every_step_keeps_the_conclusion() {
     let proofs = proofs();
@@ -105,8 +106,9 @@ fn every_step_keeps_the_conclusion() {
         }));
         *modes.entry(format!("{mode:?}")).or_default() += 1;
         let mut current = proof.clone();
-        let mut steps = Vec::new();
+        let (mut steps, mut taken) = (Vec::new(), Vec::new());
         while !current.is_cut_free() {
+            taken.push(current.nodes().to_vec());
             assert!(steps.len() < MOST_STEPS, "no end in {mode:?}: {proof:?}");
             let reduction = step(
                 &current,
@@ -130,10 +132,19 @@ fn every_step_keeps_the_conclusion() {
             steps.push(reduction.step);
             current = reduction.proof;
         }
-        let elimination =
-            eliminate(proof, *mode, &Options::default(), &Limits::default(), never).unwrap();
+        let mut seen = Vec::new();
+        let elimination = eliminate(
+            proof,
+            *mode,
+            &Options::default(),
+            &Limits::default(),
+            never,
+            |before, step| seen.push((before.nodes().to_vec(), *step)),
+        )
+        .unwrap();
         assert_eq!(elimination.end, End::CutFree);
         assert_eq!(elimination.steps, steps);
+        assert_eq!(seen, taken.into_iter().zip(steps).collect::<Vec<_>>());
         assert_eq!(elimination.proof.nodes(), current.nodes());
     }
     for &case in Case::ALL {
@@ -255,7 +266,7 @@ fn a_bound_stops_with_a_proof() {
     let proof = cut_proof("!a |- a * a", mode, "!a", &[0]);
     let limits = Limits::default();
     let one = Options::default().with_steps(Some(1));
-    let ended = eliminate(&proof, mode, &one, &limits, never).unwrap();
+    let ended = eliminate(&proof, mode, &one, &limits, never, |_, _| {}).unwrap();
     assert_eq!(
         ended.end,
         End::Refused(Refusal::Elimination {
@@ -278,7 +289,7 @@ fn a_bound_stops_with_a_proof() {
     }
     let size = largest - 1;
     let small = Options::default().with_nodes(Some(size));
-    let ended = eliminate(&proof, mode, &small, &limits, never).unwrap();
+    let ended = eliminate(&proof, mode, &small, &limits, never, |_, _| {}).unwrap();
     let End::Refused(Refusal::Elimination {
         what: crate::limits::Bound::Nodes,
         limit,
@@ -299,10 +310,17 @@ fn a_bound_stops_with_a_proof() {
 
     for after in 1..40 {
         let mut asked = 0;
-        let stopped = eliminate(&proof, mode, &Options::default(), &limits, |_| {
-            asked += 1;
-            asked > after
-        });
+        let stopped = eliminate(
+            &proof,
+            mode,
+            &Options::default(),
+            &limits,
+            |_| {
+                asked += 1;
+                asked > after
+            },
+            |_, _| {},
+        );
         match stopped {
             Ok(elimination) => {
                 elimination.proof.check(mode).unwrap();
@@ -378,8 +396,15 @@ fn the_axiom_case_renames_one_premise_of_a_shared_pair() {
         (tensor, Mode::CLASSICAL.with_affine()),
     ] {
         proof.check(mode).unwrap();
-        let ended =
-            eliminate(&proof, mode, &Options::default(), &Limits::default(), never).unwrap();
+        let ended = eliminate(
+            &proof,
+            mode,
+            &Options::default(),
+            &Limits::default(),
+            never,
+            |_, _| {},
+        )
+        .unwrap();
         assert_eq!(ended.steps[0].case, Case::Axiom);
         assert_eq!(ended.end, End::CutFree);
     }
@@ -400,8 +425,15 @@ fn the_axiom_case_renames_one_premise_of_a_shared_pair() {
             Mode::INTUITIONISTIC.with_affine(),
         ] {
             proof.check(mode).unwrap();
-            let ended =
-                eliminate(&proof, mode, &Options::default(), &Limits::default(), never).unwrap();
+            let ended = eliminate(
+                &proof,
+                mode,
+                &Options::default(),
+                &Limits::default(),
+                never,
+                |_, _| {},
+            )
+            .unwrap();
             assert_eq!(ended.end, End::CutFree, "{mode:?}");
         }
     }

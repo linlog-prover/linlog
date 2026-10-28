@@ -280,6 +280,8 @@ pub(super) enum Task {
         times: u32,
         /// For a cut, the occurrence of the cut formula it cuts.
         cut: Option<OccId>,
+        /// The node whose rule it shows.
+        node: NodeId,
     },
     /// Weaken `?` formulas one by one below the subtree finished last.
     Weaken {
@@ -379,10 +381,15 @@ impl<'a> Build<'a> {
                     premises,
                     times,
                     cut,
+                    node,
                 } => {
                     let premises = self.done.split_off(self.done.len() - premises);
                     let inference = self.infer(sequent, rule, principal, premises, times);
-                    self.inferences[inference.index()].cut = cut.map(Member::from);
+                    let made = &mut self.inferences[inference.index()];
+                    made.cut = cut.map(Member::from);
+                    // A run's node is its lowest application's, as its
+                    // principal formula is.
+                    made.node = Some(node);
                     self.done.push(inference);
                 }
                 Task::Weaken { sequent, unused } if self.compact.is_some() => {
@@ -463,6 +470,7 @@ impl<'a> Build<'a> {
                 premises,
                 times,
                 cut: None,
+                node: None,
             });
         }
         self.push(Inference {
@@ -472,6 +480,7 @@ impl<'a> Build<'a> {
             premises,
             times,
             cut: None,
+            node: None,
         })
     }
 
@@ -488,8 +497,9 @@ impl<'a> Build<'a> {
     }
 
     /// Adds an inference without premises: a subtree of its own.
-    fn leaf(&mut self, sequent: Multiset, rule: Rule, principal: Option<OccId>) {
+    fn leaf(&mut self, id: NodeId, sequent: Multiset, rule: Rule, principal: Option<OccId>) {
         let inference = self.infer(sequent, rule, principal, vec![], 1);
+        self.inferences[inference.index()].node = Some(id);
         self.done.push(inference);
     }
 
@@ -503,7 +513,15 @@ impl<'a> Build<'a> {
 
     /// Plans an inference that concludes `sequent` on `principal` from the
     /// subproof at `p` under the conclusion `up`.
-    fn from(&mut self, sequent: Multiset, rule: Rule, principal: OccId, p: NodeId, up: Multiset) {
+    fn from(
+        &mut self,
+        id: NodeId,
+        sequent: Multiset,
+        rule: Rule,
+        principal: OccId,
+        p: NodeId,
+        up: Multiset,
+    ) {
         self.tasks.push(Task::Infer {
             sequent,
             rule,
@@ -511,6 +529,7 @@ impl<'a> Build<'a> {
             premises: 1,
             times: 1,
             cut: None,
+            node: id,
         });
         self.tasks.push(Task::Unfold(p, up));
     }
@@ -544,18 +563,18 @@ impl<'a> Build<'a> {
             return self.weaken_run(id, o, rule, actual);
         }
         match self.proof.node(id) {
-            Ax(..) => self.leaf(actual, Rule::Ax, None),
-            One(o) => self.leaf(actual, Rule::One, Some(o.occ())),
-            Top(o) => self.leaf(actual, Rule::Top, Some(o.occ())),
+            Ax(..) => self.leaf(id, actual, Rule::Ax, None),
+            One(o) => self.leaf(id, actual, Rule::One, Some(o.occ())),
+            Top(o) => self.leaf(id, actual, Rule::Top, Some(o.occ())),
             Bot(o, p) => {
                 let o = o.occ();
                 let up = above(&actual, &[o], &[]);
-                self.from(actual, Rule::Bot, o, p, up);
+                self.from(id, actual, Rule::Bot, o, p, up);
             }
             Par(o, p) => {
                 let o = o.occ();
                 let up = above(&actual, &[o], &[left(o), right(o)]);
-                self.from(actual, Rule::Par, o, p, up);
+                self.from(id, actual, Rule::Par, o, p, up);
             }
             Plus(o, side, p) => {
                 let o = o.occ();
@@ -564,12 +583,12 @@ impl<'a> Build<'a> {
                     Branch::Right => (right(o), Rule::PlusRight),
                 };
                 let up = above(&actual, &[o], &[chosen]);
-                self.from(actual, rule, o, p, up);
+                self.from(id, actual, rule, o, p, up);
             }
             Bang(o, p) => {
                 let o = o.occ();
                 let up = above(&actual, &[o], &[left(o)]);
-                self.from(actual, Rule::Promotion, o, p, up);
+                self.from(id, actual, Rule::Promotion, o, p, up);
             }
             Weaken(o, p) => {
                 let o = o.occ();
@@ -579,7 +598,7 @@ impl<'a> Build<'a> {
                     Rule::AffineWeakening
                 };
                 let up = above(&actual, &[o], &[]);
-                self.from(actual, rule, o, p, up);
+                self.from(id, actual, rule, o, p, up);
             }
             Quest(o, p) => {
                 let o = o.occ();
@@ -589,7 +608,7 @@ impl<'a> Build<'a> {
                     self.tasks.push(Task::Unfold(p, actual));
                 } else {
                     let up = above(&actual, &[o], &[]);
-                    self.from(actual, Rule::Weakening, o, p, up);
+                    self.from(id, actual, Rule::Weakening, o, p, up);
                 }
             }
             Copy(a, p) => {
@@ -607,11 +626,12 @@ impl<'a> Build<'a> {
                         premises: 1,
                         times: 1,
                         cut: None,
+                        node: id,
                     });
-                    self.from(derelicted, Rule::Dereliction, q, p, up);
+                    self.from(id, derelicted, Rule::Dereliction, q, p, up);
                 } else {
                     let up = above(&actual, &[q], &[a]);
-                    self.from(actual, Rule::Dereliction, q, p, up);
+                    self.from(id, actual, Rule::Dereliction, q, p, up);
                 }
             }
             Tensor(o, l, r) => self.split(
@@ -640,6 +660,7 @@ impl<'a> Build<'a> {
                     premises: 2,
                     times: 1,
                     cut: None,
+                    node: id,
                 });
                 self.tasks.push(Task::Pad(r, up_r));
                 self.tasks.push(Task::Pad(l, up_l));
@@ -724,6 +745,7 @@ impl<'a> Build<'a> {
                 Join::Cut(a, _) => Some(a),
                 Join::Tensor(..) | Join::Mix => None,
             },
+            node: id,
         });
         self.tasks.push(Task::Unfold(r, up_r));
         self.tasks.push(Task::Unfold(l, up_l));
@@ -778,6 +800,7 @@ impl<'a> Build<'a> {
             // Distinct nodes, fewer than 2³².
             times: count(removed.len()),
             cut: None,
+            node: id,
         });
         self.tasks.push(Task::Unfold(next, up));
     }
