@@ -72,6 +72,32 @@ second number (0.1.x to 0.2.0), anything else the third.
   `limits.occurrences` before. The command's `--term-limit` sets it, on
   every command that reads a sequent and on `check`.
 
+- First-order proof search: the focused engine decides a sequent with
+  quantifiers in the classical modes, Mix and affine mode included (the
+  dispatch's classical rows take `LL1`; the two-sided engine and every
+  other engine still refuse quantifiers by their fragment). A witness of
+  `∃` is a metavariable that unification binds at the axioms, with the
+  occurs check; the eigenvariable condition is kept by levels; a rule of
+  two premises asks its first premise for another answer where the
+  second fails under the one it gave; the proof is returned closed, every
+  witness a term and every metavariable left unbound a fresh constant,
+  and passes the checker. MLL1 and MALL1 are decided; with exponentials
+  the copy bound and the three verdicts work as without quantifiers. The
+  memo and the loop check are off for a first-order goal, which runs on
+  one thread. The counts carry over: a predicate with an open atom is
+  counted over all its atoms and refuted by `Refutation::UnbalancedSymbol`
+  and `OneSidedSymbol` (in JSON `unbalanced_symbol` and
+  `one_sided_symbol`, the predicate by its index), which
+  `Disproof::check` checks (the first; the second, as `one_sided`, rests
+  on the search); `Unbalanced` and the count equation are checked on a
+  quantified sequent too, a quantifier counted as its body; the
+  classical refutation gives nothing for one. The first-order bounds
+  `Options::witness_depth` (`DEFAULT_WITNESS_DEPTH`, 64; `--witness-depth`,
+  `search.witness_depth`) and `Options::instances` (`DEFAULT_INSTANCES`,
+  65536; `--instances`, `search.instances`), each cutting a branch and
+  answering `Reason::WitnessDepth` or `Reason::Instances` (in JSON
+  `witness_depth` and `instances`).
+
 - `IllSequent`, a sequent of intuitionistic linear logic as written: its
   hypotheses in the order written and exactly one goal, every formula
   built from `⊗`, `⊸`, `&`, `⊕`, `!`, `1`, `⊤`, `0` and atoms. It is

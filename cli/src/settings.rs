@@ -157,6 +157,12 @@ impl SearchArgs {
         if apply.set("classical_work") {
             search.classical_work = self.classical_work;
         }
+        if apply.set("witness_depth") {
+            search.witness_depth = self.witness_depth;
+        }
+        if apply.set("instances") {
+            search.instances = self.instances;
+        }
         if apply.set("test_period") {
             search.test_period = self.test_period;
         }
@@ -558,6 +564,8 @@ mod tests {
             --forward-copies 7      /search/forward_copies     5                 7
             --memo-limit 9          /search/memo_limit         8                 9
             --classical-work 4      /search/classical_work     3                 4
+            --witness-depth 4       /search/witness_depth      3                 4
+            --instances 4           /search/instances          3                 4
             --test-period 3         /search/test_period        2                 3
             --schedule auto         /search/schedule           "turns"           "auto"
             --jobs 3                /search/jobs               2                 3

@@ -139,7 +139,7 @@ impl Plan {
                 Stop::flags(flags),
                 Table::Shared(&memo),
                 Arena::new(Kept::Shared(&arena), account),
-                Z::new(forest),
+                Z::new(forest, set_up.options),
             );
             engine.runtime = (runtime.threads() > 1).then_some(runtime);
             (engine.run_kept(set_up.task.goal), engine.statistics())
@@ -148,6 +148,7 @@ impl Plan {
             result,
             nodes: taken(arena),
             statistics,
+            instances: None,
         }
     }
 }

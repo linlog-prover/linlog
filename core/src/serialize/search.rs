@@ -7,10 +7,11 @@ use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Space};
 use crate::occurrences::{Member, OccId, Sign};
 use crate::search::{
-    Bias, Cadence, Classical, Disproof, Engine, Equation, Jobs, OneSided, Outcome as Out, Reason,
-    Refutation, Saturated, Stable, StateEquation, Statistics, Unbalanced, Verdict,
+    Bias, Cadence, Classical, Disproof, Engine, Equation, Jobs, OneSided, OneSidedSymbol,
+    Outcome as Out, Reason, Refutation, Saturated, Stable, StateEquation, Statistics, Unbalanced,
+    UnbalancedSymbol, Verdict,
 };
-use crate::sequents::Atom;
+use crate::sequents::{Atom, Symbol};
 use crate::wire::{self, Readable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -81,6 +82,16 @@ enum Why {
         /// The bound.
         limit_bytes: u64,
     },
+    /// A binding would have passed the witness depth.
+    WitnessDepth {
+        /// The bound.
+        depth: u32,
+    },
+    /// An instance would have passed the bound on instances.
+    Instances {
+        /// The bound.
+        instances: u32,
+    },
 }
 
 impl From<Reason> for Why {
@@ -94,6 +105,8 @@ impl From<Reason> for Why {
             Reason::IndexLimit => Why::IndexLimit,
             Reason::WorkLimit { limit } => Why::WorkLimit { limit },
             Reason::Unchecked { limit_bytes } => Why::Unchecked { limit_bytes },
+            Reason::WitnessDepth { depth } => Why::WitnessDepth { depth },
+            Reason::Instances { instances } => Why::Instances { instances },
         }
     }
 }
@@ -109,6 +122,8 @@ impl From<Why> for Reason {
             Why::IndexLimit => Reason::IndexLimit,
             Why::WorkLimit { limit } => Reason::WorkLimit { limit },
             Why::Unchecked { limit_bytes } => Reason::Unchecked { limit_bytes },
+            Why::WitnessDepth { depth } => Reason::WitnessDepth { depth },
+            Why::Instances { instances } => Reason::Instances { instances },
         }
     }
 }
@@ -226,6 +241,28 @@ enum WhyNot {
         /// The sequents of the set.
         sequents: Vec<StableForm>,
     },
+    /// A predicate's literals cannot pair up, all its atoms counted.
+    UnbalancedSymbol {
+        /// The predicate's index into the sequent's symbols.
+        symbol: u32,
+        /// The least excess of positive over negative literals.
+        least: i32,
+        /// The greatest.
+        most: i32,
+    },
+    /// A predicate's literals cannot pair up, though copies may add one
+    /// sign.
+    OneSidedSymbol {
+        /// The predicate's index into the sequent's symbols.
+        symbol: u32,
+        /// The least excess outside the exponentials.
+        least: i32,
+        /// The greatest.
+        most: i32,
+        /// The literal every one of the predicate below an exponential
+        /// is.
+        copied: Literal,
+    },
 }
 
 /// The serialized form of a stable sequent of a saturated set: its zones
@@ -300,6 +337,26 @@ impl From<&Refutation> for WhyNot {
                     })
                     .collect(),
             },
+            &Refutation::UnbalancedSymbol(UnbalancedSymbol {
+                symbol,
+                least,
+                most,
+            }) => WhyNot::UnbalancedSymbol {
+                symbol: symbol.get(),
+                least,
+                most,
+            },
+            &Refutation::OneSidedSymbol(OneSidedSymbol {
+                symbol,
+                least,
+                most,
+                copied,
+            }) => WhyNot::OneSidedSymbol {
+                symbol: symbol.get(),
+                least,
+                most,
+                copied: copied.into(),
+            },
             Refutation::Exhausted => WhyNot::Exhausted,
         }
     }
@@ -357,6 +414,26 @@ impl From<WhyNot> for Refutation {
                 dropped: dropped.into_iter().map(OccId::new).collect(),
             }),
             WhyNot::Classical { assignment } => Refutation::Classical(Classical { assignment }),
+            WhyNot::UnbalancedSymbol {
+                symbol,
+                least,
+                most,
+            } => Refutation::UnbalancedSymbol(UnbalancedSymbol {
+                symbol: Symbol::new(symbol),
+                least,
+                most,
+            }),
+            WhyNot::OneSidedSymbol {
+                symbol,
+                least,
+                most,
+                copied,
+            } => Refutation::OneSidedSymbol(OneSidedSymbol {
+                symbol: Symbol::new(symbol),
+                least,
+                most,
+                copied: copied.into(),
+            }),
             WhyNot::Saturated { positive, sequents } => Refutation::Saturated(Saturated::new(
                 positive.into_iter().map(Sign::from).collect(),
                 sequents
@@ -429,6 +506,15 @@ impl DisproofForm {
                 len: atoms,
             }),
         };
+        let symbols = sequent.symbols().len();
+        let symbol = |symbol: Symbol| match symbol.index() {
+            index if index < symbols => Ok(()),
+            index => Err(crate::Error::IndexOutOfBounds {
+                space: Space::Symbol,
+                index,
+                len: symbols,
+            }),
+        };
         let occurrence = |index: usize| match index {
             index if index < occurrences => Ok(()),
             index => Err(crate::Error::IndexOutOfBounds {
@@ -441,6 +527,8 @@ impl DisproofForm {
         match &refutation {
             Refutation::Unbalanced(unbalanced) => atom(unbalanced.atom)?,
             Refutation::OneSided(one_sided) => atom(one_sided.atom)?,
+            Refutation::UnbalancedSymbol(unbalanced) => symbol(unbalanced.symbol)?,
+            Refutation::OneSidedSymbol(one_sided) => symbol(one_sided.symbol)?,
             Refutation::StateEquation(equation) => {
                 for &(a, _) in &equation.atoms {
                     atom(a)?;
@@ -724,6 +812,8 @@ mod tests {
             Reason::Unchecked {
                 limit_bytes: 1 << 30,
             },
+            Reason::WitnessDepth { depth: 64 },
+            Reason::Instances { instances: 1 << 16 },
         ] {
             let json = serde_json::to_string(&reason).unwrap();
             assert_eq!(

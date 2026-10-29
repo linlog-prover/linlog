@@ -1,11 +1,11 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! What a sequent with a quantifier is refused by, until a later version
-//! proves and checks first-order linear logic: every engine by its
-//! fragment, and the checker, interactive proving, the proof structures
-//! and the refutations' checks by name. A ground first-order sequent is
-//! propositional and refused by none.
+//! What takes a sequent with a quantifier and what refuses it: the
+//! focused engine in the classical modes proves and refutes it, every
+//! other engine refuses it by its fragment, as interactive proving, the
+//! proof structures and the propositional refutations' checks do by name.
+//! A ground first-order sequent is propositional and refused by none.
 #![cfg(all(feature = "parse", feature = "serialize", feature = "interactive"))]
 
 use linlog::proofs::Fault;
@@ -15,10 +15,12 @@ use linlog::{
     Member, Mode, Options, Proof, ProofStructure, Sequent, Verdict,
 };
 
-/// Every engine refuses a quantified goal, the dispatch finding none,
-/// and the ordered modes refuse it by the fragment.
+/// The focused engine decides a quantified goal in the classical modes,
+/// Mix included, by the dispatch and forced; every other engine refuses
+/// it, and in intuitionistic mode the dispatch finds none; the ordered
+/// modes refuse it by the fragment.
 #[test]
-fn every_engine_refuses_a_quantified_goal() {
+fn the_focused_engine_takes_a_quantified_goal_and_no_other() {
     let sequent: Sequent = "forall x. p(x) |- p(a)".parse().unwrap();
     assert_eq!(sequent.fragment().to_string(), "MLL1");
     for mode in [
@@ -26,15 +28,24 @@ fn every_engine_refuses_a_quantified_goal() {
         Mode::INTUITIONISTIC,
         Mode::CLASSICAL.with_mix(),
     ] {
-        let error = linlog::prove(&sequent, mode, &Options::default()).unwrap_err();
-        assert!(matches!(error, Error::NoEngine { .. }), "{mode}: {error}");
+        let classical = !mode.is_intuitionistic();
+        match linlog::prove(&sequent, mode, &Options::default()) {
+            Ok(outcome) if classical => {
+                assert!(matches!(outcome.verdict, Verdict::Proved(_)), "{mode}");
+                assert_eq!(outcome.engine, Engine::Focus);
+            }
+            Err(Error::NoEngine { .. }) if !classical => {}
+            other => panic!("{mode}: {other:?}"),
+        }
         for &engine in Engine::ALL {
             let options = Options::default().with_engine(Some(engine));
-            let error = linlog::prove(&sequent, mode, &options).unwrap_err();
-            assert!(
-                matches!(error, Error::EngineRefused { .. }),
-                "{engine} in {mode}: {error}"
-            );
+            match linlog::prove(&sequent, mode, &options) {
+                Ok(outcome) if classical && engine == Engine::Focus => {
+                    assert!(matches!(outcome.verdict, Verdict::Proved(_)), "{mode}");
+                }
+                Err(Error::EngineRefused { .. }) => {}
+                other => panic!("{engine} in {mode}: {other:?}"),
+            }
         }
     }
     let cyclic = Sequent::parse_ordered(
@@ -253,4 +264,222 @@ fn a_cut_formula_with_a_loose_variable_is_refused() {
     let json = r#"{"version":7,"sequent":{"terms":[{"V":0},{"∀":0},"⊤",{"D":0},{"∃":3}],"roots":[2],"atoms":[{"P":[0,[0]]}],"symbols":[["p",1]],"fo":[{"B":1}],"binders":["x","x"],"antecedents":0,"cuts":[1]},"nodes":[{"ax":[5,6]}],"instances":{"members":[[2,0],[4,0]],"frames":[[null,1]],"terms":[{"E":0}]}}"#;
     let error = serde_json::from_str::<Proof>(json).unwrap_err();
     assert!(error.to_string().contains("bound variable"), "{error}");
+}
+
+/// What the verdict of the default search of `text` in `mode` is: `Some`
+/// whether it is proved, its proof checked and holding an instance
+/// table, or `None` for unknown.
+fn decided(text: &str, mode: Mode, options: &Options) -> Option<bool> {
+    let sequent: Sequent = text.parse().unwrap();
+    let outcome = linlog::prove(&sequent, mode, options).unwrap();
+    assert_eq!(outcome.engine, Engine::Focus, "{text}");
+    match outcome.verdict {
+        Verdict::Proved(proof) => {
+            assert_eq!(proof.check(mode), Ok(()), "{text}");
+            assert!(proof.instances().is_some(), "{text}");
+            Some(true)
+        }
+        Verdict::Unprovable(_) => Some(false),
+        Verdict::Unknown(_) => None,
+    }
+}
+
+/// The focused engine decides first-order sequents in every classical
+/// mode: the order of the quantifiers (the eigenvariable condition by
+/// levels), a witness shared by both factors of a `⊗` whose first answer
+/// fails (another answer asked for), the occurs check, a witness left
+/// open (closed by a fresh constant), copies of a quantified hypothesis,
+/// Mix, and weakening; every proof checked.
+#[test]
+fn the_focused_engine_decides_first_order_sequents() {
+    let (classical, mix, affine) = (
+        Mode::CLASSICAL,
+        Mode::CLASSICAL.with_mix(),
+        Mode::CLASSICAL.with_affine(),
+    );
+    let options = Options::default();
+    for (text, mode, expected) in [
+        ("forall x. p(x) |- p(a)", classical, true),
+        ("forall x. p(x) |- exists y. p(y)", classical, true),
+        ("exists x. p(x) |- forall y. p(y)", classical, false),
+        (
+            "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)",
+            classical,
+            true,
+        ),
+        (
+            "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)",
+            classical,
+            false,
+        ),
+        (
+            "p(a) & p(b), q(b) |- exists x. (p(x) * q(x))",
+            classical,
+            true,
+        ),
+        (
+            "p(b) & p(a), q(b) |- exists x. (p(x) * q(x))",
+            classical,
+            true,
+        ),
+        (
+            "p(a) & p(b), q(c) |- exists x. (p(x) * q(x))",
+            classical,
+            false,
+        ),
+        ("|- exists x. (~p(x) par p(f(x)))", classical, false),
+        ("|- forall y. exists x. (~p(x) par p(y))", classical, true),
+        ("|- exists x. forall y. (~p(x) par p(y))", classical, false),
+        ("forall x. (p(x) & q(x)) |- p(a) & q(a)", classical, true),
+        ("forall x. p(x) |- p(a) * p(b)", classical, false),
+        ("!forall x. p(x) |- p(a) * p(b)", classical, true),
+        (
+            "p(z), !forall x. (p(x) -o p(s(x))) |- p(s(s(s(z))))",
+            classical,
+            true,
+        ),
+        (
+            "|- exists x. (p(x) * q(x)), ~p(a), ~q(a), r, ~r",
+            classical,
+            false,
+        ),
+        ("|- exists x. (p(x) * q(x)), ~p(a), ~q(a), r, ~r", mix, true),
+        ("forall x. p(x), q(b) |- p(a)", affine, true),
+        ("forall x. p(x) |- q(a)", affine, false),
+    ] {
+        assert_eq!(
+            decided(text, mode, &options),
+            Some(expected),
+            "{text} in {mode}"
+        );
+    }
+}
+
+/// The first-order families with verdicts by construction: a witness
+/// among `n` alternatives (`p(a₁) & … & p(aₙ), q(aₖ) ⊢ ∃x.(p(x) ⊗ q(x))`,
+/// unprovable with `q(b)`), and a chain of `n` steps of a quantified
+/// clause under `!`, provable within `n` copies and not within fewer
+/// (`p(z), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(sⁿ(z))`).
+#[test]
+fn the_first_order_families_have_their_verdicts() {
+    for n in 1..=5 {
+        let alternatives: Vec<String> = (1..=n).map(|i| format!("p(a{i})")).collect();
+        let choice = alternatives.join(" & ");
+        for k in 1..=n {
+            let text = format!("{choice}, q(a{k}) |- exists x. (p(x) * q(x))");
+            assert_eq!(
+                decided(&text, Mode::CLASSICAL, &Options::default()),
+                Some(true),
+                "{text}"
+            );
+        }
+        let text = format!("{choice}, q(b) |- exists x. (p(x) * q(x))");
+        assert_eq!(
+            decided(&text, Mode::CLASSICAL, &Options::default()),
+            Some(false),
+            "{text}"
+        );
+    }
+    for n in 1..=4u32 {
+        let mut goal = "z".to_owned();
+        for _ in 0..n {
+            goal = format!("s({goal})");
+        }
+        let text = format!("p(z), !forall x. (p(x) -o p(s(x))) |- p({goal})");
+        let options = |copies| Options::default().with_copies(Some(copies));
+        assert_eq!(
+            decided(&text, Mode::CLASSICAL, &options(n)),
+            Some(true),
+            "{text}"
+        );
+        assert_eq!(
+            decided(&text, Mode::CLASSICAL, &options(n - 1)),
+            None,
+            "{text}"
+        );
+    }
+}
+
+/// Each first-order bound stops a search that reaches it, with its own
+/// reason, and one more lets the search through: a witness deeper than
+/// the witness depth, an instance past the bound on instances.
+#[test]
+fn the_first_order_bounds_stop_the_search() {
+    use linlog::Reason;
+    let deep = "|- exists x. p(x), ~p(f(f(f(a))))";
+    let outcome = |text: &str, options: &Options| {
+        linlog::prove(&text.parse().unwrap(), Mode::CLASSICAL, options)
+            .unwrap()
+            .verdict
+    };
+    let depth = |d| Options::default().with_witness_depth(d);
+    let Verdict::Unknown(reason) = outcome(deep, &depth(2)) else {
+        panic!("{deep} past the witness depth");
+    };
+    assert!(matches!(reason, Reason::WitnessDepth { depth: 2, .. }));
+    assert_eq!(reason.setting(), Some("search.witness_depth"));
+    assert!(matches!(outcome(deep, &depth(3)), Verdict::Proved(_)));
+    let two = "|- exists x. exists y. (p(x) * p(y)), ~p(a), ~p(b)";
+    let instances = |n| Options::default().with_instances(n);
+    let Verdict::Unknown(reason) = outcome(two, &instances(1)) else {
+        panic!("{two} past the instances");
+    };
+    assert!(matches!(reason, Reason::Instances { instances: 1, .. }));
+    assert_eq!(reason.setting(), Some("search.instances"));
+    assert!(matches!(outcome(two, &instances(2)), Verdict::Proved(_)));
+}
+
+/// The counts carry over to quantifiers: a predicate with an open atom is
+/// counted over all its atoms, and refuted so by a kind of its own, which
+/// the check accepts and the JSON reads back; an atom of a predicate with
+/// only closed atoms is counted alone, as before; the count equation
+/// counts a quantifier as its body; the classical refutation, which has
+/// no domain, gives nothing.
+#[test]
+fn the_counts_refute_first_order_sequents() {
+    use linlog::Refutation;
+    let refuted = |text: &str| {
+        let sequent: Sequent = text.parse().unwrap();
+        match linlog::prove(&sequent, Mode::CLASSICAL, &Options::default())
+            .unwrap()
+            .verdict
+        {
+            Verdict::Unprovable(disproof) => *disproof,
+            other => panic!("{text}: {other:?}"),
+        }
+    };
+    let symbol = refuted("forall x. p(x), p(a) |- p(b)");
+    assert!(
+        matches!(symbol.refutation(), Refutation::UnbalancedSymbol(_)),
+        "{symbol:?}"
+    );
+    assert_eq!(symbol.check(), Ok(()));
+    assert!(
+        symbol
+            .to_string()
+            .contains("~p(…) occurs 1 more time than p(…)"),
+        "{symbol}"
+    );
+    let json = serde_json::to_string(&symbol).unwrap();
+    assert!(json.contains("\"kind\":\"unbalanced_symbol\""), "{json}");
+    let read: Disproof = serde_json::from_str(&json).unwrap();
+    assert_eq!(read.check(), Ok(()));
+    let atom = refuted("forall x. p(x) |- p(a) * q(b)");
+    assert!(
+        matches!(atom.refutation(), Refutation::Unbalanced(_)),
+        "{atom:?}"
+    );
+    assert_eq!(atom.check(), Ok(()));
+    let equation = refuted("forall x. (p(x) * q(x)) |- p(a) par q(a)");
+    assert!(
+        matches!(equation.refutation(), Refutation::Equation(_)),
+        "{equation:?}"
+    );
+    assert_eq!(equation.check(), Ok(()));
+    // An undecided search stays so: no assignment refutes a quantifier.
+    let open = refuted("|- exists x. forall y. (~p(x) par p(y))");
+    assert!(
+        matches!(open.refutation(), Refutation::Exhausted),
+        "{open:?}"
+    );
 }

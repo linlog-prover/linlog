@@ -58,8 +58,9 @@ impl Value {
 /// (`goal`'s occurrences of `forest`) is false, one value per atom of the
 /// sequent by index, or `None` when its reading is a tautology, when the
 /// search would pass `work` units (one per term evaluated, so zero
-/// switches it off), when its buffers do not fit `account`, or when
-/// `stop` says so: asked before each evaluation with the units done.
+/// switches it off), when its buffers do not fit `account`, when
+/// `stop` says so (asked before each evaluation with the units done), or
+/// for a forest with a quantifier.
 pub(crate) fn refute(
     forest: &Forest,
     goal: &[OccId],
@@ -67,6 +68,11 @@ pub(crate) fn refute(
     account: &Account,
     stop: &mut dyn FnMut(Progress) -> bool,
 ) -> Option<Classical> {
+    // A first-order countermodel needs a domain, which an assignment of
+    // truth values to atoms is not.
+    if forest.has_binders() {
+        return None;
+    }
     let sequent = forest.sequent();
     let terms = sequent.terms();
     let members: Vec<TermId> = goal.iter().map(|&o| forest.term(o)).collect();

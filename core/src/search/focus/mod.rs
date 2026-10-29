@@ -51,6 +51,10 @@ mod classes;
 mod context;
 /// The count invariants the engine prunes with.
 pub(crate) mod counts;
+/// The rules a first-order zone adds.
+mod first_order;
+/// The zone of a first-order search.
+mod framed;
 /// The memo of stable sequents.
 mod memo;
 #[cfg(feature = "parallel")]
@@ -72,6 +76,7 @@ mod zone;
 use self::arena::Arena;
 use self::classes::Classes;
 use self::counts::{Counts, Split, Tally, intervals_run};
+use self::framed::Framed;
 use self::memo::{Entry, Failure, Inserted, Key, Table, Zones};
 use self::schedule::{Plan, plan, turns};
 use self::scratch::{Pooled, Pools};
@@ -137,13 +142,18 @@ pub(crate) const ONE_SIDED: Focused = Focused { two_sided: false };
 pub(crate) const TWO_SIDED: Focused = Focused { two_sided: true };
 
 impl Decide for Focused {
-    /// Refuses a goal beyond `LL`, which no detected fragment is yet,
-    /// the one-sided engine in intuitionistic mode and the two-sided one
-    /// in classical mode.
+    /// Refuses a goal beyond `LL1` for the one-sided engine and beyond
+    /// `LL` for the two-sided one, the one-sided engine in intuitionistic
+    /// mode and the two-sided one in classical mode.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        let because = if !Fragment::LL.contains(task.fragment) {
+        let decides = if self.two_sided {
+            Fragment::LL
+        } else {
+            Fragment::LL1
+        };
+        let because = if !decides.contains(task.fragment) {
             super::NotTaken::Fragment {
-                decides: Fragment::LL,
+                decides,
                 goal: task.fragment,
             }
         } else if task.mode.intuitionistic != self.two_sided {
@@ -160,7 +170,7 @@ impl Decide for Focused {
     }
 
     /// Searches the goal on one thread, or with the feature `parallel` on
-    /// [`Options::jobs`] threads.
+    /// [`Options::jobs`] threads; a first-order goal on one thread.
     fn decide(
         &self,
         task: &Task<'_>,
@@ -170,6 +180,10 @@ impl Decide for Focused {
         work: &Work,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
+        if task.fragment.has_quantifiers() {
+            let found = search_goal::<Framed>(task, options, limits, account, work, stop);
+            return Ok(Answer::of_arena(task.forest, found, stop));
+        }
         #[cfg(feature = "parallel")]
         if options.threads() > 1 {
             let found =
@@ -735,6 +749,9 @@ impl<'a, Z: Zone> Run<'a, Z> {
         for budget in 0..=levels {
             self.statistics.copies = budget;
             self.waiting.clear();
+            if Z::FIRST_ORDER {
+                self.zone.begin_level();
+            }
             let (added, emptied) = (self.memo.added(), self.memo.emptied());
             let mut gamma = self.take_context();
             let mut list = self.take_list();
@@ -762,6 +779,13 @@ impl<'a, Z: Zone> Run<'a, Z> {
             }
         }
         self.give_set(theta.set);
+        // A level cut by a first-order bound, the last one, is undecided
+        // for that bound, which a larger copy bound alone may not lift.
+        if Z::FIRST_ORDER
+            && let Some(reason) = self.zone.cut()
+        {
+            return Err(reason);
+        }
         Err(Reason::CopyBound { copies: levels })
     }
 
@@ -801,6 +825,8 @@ impl<'a, Z: Zone> Run<'a, Z> {
         // once it is complete, the zone with the id it was interned under.
         let mut grown: Option<Z::Unrestricted> = None;
         let mut interned: Option<Unrestricted<Z>> = None;
+        // Where the zone stood, for a first-order phase that fails.
+        let mark = Z::FIRST_ORDER.then(|| self.zone.mark());
         let result = loop {
             let Some(o) = list.pop() else {
                 interned = self.interned(grown.take());
@@ -832,6 +858,19 @@ impl<'a, Z: Zone> Run<'a, Z> {
                     }
                     applied.push(o);
                 }
+                // A fresh eigenvariable for the body, which the `∀` node
+                // takes back as it is built. Inside the last arm, so that
+                // the match of a zone without binders is what it was.
+                kind if Z::FIRST_ORDER && kind == Kind::Forall => {
+                    match self.zone.forall(self.problem.forest, o) {
+                        Ok(Some(body)) => {
+                            list.push(body);
+                            applied.push(o);
+                        }
+                        Ok(None) => break Ok(Found::failed(Cuts::BUDGET)),
+                        Err(reason) => break Err(reason),
+                    }
+                }
                 _ => {
                     // A positive formula or a literal: part of the stable
                     // sequent.
@@ -842,14 +881,21 @@ impl<'a, Z: Zone> Run<'a, Z> {
         if let Some(larger) = grown.or(interned.map(|zone| zone.set)) {
             self.give_set(larger);
         }
+        if let (Some(mark), Ok(Found::Failed(_))) = (mark, &result) {
+            self.zone.undo(mark);
+        }
         let result = result.map(|found| {
             found.map(|mut node| {
                 for &o in applied.iter().rev() {
-                    node = self.push(match self.kind(o) {
-                        Kind::Par => Node::Par(o.into(), node),
-                        Kind::Quest => Node::Quest(o.into(), node),
-                        _ => Node::Bot(o.into(), node),
-                    });
+                    node = match self.kind(o) {
+                        Kind::Par => self.push(Node::Par(o.into(), node)),
+                        Kind::Quest => self.push(Node::Quest(o.into(), node)),
+                        kind if Z::FIRST_ORDER && kind == Kind::Forall => {
+                            let eigen = self.zone.introduced();
+                            self.push(Node::Forall(o.into(), eigen, node))
+                        }
+                        _ => self.push(Node::Bot(o.into(), node)),
+                    };
                 }
                 node
             })
@@ -883,6 +929,9 @@ impl<'a, Z: Zone> Run<'a, Z> {
         self.poll_with()?;
         if self.problem.account.over() {
             self.relieve()?;
+        }
+        if Z::FIRST_ORDER {
+            return self.with_framed(theta, gamma, list, o, budget);
         }
         #[cfg(feature = "parallel")]
         if self.cubes() {
@@ -1062,10 +1111,14 @@ impl<'a, Z: Zone> Run<'a, Z> {
         let mut members = self.take_list();
         gamma.list_into(&mut members);
         let mark = self.nodes.mark();
+        let zone = Z::FIRST_ORDER.then(|| self.zone.mark());
         let result = self.decide(theta, gamma, &members, budget);
         self.give_list(members);
         if let Ok((Found::Failed(_), _)) = result {
             self.nodes.release(mark);
+            if let Some(zone) = zone {
+                self.zone.undo(zone);
+            }
         }
         result
     }
@@ -1542,6 +1595,7 @@ impl<'a, Z: Zone> Run<'a, Z> {
                 Kind::Tensor | Kind::Plus => candidates.push(o),
                 Kind::One | Kind::Bang if members.len() == 1 || affine => candidates.push(o),
                 Kind::One | Kind::Bang | Kind::Atom | Kind::DualAtom => {}
+                kind if Z::FIRST_ORDER && kind == Kind::Exists => candidates.push(o),
                 kind => unreachable!("{kind:?} in a stable sequent"),
             }
         }
@@ -1821,6 +1875,9 @@ impl<'a, Z: Zone> Run<'a, Z> {
         members: &[Z::Member],
         budget: u32,
     ) -> Step {
+        if Z::FIRST_ORDER {
+            return self.initial_framed(theta, gamma, members, budget);
+        }
         let affine = self.problem.rules.affine;
         if !affine && members.len() > 2 {
             return Ok(Found::NOTHING);
@@ -1858,7 +1915,7 @@ impl<'a, Z: Zone> Run<'a, Z> {
             {
                 continue;
             }
-            if let Some(d) = self.zone.dual_in(f, p, |d| theta.set.contains(d)) {
+            if let Some(d) = self.zone.dual_in(f, p, &theta.set) {
                 if budget == 0 {
                     // Another pair may still close the sequent without a
                     // copy.
@@ -1972,6 +2029,7 @@ impl<'a, Z: Zone> Run<'a, Z> {
                 self.give_context(whole);
                 result
             }
+            kind if Z::FIRST_ORDER && kind == Kind::Exists => self.exists(theta, gamma, f, budget),
             _ => {
                 // Negative: release.
                 let mut released = self.take_context_from(gamma);

@@ -159,6 +159,7 @@ fn search(
         result,
         nodes: Vec::new(),
         statistics,
+        instances: None,
     };
     match result {
         Ok(Some(premises)) => match saturation.build(&premises) {
@@ -167,6 +168,7 @@ fn search(
                     result: Ok(Some(root)),
                     nodes,
                     statistics,
+                    instances: None,
                 },
                 None,
             ),

@@ -46,8 +46,8 @@ mod work;
 #[cfg(feature = "parallel")]
 pub use parallel::Pool;
 pub use refutation::{
-    Classical, Disproof, Equation, OneSided, Refutation, RefutationFault, Saturated, Stable,
-    StateEquation, Unbalanced,
+    Classical, Disproof, Equation, OneSided, OneSidedSymbol, Refutation, RefutationFault,
+    Saturated, Stable, StateEquation, Unbalanced, UnbalancedSymbol,
 };
 
 use crate::Error;
@@ -1190,6 +1190,9 @@ pub(crate) struct Finished {
     pub(crate) nodes: Vec<Node>,
     /// The counters.
     pub(crate) statistics: Statistics,
+    /// The instance table of a first-order proof, whose members and
+    /// witnesses the arena's nodes name; `None` for a propositional one.
+    pub(crate) instances: Option<Box<crate::Instances>>,
 }
 
 impl Finished {
@@ -1199,6 +1202,7 @@ impl Finished {
             result: Err(reason),
             nodes: Vec::new(),
             statistics: Statistics::default(),
+            instances: None,
         }
     }
 }
@@ -1230,15 +1234,24 @@ impl Answer {
             result,
             nodes,
             statistics,
+            instances,
         }: Finished,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Self {
         let result = result.and_then(|root| {
-            root.map(|root| {
-                Proof::build(forest.clone(), nodes, root, &mut || stop(0)).map_err(|e| match e {
-                    Error::Refused(Refusal::Stopped { .. }) => Reason::Stopped,
-                    e => panic!("the engine pushes premises before conclusions: {e}"),
-                })
+            root.map(|root| match instances {
+                // A table the proof's ids no longer number is past its
+                // indices.
+                Some(table) => Proof::with_instances(forest.clone(), *table, nodes, root)
+                    .map_err(|_| Reason::IndexLimit),
+                None => {
+                    Proof::build(forest.clone(), nodes, root, &mut || stop(0)).map_err(
+                        |e| match e {
+                            Error::Refused(Refusal::Stopped { .. }) => Reason::Stopped,
+                            e => panic!("the engine pushes premises before conclusions: {e}"),
+                        },
+                    )
+                }
             })
             .transpose()
         });
@@ -1359,14 +1372,14 @@ const DISPATCH: [Row; 8] = [
         probe: false,
     },
     Row {
-        fragment: Fragment::LL,
+        fragment: Fragment::LL1,
         modes: Modes::Mix,
         feature: Feature::Any,
         engine: Engine::Focus,
         probe: true,
     },
     Row {
-        fragment: Fragment::LL,
+        fragment: Fragment::LL1,
         modes: Modes::Classical,
         feature: Feature::Any,
         engine: Engine::Focus,
@@ -1637,8 +1650,8 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 /// | MELL | any, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | in affine mode, the 176 coverability problems of the qcover suite at 5 s, intuitionistic: decides 162 (59 provable, 103 not, 155 within a second) where the default before it, the two-sided engine, decides 8, no verdict against another and every proof checked; 10 464 random affine Horn programs of one to four atoms and clauses, classical and intuitionistic: decides all, at most 0.2 ms each, where the focused engines leave 886 undecided at 1 s and are slower by more than a millisecond on 467. In linear mode, the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s; with the state equation, the dead transitions dropped and the backward search beside it, 3 071 of the nets; and of 7 000 random programs near the Horn shape it decides 4 303 of the 4 318 each linear mode sends it at 1 s, every one the focused engines decide and 548 to 580 more. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
 /// | any | intuitionistic | an exponential | [`TwoSided`](Engine::TwoSided), and a turn of [`Inverse`](Engine::Inverse) beside it | where the two-sided engine alone ends at the time limit: on the library's intuitionistic problems at 60 s, one thread (the held-out sets, the rows no tool decided at 10 s, Sympli's ten proofs and six refutations; 1 113 rows), the turns decide 102 rows the two-sided engine alone does not and lose none, all ten proofs in 0.17 to 0.29 s and the six refutations in 0.15 to 22.8 s, with no verdict against another; after over before is 1.00 in the median at every speed of the engine alone, at worst 1.24 from 10 ms to 1 s, 1.11 from 1 to 10 s and 1.42 over 10 s. The inverse method alone, which loses 20 rows the two-sided engine decides (the pigeonhole formulas `SYJ201` and `SYJ206`, `SYJ207`, `SYJ212`), gets no row of its own |
 /// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on unit-free IMLL faster than the net engine wherever both decide: wide (`a₀ ⊗ b₀, … ⊢ (bₙ ⊗ aₙ) ⊗ …`) and curried (`(a₀ ⊗ … ⊗ aₙ) ⊸ c ⊢ a₀ ⊸ (… ⊸ c)`) sequents of 1 024 and 4 096 atoms in 5 to 83 ms against 0.05 to 2.2 s, the Horn encodings of Partition 10 to 10⁴ times faster |
-/// | any | Mix, classical without weakening | | [`Focus`](Engine::Focus), and a turn of [`Inverse`](Engine::Inverse) beside it | on the family `mix` the inverse method alone refutes every size measured (4 to 11) in at most 0.06 ms, where the focused engine takes 0.46 ms to 9.5 s and leaves sizes 10 and 11 to the classical refuter after 60 s; with the turns, sizes 8 to 11 are refuted in 0.42 to 0.47 s and 4 and 6 within the head start as before. No other Mix sequent was measured, and some that the inverse method leaves undecided for seconds the focused engine decides in milliseconds, within the head start |
-/// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent; on unit-free MLL, with or without Mix, faster than the net engine wherever both decide: `wide` sequents of 8 to 4 096 literals, each once to four times, 1.07 to 3.6 times faster (`wide-m4` with 2 048: 166 ms against 594 ms), the Horn encodings of Partition and 3-Partition 1.6 to 32 000 times faster (`3-partition-mll-no/8` 37 µs against 2.8 ms) |
+/// | any, quantifiers too | Mix, classical without weakening | | [`Focus`](Engine::Focus), and a turn of [`Inverse`](Engine::Inverse) beside it | the inverse method refuses quantifiers, so a first-order goal is the focused engine's alone; on the family `mix` the inverse method alone refutes every size measured (4 to 11) in at most 0.06 ms, where the focused engine takes 0.46 ms to 9.5 s and leaves sizes 10 and 11 to the classical refuter after 60 s; with the turns, sizes 8 to 11 are refuted in 0.42 to 0.47 s and 4 and 6 within the head start as before. No other Mix sequent was measured, and some that the inverse method leaves undecided for seconds the focused engine decides in milliseconds, within the head start |
+/// | any, quantifiers too | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent, and the one engine of first-order linear logic, by unification on one thread; on unit-free MLL, with or without Mix, faster than the net engine wherever both decide: `wide` sequents of 8 to 4 096 literals, each once to four times, 1.07 to 3.6 times faster (`wide-m4` with 2 048: 166 ms against 594 ms), the Horn encodings of Partition and 3-Partition 1.6 to 32 000 times faster (`3-partition-mll-no/8` 37 µs against 2.8 ms) |
 ///
 /// Where the focused engines end at their recursion limit or memory bound
 /// on a unit-free MLL sequent in a mode without weakening whose atoms occur
@@ -2444,7 +2457,8 @@ pub enum Schedule {
 /// below, a missing one taking its default and a misspelt one refused:
 /// `"engine"` and `"fragment"` a name or `"auto"`, `"bias"` and
 /// `"schedule"` a name, `"copies"` a number or `null` for no bound,
-/// `"forward_copies"`, `"memo_limit"` and `"classical_work"` numbers,
+/// `"forward_copies"`, `"memo_limit"`, `"classical_work"`,
+/// `"witness_depth"` and `"instances"` numbers,
 /// `"test_period"` and `"jobs"` a number or `"auto"`, `"check"` a
 /// boolean. The pool is never written.
 ///
@@ -2569,6 +2583,28 @@ pub struct Options {
     /// It runs under the caller's stop and the memory bound, on the
     /// calling thread, whatever engine searched.
     pub classical_work: u64,
+    /// The deepest term a metavariable of a first-order search may be
+    /// bound to, a constant's depth being 0 and an application's one
+    /// more than its deepest argument's, measured as the binding is
+    /// made: the focused engine searches a first-order sequent with a
+    /// metavariable for every witness of an `∃` and binds it where an
+    /// axiom unifies two atoms. A branch whose binding would be deeper is
+    /// cut there, and a search that cut one is not
+    /// [`Verdict::Unprovable`] but [`Reason::WitnessDepth`]. A sequent
+    /// without exponentials needs no witness deeper than its terms
+    /// together, so the bound matters where copies of a `∀` hypothesis
+    /// build a term step by step. Only the focused engine reads it, on
+    /// first-order sequents.
+    pub witness_depth: u32,
+    /// The most instances of quantified formulas a first-order search
+    /// may hold at once: every `∀` and `∃` step on the branches of the
+    /// proof in the making opens one, and a step past the bound cuts its
+    /// branch, so that a search that cut one is not
+    /// [`Verdict::Unprovable`] but [`Reason::Instances`]. It bounds what
+    /// the instances hold, which the copies of quantified hypotheses
+    /// multiply. Only the focused engine reads it, on first-order
+    /// sequents.
+    pub instances: u32,
     /// The thread pools a parallel search borrows instead of starting
     /// threads of its own, or `None`, the default, for a pool built for
     /// the search and dropped with it. A pool changes nothing a search
@@ -2589,8 +2625,10 @@ impl Default for Options {
     /// forward search of the default bias, a memo of at most
     /// [`DEFAULT_MEMO_LIMIT`](Self::DEFAULT_MEMO_LIMIT) stable sequents,
     /// the net engine's exact test at its default cadence, one thread, the
-    /// default schedule, and every proof checked
-    /// ([`DEFAULT_CHECK`](Self::DEFAULT_CHECK)).
+    /// default schedule, every proof checked
+    /// ([`DEFAULT_CHECK`](Self::DEFAULT_CHECK)), and the first-order
+    /// bounds [`DEFAULT_WITNESS_DEPTH`](Self::DEFAULT_WITNESS_DEPTH) and
+    /// [`DEFAULT_INSTANCES`](Self::DEFAULT_INSTANCES).
     fn default() -> Self {
         Self {
             engine: None,
@@ -2604,6 +2642,8 @@ impl Default for Options {
             schedule: Schedule::Auto,
             check: Self::DEFAULT_CHECK,
             classical_work: Self::DEFAULT_CLASSICAL_WORK,
+            witness_depth: Self::DEFAULT_WITNESS_DEPTH,
+            instances: Self::DEFAULT_INSTANCES,
             #[cfg(feature = "parallel")]
             pool: None,
         }
@@ -2640,6 +2680,15 @@ impl Options {
     /// reading.
     pub const DEFAULT_CLASSICAL_WORK: u64 = 1 << 26;
 
+    /// The witness depth of the default options: terms 64 applications
+    /// deep, far past any a sequent written by hand asks for, and short
+    /// of what a branch that builds a term forever takes long to reach.
+    pub const DEFAULT_WITNESS_DEPTH: u32 = 64;
+
+    /// The instances of the default options: 2¹⁶ instances of quantified
+    /// formulas held at once, some megabytes of the search's tables.
+    pub const DEFAULT_INSTANCES: u32 = 1 << 16;
+
     /// The most threads the options name: more are taken as this many.
     /// A pool beyond it has found no use, and a count without a bound
     /// starts whatever it is given (ten thousand threads on `A ⊢ A` cost
@@ -2654,6 +2703,23 @@ impl Options {
             classical_work,
             ..self
         }
+    }
+
+    /// Returns the options with another
+    /// [`witness_depth`](Self::witness_depth).
+    #[must_use]
+    pub fn with_witness_depth(self, witness_depth: u32) -> Self {
+        Self {
+            witness_depth,
+            ..self
+        }
+    }
+
+    /// Returns the options with another bound on
+    /// [`instances`](Self::instances).
+    #[must_use]
+    pub fn with_instances(self, instances: u32) -> Self {
+        Self { instances, ..self }
     }
 
     /// Returns the options with another [`engine`](Self::engine).
@@ -2841,8 +2907,10 @@ impl Verdict {
 /// `{"kind": "stopped"}`, `{"kind": "recursion_limit", "depth": 2048}`,
 /// `{"kind": "copy_bound", "copies": 3}`, `{"kind": "memory_limit",
 /// "limit_bytes": 1073741824}`, `{"kind": "index_limit"}`, `{"kind":
-/// "work_limit", "limit": 1000000}` or `{"kind": "unchecked",
-/// "limit_bytes": 1073741824}`; a reader refuses a kind it does not know.
+/// "work_limit", "limit": 1000000}`, `{"kind": "unchecked",
+/// "limit_bytes": 1073741824}`, `{"kind": "witness_depth", "depth": 64}`
+/// or `{"kind": "instances", "instances": 65536}`; a reader refuses a
+/// kind it does not know.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Reason {
@@ -2896,6 +2964,22 @@ pub enum Reason {
         /// The memory bound, in bytes.
         limit_bytes: u64,
     },
+    /// A first-order search cut a branch where a metavariable would have
+    /// been bound to a term deeper than [`Options::witness_depth`], and
+    /// found no proof.
+    #[non_exhaustive]
+    WitnessDepth {
+        /// The witness depth.
+        depth: u32,
+    },
+    /// A first-order search cut a branch where it would have held more
+    /// instances of quantified formulas than [`Options::instances`], and
+    /// found no proof.
+    #[non_exhaustive]
+    Instances {
+        /// The bound on instances.
+        instances: u32,
+    },
 }
 
 impl Reason {
@@ -2909,6 +2993,8 @@ impl Reason {
         "index_limit",
         "work_limit",
         "unchecked",
+        "witness_depth",
+        "instances",
     ];
 
     /// Returns the reason's word, its `kind` in the JSON form.
@@ -2921,6 +3007,8 @@ impl Reason {
             Self::IndexLimit => "index_limit",
             Self::WorkLimit { .. } => "work_limit",
             Self::Unchecked { .. } => "unchecked",
+            Self::WitnessDepth { .. } => "witness_depth",
+            Self::Instances { .. } => "instances",
         }
     }
 
@@ -2955,6 +3043,8 @@ impl Reason {
             Self::CopyBound { .. } => Some("search.copies"),
             Self::MemoryLimit { .. } | Self::Unchecked { .. } => Some("limits.memory_bytes"),
             Self::WorkLimit { .. } => Some("limits.work"),
+            Self::WitnessDepth { .. } => Some("search.witness_depth"),
+            Self::Instances { .. } => Some("search.instances"),
         }
     }
 }
@@ -2984,6 +3074,12 @@ impl Display for Reason {
                 "a proof was found, but its check would hold more than the memory limit of {}",
                 Bytes(*limit_bytes)
             ),
+            Reason::WitnessDepth { depth } => {
+                write!(f, "the witness depth of {depth} was reached")
+            }
+            Reason::Instances { instances } => {
+                write!(f, "the bound of {instances} instances was reached")
+            }
         }
     }
 }
@@ -3181,6 +3277,8 @@ mod tests {
             Reason::IndexLimit,
             Reason::WorkLimit { limit: 1 },
             Reason::Unchecked { limit_bytes: 1 },
+            Reason::WitnessDepth { depth: 1 },
+            Reason::Instances { instances: 1 },
         ];
         // No wildcard: a new reason fails to compile here until listed.
         let at = |reason: &Reason| match reason {
@@ -3191,6 +3289,8 @@ mod tests {
             Reason::IndexLimit => 4,
             Reason::WorkLimit { .. } => 5,
             Reason::Unchecked { .. } => 6,
+            Reason::WitnessDepth { .. } => 7,
+            Reason::Instances { .. } => 8,
         };
         assert_eq!(reasons.len(), Reason::NAMES.len());
         for (i, reason) in reasons.iter().enumerate() {
@@ -3258,6 +3358,17 @@ mod tests {
                 assignment: Vec::new(),
             }),
             Refutation::Saturated(Saturated::new(Vec::new(), Vec::new())),
+            Refutation::UnbalancedSymbol(UnbalancedSymbol {
+                symbol: crate::sequents::Symbol::new(0),
+                least: 1,
+                most: 1,
+            }),
+            Refutation::OneSidedSymbol(OneSidedSymbol {
+                symbol: crate::sequents::Symbol::new(0),
+                least: 1,
+                most: 1,
+                copied: crate::occurrences::Sign::Atom,
+            }),
         ];
         let refutation_at = |refutation: &Refutation| match refutation {
             Refutation::Exhausted => 0,
@@ -3267,6 +3378,8 @@ mod tests {
             Refutation::StateEquation(_) => 4,
             Refutation::Classical(_) => 5,
             Refutation::Saturated(_) => 6,
+            Refutation::UnbalancedSymbol(_) => 7,
+            Refutation::OneSidedSymbol(_) => 8,
         };
         assert_eq!(refutations.len(), Refutation::NAMES.len());
         for (i, refutation) in refutations.iter().enumerate() {
@@ -4260,6 +4373,7 @@ mod tests {
                 "unit-free MLL" => Fragment::MLL,
                 "MELL" => Fragment::MELL,
                 "any" => Fragment::LL,
+                "any, quantifiers too" => Fragment::LL1,
                 other => panic!("a fragment the test does not know: {other:?}"),
             };
             let modes = match cells[1].split([',', ' ']).next() {

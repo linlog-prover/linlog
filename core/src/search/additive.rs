@@ -113,6 +113,7 @@ pub(crate) fn search_goal(
         result,
         nodes: engine.nodes,
         statistics,
+        instances: None,
     }
 }
 

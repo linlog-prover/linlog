@@ -7,7 +7,7 @@
 
 use crate::fragment::Mode;
 use crate::occurrences::{Member, OccId, Sign};
-use crate::sequents::{Atom, Sequent};
+use crate::sequents::{Atom, Sequent, Symbol};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Why a sequent is unprovable. Most refutations rest on the search that
@@ -32,7 +32,10 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// [true, false, …]}` (a value per atom of the sequent, by index) or
 /// `{"kind": "saturated", "positive": ["atom", "dual", …], "sequents":
 /// [{"linear": [occurrence, …], "unrestricted": [occurrence, …],
-/// "absorbs": false}, …]}`, and reads back so. A reader refuses a
+/// "absorbs": false}, …]}` or `{"kind": "unbalanced_symbol", "symbol",
+/// "least", "most"}` or `{"kind": "one_sided_symbol", "symbol", "least",
+/// "most", "copied"}` (the predicate by its index into the sequent's
+/// symbols), and reads back so. A reader refuses a
 /// kind it does not know: read as another, it would claim a certificate
 /// it does not hold.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -54,6 +57,47 @@ pub enum Refutation {
     /// A forward search saturated: its sequents are closed under the
     /// rules, and the goal needs one they do not give.
     Saturated(Saturated),
+    /// The literals of a predicate, one of whose atoms has a bound
+    /// variable, cannot all meet their duals in axioms, counted over all
+    /// its atoms.
+    UnbalancedSymbol(UnbalancedSymbol),
+    /// Nor can they where copies may add literals of the predicate, but
+    /// only of one sign.
+    OneSidedSymbol(OneSidedSymbol),
+}
+
+/// The literals of a predicate that cannot all meet their duals in axioms,
+/// counted as [`Unbalanced`] counts an atom's but over every atom of the
+/// predicate together: one of them has a bound variable, so an instance
+/// of it may be any atom of the predicate, and only literals of one
+/// predicate meet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct UnbalancedSymbol {
+    /// The predicate, whose name the sequent has.
+    pub symbol: Symbol,
+    /// The least excess of positive over negative literals.
+    pub least: i32,
+    /// The greatest excess.
+    pub most: i32,
+}
+
+/// The literals of a predicate counted as [`UnbalancedSymbol`] counts
+/// them, some below a `?` or `!`, where copies may add any number of
+/// them, all of one sign, as [`OneSided`] says of an atom.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct OneSidedSymbol {
+    /// The predicate, whose name the sequent has.
+    pub symbol: Symbol,
+    /// The least excess of positive over negative literals outside the
+    /// exponentials.
+    pub least: i32,
+    /// The greatest excess.
+    pub most: i32,
+    /// The literal of the predicate that every one below an exponential
+    /// is.
+    pub copied: Sign,
 }
 
 /// The literals of an atom that cannot all meet their duals in axioms:
@@ -229,6 +273,8 @@ impl Refutation {
         "state_equation",
         "classical",
         "saturated",
+        "unbalanced_symbol",
+        "one_sided_symbol",
     ];
 
     /// Returns the refutation's word, its `kind` in the JSON form.
@@ -241,28 +287,68 @@ impl Refutation {
             Refutation::StateEquation(_) => "state_equation",
             Refutation::Classical(_) => "classical",
             Refutation::Saturated(_) => "saturated",
+            Refutation::UnbalancedSymbol(_) => "unbalanced_symbol",
+            Refutation::OneSidedSymbol(_) => "one_sided_symbol",
         }
     }
 
-    /// Writes the refutation as a phrase, each atom by its name in
-    /// `names`, or by its number without them; of an `intuitionistic`
-    /// sequent in its two-sided terms, an atom's occurrences positive
-    /// right of `⊢` and negative left of it.
+    /// Writes the refutation as a phrase, each atom and predicate by its
+    /// name in `sequent`, or by its number without one; of an
+    /// `intuitionistic` sequent in its two-sided terms, an atom's
+    /// occurrences positive right of `⊢` and negative left of it.
     fn write(
         &self,
         f: &mut Formatter<'_>,
-        names: Option<&[String]>,
+        sequent: Option<&Sequent>,
         intuitionistic: bool,
     ) -> FmtResult {
+        let names = sequent.map(Sequent::atom_names);
         let name = |atom: Atom| match names.and_then(|names| names.get(atom.index())) {
             Some(name) => name.clone(),
             None => format!("#{}", atom.get()),
         };
+        // A predicate as its literals read: its name and its arguments
+        // left out.
+        let predicate = |symbol: Symbol| match sequent.and_then(|s| s.symbols().get(symbol.index()))
+        {
+            Some((name, _)) => format!("{name}(…)"),
+            None => format!("#{}(…)", symbol.get()),
+        };
         match self {
+            Refutation::UnbalancedSymbol(UnbalancedSymbol {
+                symbol,
+                least,
+                most,
+            }) => write_unbalanced(
+                f,
+                &predicate(*symbol),
+                *least,
+                *most,
+                (None, true),
+                intuitionistic,
+            ),
+            Refutation::OneSidedSymbol(OneSidedSymbol {
+                symbol,
+                least,
+                most,
+                copied,
+            }) => write_unbalanced(
+                f,
+                &predicate(*symbol),
+                *least,
+                *most,
+                (Some(*copied), true),
+                intuitionistic,
+            ),
             Refutation::Exhausted => f.write_str("the search was exhaustive"),
-            Refutation::Unbalanced(Unbalanced { atom, least, most }) => {
-                write_unbalanced(f, &name(*atom), *least, *most, None, intuitionistic)
-            }
+            Refutation::Unbalanced(Unbalanced { atom, least, most }) => write_unbalanced(
+                f,
+                &name(*atom),
+                *least,
+                *most,
+                (None, false),
+                intuitionistic,
+            ),
             Refutation::OneSided(OneSided {
                 atom,
                 least,
@@ -273,7 +359,7 @@ impl Refutation {
                 &name(*atom),
                 *least,
                 *most,
-                Some(*copied),
+                (Some(*copied), false),
                 intuitionistic,
             ),
             Refutation::Equation(Equation {
@@ -398,16 +484,22 @@ fn list(names: &[String]) -> String {
 /// Writes why the literals of an atom named `name` cannot all meet in
 /// axioms: the one outnumbers the other between `least` and `most` times,
 /// outside the exponentials where some literals, all `copied`, lie below
-/// one; of an `intuitionistic` sequent as its positive and negative
+/// one, counted over every atom of a predicate where `predicate` says so;
+/// of an `intuitionistic` sequent as its positive and negative
 /// occurrences, which are its atoms right and left of `⊢`.
 fn write_unbalanced(
     f: &mut Formatter<'_>,
     name: &str,
     least: i32,
     most: i32,
-    copied: Option<Sign>,
+    (copied, predicate): (Option<Sign>, bool),
     intuitionistic: bool,
 ) -> FmtResult {
+    let over = if predicate {
+        ", every atom of the predicate counted, since one has a bound variable"
+    } else {
+        ""
+    };
     let (a, b) = (least.unsigned_abs(), most.unsigned_abs());
     let (a, b) = (a.min(b), a.max(b));
     let excess = if a == b {
@@ -445,7 +537,7 @@ fn write_unbalanced(
             f,
             "{name} occurs {more} {excess} more {times} than {fewer}{place}{alternatives}{copies} \
              (positive right of ⊢, negative left of it, an implication's antecedent on the other \
-             side), so they cannot all meet in axioms",
+             side){over}, so they cannot all meet in axioms",
         );
     }
     let (more, fewer) = if least > 0 {
@@ -473,8 +565,8 @@ fn write_unbalanced(
     };
     write!(
         f,
-        "{more} occurs {excess} more {times} than {fewer} {place}{alternatives}{copies}, so they \
-         cannot all meet in axioms",
+        "{more} occurs {excess} more {times} than {fewer} {place}{alternatives}{copies}{over}, so \
+         they cannot all meet in axioms",
     )
 }
 
@@ -559,11 +651,8 @@ impl Display for Disproof {
     /// Writes the refutation as a phrase, with every atom by its name, in
     /// an intuitionistic mode in the sequent's two-sided terms.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.refutation.write(
-            f,
-            Some(self.sequent.atom_names()),
-            self.mode.is_intuitionistic(),
-        )
+        self.refutation
+            .write(f, Some(&self.sequent), self.mode.is_intuitionistic())
     }
 }
 
@@ -681,10 +770,18 @@ impl Disproof {
     pub fn check(&self) -> Result<(), crate::Error> {
         let fault = |fault| crate::Error::Refutation(fault);
         let forest = crate::occurrences::Forest::new(&self.sequent)?;
-        if forest.has_binders() {
+        // The counts carry over to quantifiers, a quantifier's rule
+        // changing none of them; an assignment and a saturated set are
+        // propositional.
+        if forest.has_binders()
+            && matches!(
+                self.refutation,
+                Refutation::Classical(_) | Refutation::Saturated(_)
+            )
+        {
             return Err(fault(RefutationFault::NotApplicable {
-                invariant: "every refutation",
-                why: "each is propositional, and the sequent has a quantifier",
+                invariant: "this refutation",
+                why: "it is propositional, and the sequent has a quantifier",
             }));
         }
         let goal: Vec<OccId> = match &self.goal {
@@ -702,6 +799,9 @@ impl Disproof {
             Refutation::Unbalanced(unbalanced) => {
                 check_unbalanced(&forest, &goal, self.mode, unbalanced)
             }
+            Refutation::UnbalancedSymbol(unbalanced) => {
+                check_unbalanced_symbol(&forest, &goal, self.mode, unbalanced)
+            }
             Refutation::Equation(equation) => check_equation(&forest, &goal, self.mode, equation),
             Refutation::Saturated(saturated) => {
                 match super::saturated::check(&forest, &goal, self.mode, saturated, &mut |_| false)
@@ -715,6 +815,7 @@ impl Disproof {
             }
             refutation @ (Refutation::Exhausted
             | Refutation::OneSided(_)
+            | Refutation::OneSidedSymbol(_)
             | Refutation::StateEquation(_)) => Err(RefutationFault::Uncertified {
                 kind: refutation.name(),
             }),
@@ -757,7 +858,7 @@ fn check_classical(
                 Par | Plus => l || r,
                 Bang | Quest => l,
                 Forall | Exists => {
-                    unreachable!("a refutation of a sequent with a binder is refused")
+                    unreachable!("an assignment of a sequent with a binder is refused")
                 }
             };
         }
@@ -769,12 +870,79 @@ fn check_classical(
 }
 
 /// Checks that the atom of `unbalanced` has the stated excess interval in
-/// the goal, which excludes zero, where the balance is an invariant.
+/// the goal, which excludes zero, where the balance is an invariant: of a
+/// sequent with a quantifier, only where no atom of its predicate has a
+/// bound variable, which an instance could make the atom.
 fn check_unbalanced(
     forest: &crate::occurrences::Forest,
     goal: &[OccId],
     mode: Mode,
     unbalanced: &Unbalanced,
+) -> Result<(), RefutationFault> {
+    let atom = unbalanced.atom;
+    let sequent = forest.sequent();
+    if atom.index() >= sequent.atom_names().len() {
+        return Err(RefutationFault::Mismatch);
+    }
+    if let Some((symbol, _)) = sequent.atom_predicate(atom)
+        && (0..sequent.atom_names().len()).any(|a| {
+            let a = Atom::new(a as u32);
+            sequent.atom_predicate(a).map(|(s, _)| s) == Some(symbol) && sequent.atom_is_open(a)
+        })
+    {
+        return Err(RefutationFault::NotApplicable {
+            invariant: "balance of the atom",
+            why: "an atom of its predicate has a bound variable, whose instance may be it",
+        });
+    }
+    check_balance(
+        forest,
+        goal,
+        mode,
+        |o| forest.atom(o) == Some(atom),
+        (unbalanced.least, unbalanced.most),
+    )
+}
+
+/// Checks that the literals of the predicate of `unbalanced`, every atom
+/// of it counted, have the stated excess interval in the goal, which
+/// excludes zero, where the balance is an invariant.
+fn check_unbalanced_symbol(
+    forest: &crate::occurrences::Forest,
+    goal: &[OccId],
+    mode: Mode,
+    unbalanced: &UnbalancedSymbol,
+) -> Result<(), RefutationFault> {
+    let sequent = forest.sequent();
+    if unbalanced.symbol.index() >= sequent.symbols().len() {
+        return Err(RefutationFault::Mismatch);
+    }
+    check_balance(
+        forest,
+        goal,
+        mode,
+        |o| {
+            forest
+                .atom(o)
+                .and_then(|a| sequent.atom_predicate(a))
+                .is_some_and(|(s, _)| s == unbalanced.symbol)
+        },
+        (unbalanced.least, unbalanced.most),
+    )
+}
+
+/// Checks that the literals `counted` picks have the excess interval
+/// `stated` in the goal, which excludes zero, where the balance is an
+/// invariant: every axiom joins one positive and one negative literal of
+/// a group (an atom, or a predicate), `⊗` and `⅋` add their sides'
+/// excesses, `&` and `⊕` take the hull of theirs, and a quantifier's rule
+/// changes none.
+fn check_balance(
+    forest: &crate::occurrences::Forest,
+    goal: &[OccId],
+    mode: Mode,
+    counted: impl Fn(OccId) -> bool,
+    stated: (i32, i32),
 ) -> Result<(), RefutationFault> {
     use crate::sequents::Kind::*;
     const INVARIANT: &str = "balance of the atom";
@@ -784,12 +952,8 @@ fn check_unbalanced(
             why: "weakening discards literals",
         });
     }
-    let atom = unbalanced.atom;
-    if atom.index() >= forest.sequent().atom_names().len() {
-        return Err(RefutationFault::Mismatch);
-    }
     // Per occurrence the least and the greatest excess, `None` where a
-    // `⊤` absorbs or copies of the atom's literals can add any number:
+    // `⊤` absorbs or copies of the counted literals can add any number:
     // sums of ±1 over the goal's members, each a subtree of the forest's
     // fewer than 2³² occurrences: a goal past 2³¹ members would be needed
     // to leave an `i64`, which no memory holds.
@@ -799,13 +963,7 @@ fn check_unbalanced(
         for o in forest.subtree(member).rev() {
             let side = |side: Option<OccId>| side.and_then(|s| span[s.index()]);
             let (l, r) = (side(forest.left(o)), side(forest.right(o)));
-            let literal = |e| {
-                Some(if forest.atom(o) == Some(atom) {
-                    (e, e)
-                } else {
-                    (0, 0)
-                })
-            };
+            let literal = |e| Some(if counted(o) { (e, e) } else { (0, 0) });
             span[o.index()] = match forest.kind(o) {
                 Atom => literal(1),
                 DualAtom => literal(-1),
@@ -814,9 +972,7 @@ fn check_unbalanced(
                 Tensor | Par => l.zip(r).map(|((a, b), (c, d))| (a + c, b + d)),
                 With | Plus => l.zip(r).map(|((a, b), (c, d))| (a.min(c), b.max(d))),
                 Bang | Quest => l.filter(|&s| s == (0, 0)),
-                Forall | Exists => {
-                    unreachable!("a refutation of a sequent with a binder is refused")
-                }
+                Forall | Exists => l,
             };
         }
         let Some((lo, hi)) = span[member.index()] else {
@@ -827,7 +983,7 @@ fn check_unbalanced(
         };
         (least, most) = (least + lo, most + hi);
     }
-    if (least, most) != (i64::from(unbalanced.least), i64::from(unbalanced.most)) {
+    if (least, most) != (i64::from(stated.0), i64::from(stated.1)) {
         Err(RefutationFault::Mismatch)
     } else if least <= 0 && 0 <= most {
         Err(RefutationFault::Holds)
@@ -860,8 +1016,9 @@ fn check_equation(
                 Par => pars += 1,
                 One => ones += 1,
                 Bot => bottoms += 1,
-                Atom | DualAtom => {}
-                Top | Zero | With | Plus | Bang | Quest | Forall | Exists => {
+                // A quantifier's rule changes no count.
+                Atom | DualAtom | Forall | Exists => {}
+                Top | Zero | With | Plus | Bang | Quest => {
                     return Err(RefutationFault::NotApplicable {
                         invariant: INVARIANT,
                         why: "it holds in the multiplicative fragment with units alone",

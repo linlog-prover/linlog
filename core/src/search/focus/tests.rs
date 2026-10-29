@@ -1993,6 +1993,7 @@ fn the_pair_answers_by_the_backward_search() {
             copies,
             ..Statistics::default()
         },
+        instances: None,
     };
     let undecided = [
         (
@@ -2129,9 +2130,49 @@ fn a_worker_drops_what_rests_on_the_spawning_branch() {
         Stop::Closure(&mut never),
         table,
         Arena::new(arena::Kept::Own(Vec::new()), &account),
-        Ground::new(&forest),
+        Ground::new(&forest, &Options::default()),
     );
     worker.ancestors.push((&branch, &hashes));
     assert!(matches!(worker.run(forest.roots()), Ok(None)));
     assert!(worker.waiting.is_empty(), "{:?}", worker.waiting.len());
+}
+
+/// A first-order search whose members would pass the ids it may give
+/// stops with `Reason::IndexLimit` before it makes one: here the second
+/// instance's span, under a bound a test lowers to the forest's length
+/// and the first instance.
+#[test]
+fn a_first_order_search_past_its_member_ids_stops() {
+    let sequent: Sequent = "|- exists x. exists y. (p(x) * p(y)), ~p(a), ~p(b)"
+        .parse()
+        .unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let options = Options::default();
+    let search = |limit: u32| {
+        framed::MEMBER_LIMIT.with(|cell| cell.set(limit));
+        let task = Task {
+            forest: &forest,
+            goal: forest.roots(),
+            fragment: sequent.fragment(),
+            mode: Mode::CLASSICAL,
+            reading: None,
+            roots: true,
+            program: std::sync::OnceLock::new(),
+        };
+        let found = search_goal::<Framed>(
+            &task,
+            &options,
+            &Limits::default(),
+            &Account::new(None),
+            &Work::new(None),
+            &mut |_| false,
+        );
+        framed::MEMBER_LIMIT.with(|cell| cell.set(u32::MAX));
+        found.result
+    };
+    // The outer `∃` has a body of four occurrences, the inner one of
+    // three.
+    let n = forest.len() as u32;
+    assert_eq!(search(n + 4 + 2), Err(Reason::IndexLimit));
+    assert!(matches!(search(n + 4 + 3), Ok(Some(_))));
 }

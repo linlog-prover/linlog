@@ -95,6 +95,7 @@ impl Decide for Horn {
                         result: Ok(None),
                         nodes: Vec::new(),
                         statistics: Statistics::default(),
+                        instances: None,
                     },
                     stop,
                 )
@@ -143,6 +144,7 @@ impl Decide for Horn {
                 result,
                 nodes,
                 statistics,
+                instances: None,
             },
             stop,
         );

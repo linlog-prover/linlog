@@ -66,6 +66,7 @@ pub(super) fn turns<Z: Zone>(
                     result,
                     nodes,
                     statistics: run,
+                    instances,
                 },
                 over,
             ) = plan.search::<Z>(
@@ -84,6 +85,7 @@ pub(super) fn turns<Z: Zone>(
                         result: Err(Reason::Stopped),
                         nodes,
                         statistics: leveled(statistics, levels, 1),
+                        instances: None,
                     };
                 }
                 Err(reason) => ended[i] = Some(reason),
@@ -92,6 +94,7 @@ pub(super) fn turns<Z: Zone>(
                         result: decided,
                         nodes,
                         statistics: leveled(statistics, levels, i),
+                        instances,
                     };
                 }
             }
@@ -101,6 +104,7 @@ pub(super) fn turns<Z: Zone>(
                 result: Err(backward.as_set(options, limits)),
                 nodes: Vec::new(),
                 statistics: leveled(statistics, levels, 1),
+                instances: None,
             };
         }
         turn = turn.saturating_mul(TURN_GROWTH);
@@ -147,25 +151,42 @@ impl Plan {
         account: &'a Account,
         stop: Stop<'a>,
     ) -> (Finished, bool) {
+        let mut problem = Problem::new(set_up, counts, self.copies, account);
+        // The memo is off for a first-order search: its table of zones then
+        // gives every zone a new id without reading it.
+        let memo = if Z::FIRST_ORDER {
+            problem.memoizes = false;
+            Table::own(0)
+        } else {
+            Table::own(set_up.options.memo_entries())
+        };
         let mut engine = Run::new(
-            Problem::new(set_up, counts, self.copies, account),
+            problem,
             stop,
-            Table::own(set_up.options.memo_entries()),
+            memo,
             Arena::new(Kept::Own(Vec::new()), account),
-            Z::new(set_up.task.forest),
+            Z::new(set_up.task.forest, set_up.options),
         );
-        let result = engine.run_kept(set_up.task.goal);
+        let mut result = engine.run_kept(set_up.task.goal);
         let statistics = engine.statistics();
         let over = matches!(engine.stop, Stop::Turn(_, 0));
-        let nodes = match engine.nodes.kept {
+        let mut nodes = match engine.nodes.kept {
             Kept::Own(nodes) => nodes,
             Kept::Shared(_) => unreachable!("a sequential search owns its arena"),
         };
+        let mut instances = None;
+        if Z::FIRST_ORDER && matches!(result, Ok(Some(_))) {
+            match engine.zone.close(set_up.task.forest, &mut nodes) {
+                Ok(table) => instances = Some(Box::new(table)),
+                Err(reason) => result = Err(reason),
+            }
+        }
         (
             Finished {
                 result,
                 nodes,
                 statistics,
+                instances,
             },
             over,
         )
@@ -544,15 +565,18 @@ pub(super) fn merged(
         !matches!((&first.result, &second.result), (Ok(a), Ok(b)) if a.is_some() != b.is_some()),
         "the two searches contradict each other"
     );
-    let (result, nodes) = match (first.result, second.result) {
-        (Ok(root), _) => (Ok(root), first.nodes),
-        (_, Ok(root)) => (Ok(root), second.nodes),
-        (Err(Reason::Stopped), _) | (_, Err(Reason::Stopped)) => (Err(Reason::Stopped), Vec::new()),
-        (Err(_), Err(reason)) => (Err(reason.as_set(options, limits)), Vec::new()),
+    let (result, nodes, instances) = match (first.result, second.result) {
+        (Ok(root), _) => (Ok(root), first.nodes, first.instances),
+        (_, Ok(root)) => (Ok(root), second.nodes, second.instances),
+        (Err(Reason::Stopped), _) | (_, Err(Reason::Stopped)) => {
+            (Err(Reason::Stopped), Vec::new(), None)
+        }
+        (Err(_), Err(reason)) => (Err(reason.as_set(options, limits)), Vec::new(), None),
     };
     Finished {
         result,
         nodes,
         statistics,
+        instances,
     }
 }

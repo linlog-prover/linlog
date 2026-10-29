@@ -172,8 +172,7 @@ impl<Z: Zone> Run<'_, Z> {
                     if let Some(dual) = self.zone.dual_from(forest, x, rest, cursors) {
                         rest.remove(dual);
                         Some(self.push(Node::Ax(x.into(), dual.into())))
-                    } else if let Some(d) = self.zone.dual_in(forest, x, |d| theta.set.contains(d))
-                    {
+                    } else if let Some(d) = self.zone.dual_in(forest, x, &theta.set) {
                         if budget == 0 {
                             cuts = cuts.and(Cuts::BUDGET);
                             None
@@ -396,6 +395,11 @@ impl<Z: Zone> Run<'_, Z> {
     /// a seventh of the stable sequents per second on Petri nets whose
     /// clauses have such bodies.
     fn chains_on(&self, a: Z::Member) -> bool {
+        // A chain's frames would never ask a left premise for another
+        // answer.
+        if Z::FIRST_ORDER {
+            return false;
+        }
         #[cfg(feature = "parallel")]
         if self.cubes() {
             return false;
@@ -743,6 +747,15 @@ impl<Z: Zone> Run<'_, Z> {
         b: Z::Member,
         budget: u32,
     ) -> Step {
+        if Z::FIRST_ORDER {
+            let mut shared = right.iter().chain([b]).chain(theta.set.iter());
+            return self.answers(
+                &mut shared,
+                |run| run.focus(theta, left, a, budget),
+                |run| run.focus(theta, right, b, budget),
+                |l, r| Node::Tensor(f.into(), l, r),
+            );
+        }
         self.two_premises(
             |run| run.focus(theta, left, a, budget),
             |run| run.focus(theta, right, b, budget),
@@ -852,6 +865,15 @@ impl<Z: Zone> Run<'_, Z> {
         right: &Z::Linear,
         budget: u32,
     ) -> Step {
+        if Z::FIRST_ORDER {
+            let mut shared = right.iter().chain(theta.set.iter());
+            return self.answers(
+                &mut shared,
+                |run| run.prove(theta, left, budget),
+                |run| run.prove(theta, right, budget),
+                Node::Mix,
+            );
+        }
         self.two_premises(
             |run| run.prove(theta, left, budget),
             |run| run.prove(theta, right, budget),

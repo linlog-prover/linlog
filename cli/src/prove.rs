@@ -434,6 +434,12 @@ pub(crate) fn unknown(reason: Reason, outcome: &Outcome, ended: &Ended) -> Strin
         (Reason::MemoryLimit { .. } | Reason::Unchecked { .. }, _) => {
             format!("{reason} {after}{at}; raise it with --memory-limit SIZE")
         }
+        (Reason::WitnessDepth { .. }, _) => {
+            format!("{reason} {after}{at}; raise it with --witness-depth N")
+        }
+        (Reason::Instances { .. }, _) => {
+            format!("{reason} {after}{at}; raise it with --instances N")
+        }
         // Any other reason, which no flag changes.
         _ => format!("{reason} {after}{at}"),
     }

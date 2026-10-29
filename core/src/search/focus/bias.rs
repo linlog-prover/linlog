@@ -5,6 +5,7 @@
 //! positive, under each rule of [`Bias`](crate::Bias). A function of the sequent alone,
 //! so a run stays deterministic.
 
+use super::counts::Predicates;
 use crate::occurrences::{Forest, Sign};
 use crate::search::Bias;
 use crate::sequents::{Atom, Kind};
@@ -46,23 +47,52 @@ pub(crate) fn signs(forest: &Forest, rule: Bias) -> Box<[Sign]> {
             }
         }
     }
-    (0..num_atoms)
-        .map(|a| {
-            let atom = Atom::new(a as u32);
-            let (vars, duals) = (
-                forest.literals(atom, Sign::Atom).len(),
-                forest.literals(atom, Sign::Dual).len(),
-            );
-            match factors[Forest::list(atom, Sign::Atom)]
-                .cmp(&factors[Forest::list(atom, Sign::Dual)])
-            {
-                Ordering::Greater => Sign::Atom,
-                Ordering::Less => Sign::Dual,
-                Ordering::Equal if duals < vars => Sign::Dual,
-                Ordering::Equal => Sign::Atom,
+    // Of a predicate with an open atom, whose literals may all meet, the
+    // literals are weighed together under the atom the counts take for
+    // it, which every atom of the predicate then follows: a literal and
+    // an instance of an open one that it unifies with must have opposite
+    // polarities, or no focused proof joins them.
+    let predicates = Predicates::of(forest.sequent());
+    let mut literals = |a: usize| {
+        let atom = Atom::new(a as u32);
+        [Sign::Atom, Sign::Dual].map(|sign| forest.literals(atom, sign).len())
+    };
+    let mut merged: Vec<[usize; 2]> = Vec::new();
+    if let Some(predicates) = &predicates {
+        merged = (0..num_atoms).map(&mut literals).collect();
+        for a in 0..num_atoms {
+            let counted = predicates.counted(Atom::new(a as u32)).index();
+            if counted != a {
+                for sign in [Sign::Atom, Sign::Dual] {
+                    let (from, to) = (
+                        Forest::list(Atom::new(a as u32), sign),
+                        Forest::list(Atom::new(counted as u32), sign),
+                    );
+                    factors[to] += std::mem::take(&mut factors[from]);
+                    merged[counted][sign as usize] += merged[a][sign as usize];
+                }
             }
-        })
-        .collect()
+        }
+    }
+    let sign_of = |a: usize, [vars, duals]: [usize; 2]| {
+        let atom = Atom::new(a as u32);
+        match factors[Forest::list(atom, Sign::Atom)].cmp(&factors[Forest::list(atom, Sign::Dual)])
+        {
+            Ordering::Greater => Sign::Atom,
+            Ordering::Less => Sign::Dual,
+            Ordering::Equal if duals < vars => Sign::Dual,
+            Ordering::Equal => Sign::Atom,
+        }
+    };
+    match &predicates {
+        None => (0..num_atoms).map(|a| sign_of(a, literals(a))).collect(),
+        Some(predicates) => (0..num_atoms)
+            .map(|a| {
+                let counted = predicates.counted(Atom::new(a as u32)).index();
+                sign_of(counted, merged[counted])
+            })
+            .collect(),
+    }
 }
 
 #[cfg(all(test, feature = "parse"))]

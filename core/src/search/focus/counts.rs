@@ -13,7 +13,10 @@ use crate::occurrences::{Forest, OccId, Sign};
 use crate::proofs::Branch;
 use crate::search::Bias;
 use crate::search::memory::{Account, bytes_of};
-use crate::search::{Equation, OneSided, Reason, Refutation, Unbalanced, set_up_stopped};
+use crate::search::{
+    Equation, OneSided, OneSidedSymbol, Reason, Refutation, Unbalanced, UnbalancedSymbol,
+    set_up_stopped,
+};
 use crate::sequents::{Atom, Kind};
 
 #[cfg(test)]
@@ -174,6 +177,15 @@ impl Rows {
         self.entries[i]
     }
 
+    /// Appends a copy of a row that lies among the entries, and returns
+    /// how many entries it read.
+    fn copy(&mut self, row: std::ops::Range<usize>) -> usize {
+        for i in row.clone() {
+            self.push(self.at(i));
+        }
+        row.len()
+    }
+
     /// Appends an entry.
     fn push(&mut self, e: RowEntry) {
         self.entries.push(e);
@@ -214,6 +226,90 @@ impl Rows {
             });
         }
         a.len() + b.len()
+    }
+}
+
+/// How the counts of a first-order sequent group its atoms: an atom of a
+/// predicate whose atoms are all closed is counted alone, as a closed
+/// literal meets only its own dual; the atoms of a predicate one of
+/// whose atoms has a bound variable are counted together, as the
+/// predicate's first atom, since an instance of the open atom may be any
+/// of them (`∀x. p(x) ⊢ p(a)` is provable, and a count of `p(a)` alone
+/// refutes it). Counting together adds up per-atom balances, so every
+/// test that a provable sequent passes per atom it passes per predicate.
+pub(crate) struct Predicates {
+    /// Per atom, the atom it is counted as.
+    counted: Box<[Atom]>,
+    /// Per atom, whether its predicate has an open atom.
+    open: Box<[bool]>,
+}
+
+/// The atom the counts take a literal's for: its own, or its group's.
+/// Inlined, so that the pass over a propositional forest is what it was.
+#[inline(always)]
+fn counted_atom(forest: &Forest, predicates: Option<&Predicates>, o: OccId) -> Option<Atom> {
+    let atom = forest.atom(o)?;
+    Some(match predicates {
+        None => atom,
+        Some(p) => p.counted(atom),
+    })
+}
+
+/// Whether a literal's atom is counted with its predicate's.
+#[inline(always)]
+fn open_atom(forest: &Forest, predicates: Option<&Predicates>, o: OccId) -> bool {
+    match predicates {
+        None => false,
+        Some(p) => forest.atom(o).is_some_and(|a| p.open(a)),
+    }
+}
+
+impl Predicates {
+    /// The grouping of a sequent's atoms, or `None` where every atom is
+    /// counted alone: a propositional sequent, or one without an open
+    /// atom.
+    pub(crate) fn of(sequent: &crate::Sequent) -> Option<Self> {
+        let fo = &sequent.fo;
+        if fo.atoms.is_empty() || fo.binders.is_empty() {
+            return None;
+        }
+        let loose = fo.loose();
+        let mut first: Vec<Option<Atom>> = vec![None; fo.symbols.len()];
+        let mut open = vec![false; fo.symbols.len()];
+        for (i, &(symbol, args)) in fo.atoms.iter().enumerate() {
+            first[symbol.index()].get_or_insert(Atom::new(i as u32));
+            open[symbol.index()] |= fo.list(args).iter().any(|t| loose[t.index()] > 0);
+        }
+        if !open.contains(&true) {
+            return None;
+        }
+        let (counted, open): (Vec<Atom>, Vec<bool>) = fo
+            .atoms
+            .iter()
+            .enumerate()
+            .map(|(i, &(symbol, _))| {
+                let s = symbol.index();
+                if open[s] {
+                    (first[s].expect("its own atom"), true)
+                } else {
+                    (Atom::new(i as u32), false)
+                }
+            })
+            .unzip();
+        Some(Self {
+            counted: counted.into_boxed_slice(),
+            open: open.into_boxed_slice(),
+        })
+    }
+
+    /// The atom `atom` is counted as.
+    pub(crate) fn counted(&self, atom: Atom) -> Atom {
+        self.counted[atom.index()]
+    }
+
+    /// Whether `atom` is counted with every atom of its predicate.
+    pub(crate) fn open(&self, atom: Atom) -> bool {
+        self.open[atom.index()]
     }
 }
 
@@ -267,6 +363,13 @@ impl Counts {
             return Err(Reason::IndexLimit);
         }
         let positive = super::bias::signs(forest, bias);
+        // A literal's atom as the counts know it: per predicate where one
+        // of its atoms is open, since an instance of that atom may be any
+        // other of the predicate.
+        let predicates = Predicates::of(forest.sequent());
+        let predicates = predicates.as_ref();
+        let atom_of = |o: OccId| counted_atom(forest, predicates, o);
+        let open = |o: OccId| open_atom(forest, predicates, o);
         // A literal below a `?` or `!` anywhere in the problem can be
         // copied or discarded any number of times: an atom with both signs
         // there can be balanced whatever its other literals, and gets no
@@ -295,7 +398,7 @@ impl Counts {
         let mut inside = 0;
         for o in forest.ids() {
             if o.index() < inside {
-                if let (Some(atom), Some(sign)) = (forest.atom(o), forest.sign(o)) {
+                if let (Some(atom), Some(sign)) = (atom_of(o), forest.sign(o)) {
                     exponential[atom.index()][sign as usize] = true;
                 }
                 absorbs_from_copies |= forest.kind(o) == Kind::Top;
@@ -346,15 +449,18 @@ impl Counts {
         for o in forest.ids() {
             if forest.kind(o) == Kind::Quest
                 && let Some(below) = forest.left(o)
-                && let (Some(atom), Some(sign)) = (forest.atom(below), forest.sign(below))
+                && let (Some(atom), Some(sign)) = (atom_of(below), forest.sign(below))
             {
                 unrestricted[atom.index()][sign as usize] = true;
             }
         }
-        // A positive literal whose dual only ever lies in the linear zone.
-        let linear = |o: OccId| match (forest.atom(o), forest.sign(o)) {
+        // A positive literal whose dual only ever lies in the linear zone,
+        // and is its atom: of an open predicate, any literal of it unifies.
+        let linear = |o: OccId| match (atom_of(o), forest.sign(o)) {
             (Some(atom), Some(sign)) => {
-                sign == positive[atom.index()] && !unrestricted[atom.index()][!sign as usize]
+                sign == positive[atom.index()]
+                    && !unrestricted[atom.index()][!sign as usize]
+                    && !open(o)
             }
             _ => false,
         };
@@ -379,7 +485,7 @@ impl Counts {
             let (absorb, w) = match kind {
                 Atom | DualAtom => {
                     let sign = if kind == Atom { 1 } else { -1 };
-                    let atom = forest.atom(o).unwrap();
+                    let atom = atom_of(o).unwrap();
                     // A literal below an exponential has its entry too: a
                     // copy of it in the linear zone is used once, and the
                     // rows of a `!` or `?` itself stay empty.
@@ -396,8 +502,12 @@ impl Counts {
                 Bot => (false, 1),
                 Top => (true, 0),
                 Zero => (false, 0),
+                // A quantifier's rule changes no count: its row is its
+                // body's.
                 Forall | Exists => {
-                    unreachable!("the focused engine refuses a sequent with a binder")
+                    let c = forest.left(o).unwrap();
+                    steps += rows.copy(row(&bound, c));
+                    (absorbs[c.index()], weight[c.index()])
                 }
                 Bang | Quest => {
                     // No row: the literals below it are copied any number
@@ -433,9 +543,15 @@ impl Counts {
             weight[o.index()] = w;
             forced[o.index()] = match kind {
                 Zero => Some(Forced::Nothing),
-                One | Bang => Some(Forced::Empty),
+                One => Some(Forced::Empty),
+                // A promotion may bind a metavariable that the other
+                // factor holds, which a forced split would never ask for
+                // another answer: where an atom is open, `!` forces
+                // nothing.
+                Bang if predicates.is_none() => Some(Forced::Empty),
                 Atom | DualAtom
-                    if forest.sign(o) == Some(positive[forest.atom(o).unwrap().index()]) =>
+                    if forest.sign(o) == Some(positive[forest.atom(o).unwrap().index()])
+                        && !open(o) =>
                 {
                     Some(Forced::Dual)
                 }
@@ -446,10 +562,8 @@ impl Counts {
                 {
                     Some(Forced::Duals)
                 }
-                Atom | DualAtom | Bot | Top | Quest | Tensor | Par | With | Plus => None,
-                Forall | Exists => {
-                    unreachable!("the focused engine refuses a sequent with a binder")
-                }
+                Atom | DualAtom | Bang | Bot | Top | Quest | Tensor | Par | With | Plus
+                | Forall | Exists => None,
             };
             if rows.bytes() != charged {
                 account.resize(charged, rows.bytes());
@@ -1051,10 +1165,26 @@ pub(crate) fn refutation(
     if rules.intervals
         && let Some((atom, least, most, copied)) = tally.unbalanced(&counts)
     {
-        return match copied {
-            None => Refutation::Unbalanced(Unbalanced { atom, least, most }),
-            Some(copied) => Refutation::OneSided(OneSided {
+        // An atom counted with its predicate's names the predicate.
+        let predicate = Predicates::of(forest.sequent())
+            .filter(|p| p.open(atom))
+            .and_then(|_| forest.sequent().atom_predicate(atom))
+            .map(|(symbol, _)| symbol);
+        return match (copied, predicate) {
+            (None, None) => Refutation::Unbalanced(Unbalanced { atom, least, most }),
+            (Some(copied), None) => Refutation::OneSided(OneSided {
                 atom,
+                least,
+                most,
+                copied,
+            }),
+            (None, Some(symbol)) => Refutation::UnbalancedSymbol(UnbalancedSymbol {
+                symbol,
+                least,
+                most,
+            }),
+            (Some(copied), Some(symbol)) => Refutation::OneSidedSymbol(OneSidedSymbol {
+                symbol,
                 least,
                 most,
                 copied,

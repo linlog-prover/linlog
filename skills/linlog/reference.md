@@ -93,10 +93,15 @@ bound by an enclosing quantifier is its variable, any other a constant
 or, before a bracket, a function symbol; a symbol has one arity
 throughout, a name is a predicate or a function symbol, not both, and no
 variable is free. A sequent with a quantifier is read, printed and
-written as JSON (wire level 7), and `check` checks its proofs (section
-9), but `prove`, `interact` and the net and Rocq outputs refuse it with
-an error (exit status 2), while a sequent with arguments and no
-quantifier is propositional and decided by every engine.
+written as JSON (wire level 7), `check` checks its proofs (section 9),
+and `prove` decides it in the classical modes (with `--mix` and
+`--affine`), by the focused engine: a witness of `∃` is left open and
+filled in by unification where an axiom matches two atoms, the proof
+names every witness, and MLL1 and MALL1 are decided, with `!` and `?`
+within the copy bound. `prove -i`, `interact` and the net and Rocq
+outputs refuse it with an error (exit status 2), while a sequent with
+arguments and no quantifier is propositional and decided by every
+engine.
 
 ```console
 $ linlog seq print "forall x. p(x) -o q(x), p(a) |- exists y. q(y)"
@@ -104,7 +109,17 @@ $ linlog seq print "forall x. p(x) -o q(x), p(a) |- exists y. q(y)"
 $ linlog seq fragment "forall x. p(x) |- p(a)"
 MLL1
 $ linlog prove "forall x. p(x) |- p(a)"; echo "exit $?"
-error: no engine for MLL1 in classical mode yet
+provable (MLL1, classical, focus engine)
+  ───────────── ax
+  ⊢ p(a), ~p(a)
+───────────────── ∃
+⊢ ∃x. ~p(x), p(a)
+exit 0
+$ linlog prove -q "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)"; echo "exit $?"
+unprovable (MLL1, classical, focus engine): the search was exhaustive
+exit 1
+$ linlog prove -i "forall x. p(x) |- p(a)"; echo "exit $?"
+error: no engine for MLL1 in intuitionistic mode yet
 exit 2
 ```
 
@@ -251,6 +266,7 @@ same, tagged by `kind`:
 |---|---|
 | `unbalanced` | an atom's literals cannot all meet their duals in axioms |
 | `one_sided` | the same, counted outside the exponentials |
+| `unbalanced_symbol`, `one_sided_symbol` | the same for a predicate with a bound variable in one of its atoms, every atom of it counted together (`"symbol"` its index) |
 | `equation` | the count equation of the multiplicatives fails |
 | `state_equation` | a Horn program's state equation has no solution: weights for the atoms that no clause raises and the goal needs raised |
 | `classical` | the sequent is false read classically, with the atoms' values: no provable sequent is |
@@ -277,7 +293,8 @@ is undecidable, so with `!` or `?` the search deepens a bound on how
 often a `?` formula is copied on one branch. The line says which limit,
 after how long, at which copy bound, and which flag to raise; the JSON
 `reason` is tagged by `kind` (`stopped`, `copy_bound`, `memory_limit`,
-`work_limit`, `recursion_limit`, `index_limit`, `unchecked`):
+`work_limit`, `recursion_limit`, `index_limit`, `unchecked`, and of a
+first-order search `witness_depth` and `instances`):
 
 ```console
 $ linlog prove -q --copies 1 "!(A & B) |- A * B"
@@ -307,6 +324,8 @@ exit 3
 | `--recursion-limit N` | `2048` | the nesting of rules on one branch |
 | `--memo-limit N` | `1048576` | the decided sequents remembered at once |
 | `--classical-work N` | `67108864` | the classical refutation after the search |
+| `--witness-depth N` | `64` | the deepest term a first-order search fills a witness in with |
+| `--instances N` | `65536` | the instances of quantified formulas a first-order search holds at once |
 | `--derivation-limit SIZE` | `64MiB` | the derivation built from a proof; above it the verdict stands without it |
 | `--occurrence-limit N` | `50000000` | the sequent's subformula occurrences |
 | `--term-limit N` | `50000000` | the first-order terms the sequent's atoms unfold to, and a proof's instance table |

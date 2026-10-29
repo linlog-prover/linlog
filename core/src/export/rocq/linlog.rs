@@ -577,6 +577,10 @@ pub(super) fn disproof(
 ) -> Result<(), Error> {
     disproof.check()?;
     let forest = Forest::new(disproof.sequent())?;
+    // The library's counts and equation are of propositional sequents.
+    if forest.has_binders() {
+        return Err(super::Unsupported::Quantifiers.into());
+    }
     let goal: Vec<OccId> = match disproof.goal() {
         None => forest.roots().to_vec(),
         // The check found every member in the forest.
@@ -676,6 +680,9 @@ pub(super) fn disproof(
             unreachable!("the check certifies three refutations alone")
         }
         Refutation::Saturated(_) => unreachable!("the writer refuses a saturated set first"),
+        Refutation::UnbalancedSymbol(_) | Refutation::OneSidedSymbol(_) => {
+            unreachable!("the writer refuses a sequent with a quantifier first")
+        }
     };
     write!(
         text,
