@@ -65,7 +65,7 @@ memory notes: so it is self-contained.
   key-warming loop `step-gpg-warm`. **Start nothing until the author
   says go**, then ask whether it is unattended again (it was, "until
   further notice", from 2026-10-29 01:00 to this stop).
-- **linlog `main`** = the commit "Plan: review session 42d and hand over" (with this
+- **linlog `main`** = the commit "Plan: a manual instead of a wiki, session 44b" (with this
   file), pushed. **The web client's `main`** = `olvxtklw` (4a3c26fb),
   41d's cut on the page, pushed. Only the default workspaces exist.
 - A stray change `ulktsrrq` (2026-10-23, `core/src/nets/mell/review.rs`,
@@ -107,6 +107,12 @@ its zone, the first-order focused engine). Left, in order:
   by canonical instance ids, a listed follow-up).
 - **43d**: Learn's lessons on cut and the quantifiers, after 42i; its
   outline goes to the author first, as 43b's and 43c's did.
+- **44b**: the manual (`plan/44-llm-guide.md`, its last section; the
+  author, 2026-10-29): README a front page of about 150 lines, the
+  reference an mdBook manual under `docs/` published on the Pages site
+  beside the rustdoc, `cli/tests/readme.rs` running every chapter's
+  examples; Opus 5.5 at `high` with a fresh reviewer, after 42i and 43d,
+  before step 45.
 - **45**, rewritten 2026-10-24 and 25 (read `plan/45-release-0.2.0.md`
   whole):
   - **45a**: the Rocq library moved to `linlog-prover/rocq-linlog`,

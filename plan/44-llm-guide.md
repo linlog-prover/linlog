@@ -74,3 +74,53 @@ the rule above. Its client part comes after linlog's push.
 
 Deliverable: thematic jj commits in both repositories;
 `plan/reports/44-llm-guide.md`.
+
+## Session 44b: the manual (the author, 2026-10-29)
+
+The author asked whether to split README into GitHub's wiki; the
+planning session advised against the wiki and for a manual, and the
+author agreed. README has grown to about 2 500 lines, 1 350 of them
+usage: too long for a front page (crates.io shows it as the crate's
+page) and too short a place for a reference. The wiki was ruled out
+because it is a repository of its own outside the flake, CI and review,
+so `cli/tests/readme.rs` could not run its examples and they would
+drift; it is one set of pages for every release; and GitHub's documents
+say search engines do not index wikis, pointing to Pages instead.
+
+- **README becomes a front page** of about 150 lines: what linlog is,
+  install, a first proof, where to go next (the manual, the web page,
+  the guide for AI models, the API documentation), citing, licence.
+- **A manual in the form the Rust ecosystem uses for one**, mdBook at
+  the time of writing (adopted through the `new-tool` skill, its
+  current documents read; if the session finds a better-suited tool,
+  it says why), under `docs/`, a chapter per area: the commands and
+  their output formats, interactive proving, cut and its elimination,
+  proof nets, first-order logic, ordinary logic, the batch, the
+  benchmarks and the comparison, what exists and what is planned, the
+  architecture, development. README's sections move there whole, not
+  rewritten; links inside the repository and to the page are kept and
+  checked.
+- **Every example still run**: `cli/tests/readme.rs` reads every
+  chapter's console blocks as it reads README's and the guide's today,
+  and fails on a name that does not exist, so the guarantee that every
+  shown output is the command's own holds for the manual.
+- **Published beside the API documentation**: the Docs workflow and the
+  flake's `doc` package build the manual into the same GitHub Pages
+  site as the rustdoc of `main`, its address in README, the crate's
+  `documentation` key if fitting, the guide for AI models and the
+  client's About; how a released version's manual is kept apart from
+  `main`'s follows the practice the session reads (a version selector,
+  a directory per release, or the release's own tag), said in the
+  report.
+- **The rules follow**: `plan/conduct.md`'s paragraph on README (a step
+  extends the usage section) and CLAUDE.md's verification table name
+  the manual where a step adds a command, flag or format; `cli.md`,
+  `ci.md` and `flake.md` say where the manual lives and how it is
+  built and checked.
+
+One session on Opus 5.5 at `high`, documentation and its tests only,
+with a fresh-context reviewer on Opus 5.5 at `high` (every section of
+the old README present in the manual or the front page, every example
+run, every link resolving). It runs after 42i and 43d, which still add
+to README, and before step 45, whose 45c then prepares the front page
+and the manual for 0.2.0.

@@ -93,7 +93,8 @@ fourth (45d) after the author's tags.
     linlog's), the bindings' package, the changelog dated; a dry run of
     publishing both crates (`cargo publish --dry-run`) and the
     `package` check; what docs.rs builds.
-  - **The faces**: README as a released tool's (what 0.2.0 adds: the
+  - **The faces**: README (a front page since session 44b) and the
+    manual (`docs/`, 44b's) as a released tool's (what 0.2.0 adds: the
     two-sided surface, MELL nets, cut and its elimination, first-order
     logic, the logo); the guide for AI models (step 44) for 0.2.0, its
     tests passing; the web client's linlog input on the release's
