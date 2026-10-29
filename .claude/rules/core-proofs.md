@@ -360,6 +360,11 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   A member below the forest's length is the occurrence with no frame,
   which only an occurrence under no binder can be: one under a binder
   named bare is `Fault::Instance`, the term's fault, not the table's.
+- **The canonicalization walks a term with a stack of its own**
+  (`Canonical::term`, arguments first): the focused engine's closed
+  proofs hand it witnesses nested as deep as their bindings go, and a
+  recursion per argument list overflowed the search's stack at 180 000
+  levels (42d's panel; `a_deep_witness_closes_without_recursion`).
 - **`Proof::with_instances` makes the table canonical and closed**
   (`instances::canonical`): equal terms, lists, frames and members one
   entry each (the sequent's own terms keep their ids, a duplicate of

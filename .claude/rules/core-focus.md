@@ -23,6 +23,8 @@ search); `arena.rs` the proof arena; `scratch.rs` the pools of buffers
 `chains`, `Plan`, `turns`, and the threaded `alternate` with its baton);
 `parallel.rs` the engine on a pool; `zone.rs` what the engine is generic
 over (`Zone`, `Linear`, `Unrestricted`, `Ground`, `Cursors`, below);
+`framed.rs` the first-order zone (`Framed`) and `first_order.rs` the
+rules it adds ("The first-order zone", below);
 `tests.rs` the tests; `bias.rs`, `classes.rs`, `context.rs`,
 `counts.rs`, `memo.rs` as named below.
 
@@ -1211,6 +1213,23 @@ code it was. What a later session must keep:
   step are rarely all outside binders; an unprovable sequent with `!`
   (`p(a), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(b)`) meets new instances at every
   level, which no memo of instances would end either.
+- **Term work is counted and polled** (`Run::poll_terms`): the zone
+  counts the terms its walks visit (`Framed::steps`, atomic since the
+  matching walks read the zone), and the engine adds them to its work
+  (one unit per `TERMS_PER_WORK`, 16) and polls its stop every
+  `FORCED_PER_POLL` of them, after each unification and each step of
+  `answers`; the same poll charges the zone's tables and retained
+  buffers to the account (`Zone::held`), which the next stable sequent
+  asks. Without it a split search over deep terms ran 48 s past a 1 s
+  limit between two polls (`a_deep_unification_is_counted_work`). The
+  walks' temporary sets (`equal`, `fits`, `instance_of`, `pattern`,
+  `open_answers`) are not charged: each is as large as the terms it
+  walks, freed at its end.
+- **Every walk over terms has a stack of its own**, here and in the
+  proof's canonicalization (`occurrences/instances.rs`, `Canonical::term`,
+  which the engine's closed proofs feed): a witness may be nested as
+  deep as its bindings go, and a recursion per level overflowed the
+  search's stack at 180 000 (`a_deep_witness_closes_without_recursion`).
 - **The first-order bounds** (`Options::witness_depth`,
   `Options::instances`) cut a branch like the copy budget
   (`Cuts::BUDGET`), and `Framed::cut` names the bound; `Run::run`

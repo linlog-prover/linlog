@@ -777,3 +777,465 @@ cores 4 and 5, 6 to 9, 10 and 11, after the pinned measurement.
   to the inverse method, `chain/256` is the longest focused row at
   0.28 s. A pinned comparison forces the focused engines onto `mix` and
   the two-sided one onto `chain` (`bench.md`).
+
+## Session 42d: the first-order focused engine
+
+Opus 5.5 at `high`, unattended, 2026-10-29, in the jj workspace
+`../linlog-step42d` on `mksrqnul` (linlog's `main`). The author's stop
+from 11:05 paused the session; it resumed at 13:46 from its checklist.
+
+### Outcome
+
+The focused engine decides first-order sequents in the classical modes,
+with Mix and in affine mode: a second zone, `Framed`, beside `Ground`,
+with unification and the occurs check on shared terms, the
+eigenvariable condition kept by levels, a trail undone where the arena
+releases nodes, the identities found by unification through the zone's
+literal seam, a premise asked for another answer where the other fails,
+and the proof closed (every witness a term, an unbound metavariable a
+fresh constant) and accepted by the checker. MLL1 and MALL1 are decided;
+with exponentials the copy bound and the three verdicts carry over. The
+counts carry over per predicate and refute by kinds of their own; the
+first-order bounds `witness_depth` and `instances` are options with
+flags, keys and reasons. A committed reference prover (unfocused,
+freshness) agrees with the engine on generated sequents, its reviewer
+found nothing, and the panel found three resource holes, all fixed. The
+propositional case pays nothing measurable: both target sets equal
+their oracles on every decided row, the ratchet is within every
+ceiling with none raised (the search journeys +0.18 % to +0.42 % of the
+base's instructions), and the pinned time of the focused rows summed is
+1.0103 of the base's, within the rule set before it.
+
+### The rule of the pinned time, set before the run (14:49)
+
+The propositional engine pays nothing (D17) when, measured side by side
+with `bench/pinned-time.py` (the base build `mksrqnul`, the change's build
+on top, each row five times, cores 2 and 3 swapped halfway), the focused
+rows summed take at most 3 % more CPU time than the base's and no focused
+row's median is more than 5 % above the base's: 42c's rule, kept so that
+the two measurements read alike. A row of a tenth of a second resolves
+1 in 10 to 28 in `cpu_ms`'s ticks, so a row above 5 % there is looked at
+with the journeys' instruction counts before it is called a regression.
+Past the rule, the remedy is the spike's: inline what the symbol diff
+shows outlined, and measure again.
+
+### What was built
+
+- **The `Framed` zone** (`core/src/search/focus/framed.rs`), the second
+  `impl Zone` beside `Ground`: a member past the forest's length is an
+  occurrence of a *span*, the instance of a binder's body (one id per
+  occurrence of the body's subtree, the body's frame for all), so
+  `child` is arithmetic and `occurrence` a binary search over the spans;
+  frames are cons cells of terms; a term is an id of the sequent's arena
+  read under a frame, or a variable of the search (a metavariable, bound
+  to such a term, or an eigenvariable), never built during the search;
+  unification (`unify_pairs`, `bind`) is iterative, each pair of shared
+  terms once, with the occurs check and the levels in one walk; the
+  trail holds the bindings and lowerings, a `Mark` where every table
+  stands, `undo` pops and truncates. The linear zone is a sorted list of
+  members with repeats, the unrestricted one a sorted set.
+- **The rules a first-order zone adds** (`first_order.rs`): the
+  identities by unification (`initial_framed`: a pair of opposite
+  literals of one predicate whose terms unify, or a literal and a copy of
+  an opposite one of `Θ`, each tried in turn, affine weakening of the
+  rest), `∃` in focus (a fresh metavariable for the body, still in
+  focus), `∀` in the asynchronous phase (`decompose`, a fresh
+  eigenvariable, the `∀` node built on the way back), and `answers`, the
+  rule of two premises that asks the first for another answer (below),
+  used by `⊗`'s premises, Mix's parts and `&`.
+- **The generic engine's first-order paths** are behind `if
+  Z::FIRST_ORDER`, a constant, each inside a match's existing fallback
+  arm so that `Ground`'s decision trees are what they were; the zone is
+  undone where the arena releases nodes (`decompose`, `exists`,
+  `prove_unkeyed`, `answers`, each identity tried).
+- **The proof returned closed** (`Zone::close`, from `Plan::search` on a
+  proof): the instance table built from the spans and frames under the
+  final bindings, a metavariable left unbound a fresh constant (an
+  eigenvariable number past every one the search made, which no `∀`
+  step introduces, 42b's constant outside the signature);
+  `Finished::instances` carries it, and `Answer::of_arena` builds the
+  proof with `Proof::with_instances`. The front door checks every proof
+  as before.
+- **The dispatch** (`search::DISPATCH`): the two classical rows take
+  `Fragment::LL1`; `Focused::admits` takes `LL1` one-sided and `LL`
+  two-sided; `Focused::decide` runs a first-order goal on one thread
+  (`search_goal::<Framed>`). The Mix row's inverse-method turn is refused
+  by the inverse method's fragment, so a first-order goal takes none.
+- **The prunes** (api.md 10.10 (f)): the counts, the count equation and
+  the bias per predicate where a predicate has an open atom
+  (`counts::Predicates`, `bias.rs`), per atom otherwise; a quantifier's
+  row and weight are its body's; the forced split of a literal of such a
+  predicate, and of a `!` factor where any atom is open, switched off;
+  the classes kept for members outside every binder; the memo, the loop
+  check and the chains of free splits switched off for a first-order goal
+  (below).
+- **The refuters** (decision 5): `Refutation::UnbalancedSymbol` and
+  `OneSidedSymbol` (JSON `unbalanced_symbol`, `one_sided_symbol`, the
+  predicate by its symbol index, checked against the sequent's symbols
+  when read), produced by `counts::refutation` for a group of an open
+  predicate; `Disproof::check` checks `UnbalancedSymbol`, `Unbalanced` on
+  a quantified sequent where its predicate has no open atom, and
+  `Equation` with a quantifier counted as its body (`check_balance` is
+  the shared count); `Classical` and `Saturated` stay `NotApplicable`
+  with a quantifier; the classical refuter answers nothing for a forest
+  with a binder; the Rocq disproof writer refuses a quantified sequent.
+- **The bounds** (D16): `Options::witness_depth`
+  (`DEFAULT_WITNESS_DEPTH` 64, `with_witness_depth`, JSON
+  `witness_depth`, `--witness-depth N`, `search.witness_depth`,
+  `Reason::WitnessDepth`) and `Options::instances` (`DEFAULT_INSTANCES`
+  2¹⁶, `with_instances`, JSON `instances`, `--instances N`,
+  `search.instances`, `Reason::Instances`), each cutting a branch like
+  the copy budget, the command's line naming its flag; member ids past
+  `u32` answer `Reason::IndexLimit`, tested through a test-only lowered
+  limit.
+- **The reference prover** (`core/src/search/reference_fo.rs`,
+  test-only): one-sided classical first-order linear logic, linear and
+  affine, with and without Mix, unfocused and exhaustive, unknowns bound
+  by unification with the occurs check, the eigenvariable condition by
+  freshness on the closed derivation, the goals on a stack so that a
+  failure backtracks into every choice made before, the invertible rules
+  first; with its generator of random first-order sequents and the
+  comparison `the_focused_engine_agrees`.
+- **Tests**: `core/tests/first_order.rs`
+  (`the_focused_engine_takes_a_quantified_goal_and_no_other`,
+  `the_focused_engine_decides_first_order_sequents`,
+  `the_first_order_families_have_their_verdicts`,
+  `the_first_order_bounds_stop_the_search`,
+  `the_counts_refute_first_order_sequents`), `focus::tests::
+  a_first_order_search_past_its_member_ids_stops`, the reference's two
+  tests; the options' JSON, the reasons' and refutations' names updated
+  where their lists grew.
+- **Docs**: README ("First-order sequents", the built and planned
+  lists), the guide for AI models (`SKILL.md`'s syntax sentence,
+  `reference.md`'s first-order paragraph, refutation kinds, reasons and
+  flags), the changelog, the command's help (the behaviour lock
+  re-blessed in a commit of its own), `.claude/rules/core-focus.md`
+  ("The first-order zone") and `core-search.md` (the refuters with
+  quantifiers, the `LL1` rows, the bounds).
+
+### Departures from the design
+
+- **The memo and the loop check are off for a first-order goal,
+  ground stable sequents too** (departs from the design: the plan's
+  decision 4 and api.md 10.10 (f) key the ground stable sequents). A
+  proof of a ground stable sequent holds members whose metavariables a
+  later undo of a rule around it unbinds, so only failures could be
+  kept; and after the first `∃` step the members of a sequent are
+  rarely all outside binders, so a ground key would seldom match. The
+  supervisor's note asked whether an unprovable first-order sequent with
+  `!` must then run out the clock: it does, but no memo would end it
+  either: `p(a), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(b)` meets a new instance
+  `p(sⁿ(a))` at every level, which keys by instance would never repeat
+  (MELL1 is undecidable; a saturation argument is a later step's). An
+  instance-keyed memo needs canonical instance ids, which the plan lists
+  with the variant keys for later. Without exponentials the search is
+  finite and decides.
+- **Another answer by exclusion, not by a resumable search** (the design
+  left the mechanism to this session and its panel): the first premise
+  is searched again with every recorded failed answer excluded at the
+  bindings, rather than resumed; a re-search costs the first premise's
+  search again, and the mechanism needs no continuation in the engine.
+- **`FoTerm` gains no `Meta`** (departs from the plan's decision 1, which
+  gave it `Meta(u32)` in this session): the search's terms are a private
+  type (`TRef`, `Var`), and a proof never holds a metavariable, so no
+  public enum gains a variant for it.
+- **No pool for a first-order goal** (departs from the design's "the
+  `&` premises and the parallel cubes split only premises sharing no
+  unbound metavariable"): a first-order goal runs on one thread,
+  whatever `--jobs` says; the default bias's two searches still
+  alternate.
+- **`instances` bounds the instances held at once**, not per branch
+  (api.md 6.2's "instances per branch"): the spans the search holds,
+  which is what the tables cost and what the trail truncates.
+- **The witness depth is measured when the binding is made**, on the
+  term as its bindings then resolve it; a later binding of a
+  metavariable inside it is measured on its own.
+- **One counter of eigenvariables for the levels**, not one per branch:
+  an eigenvariable made on another branch reaches a metavariable only
+  through older metavariables, whose levels refuse it, so the levels a
+  branch would count apart give the same refusals.
+- **A `!` factor forces no split where an atom is open** (an addition to
+  the table of api.md 10.10 (f)): a promotion may bind a metavariable
+  the other factor holds, which the forced chain would never ask for
+  another answer.
+
+### The closed enums' new variants (for step 45)
+
+No variant of `Term`, `Kind`, `Node`, `Rule` or `FoTerm`. New variants
+of non-exhaustive enums: `Reason::WitnessDepth`, `Reason::Instances`,
+`Refutation::UnbalancedSymbol`, `Refutation::OneSidedSymbol`. Additions:
+the structs `UnbalancedSymbol` and `OneSidedSymbol`, the fields
+`Options::witness_depth` and `Options::instances` (`Options` is
+non-exhaustive), `Options::{DEFAULT_WITNESS_DEPTH, DEFAULT_INSTANCES,
+with_witness_depth, with_instances}`.
+
+### The propositional case (D17)
+
+- **Target sets**: `bench/targets/42d.csv` against `bench/targets/42c.csv`
+  and `bench/targets/net-42d.csv` against `bench/targets/net-42c.csv`
+  (`linlog-bench summary --against … --counters`): no verdict differs; of
+  the 145 focused and 64 net rows both decide alike, none differs in
+  `nodes`, `splits`, `memo_hits`, `memo_entries`, `links` or `tests`.
+- **The ratchet** (the gate, none raised): within every ceiling. Counted
+  against the base build (`mksrqnul`, which holds 42c's lift) the search
+  journeys are +0.18 % to +0.42 % (`search-qbf-20-2` +0.25 %,
+  `search-chain-128` +0.23 %, `search-partition-no-5` +0.18 %,
+  `search-chain-64-intuitionistic` +0.24 %, `search-spec-chain`
+  +0.42 %, `search-wide-m2-256` and `search-additive-14` equal), every
+  other journey within 0.2 %. The first gate failed: `search-chain-128`
+  +2.60 % over its ceiling, `search-chain-64-intuitionistic` +2.58 %,
+  `search-spec-chain` +2.04 %. Callgrind against the base, function by
+  function, found the causes and each was fixed there: `Ground::dual_in`
+  left out of line once it took the set rather than a closure (80
+  million instructions on the chain; `#[inline(always)]`), the `!`
+  switch-off and the guarded match arms changing `Ground`'s decision
+  trees in `forced_factor`, `decompose`, `decide_with` and `focus_on`
+  (the `!` switch-off moved into the counts, the first-order arms into
+  the fallback arms), and the counts' atom mapping outlined in their
+  set-up pass (two `#[inline(always)]` functions, and a row copy of its
+  own for a quantifier).
+- **Pinned time** (the rule above, set at 14:49), run 15:13 to 15:15 as
+  the user unit `linlog-step42d-pinned` under the machine lock, the base
+  build (`mksrqnul`) on core 2 and the change's on core 3 for half the
+  runs and swapped for the rest, five runs per row, the load 2.25 to
+  2.92 (the author's browser on other cores; the only other session
+  busy then, asked, kept off cores 2 and 3):
+
+| row | base ms | change ms | ratio | range of the runs' ratios |
+|---|--:|--:|--:|---|
+| search-qbf-20-2 | 27.61 | 27.28 | 0.9881 | 0.980–1.020 |
+| search-chain-128 | 33.86 | 34.31 | 1.0133 | 0.961–1.020 |
+| search-partition-no-5 | 0.425 | 0.421 | 0.9906 | 0.940–1.002 |
+| search-chain-64-intuitionistic | 4.40 | 4.41 | 1.0041 | 0.985–1.028 |
+| chain/256 | 270 | 280 | 1.0370 | 1.000–1.039 |
+| growing/1024 | 110 | 110 | 1.0000 | 1.000–1.100 |
+| qbf/24#1 | 110 | 110 | 1.0000 | 1.000–1.091 |
+| mix/8, the focused engine forced | 690 | 700 | 1.0145 | 1.014–1.030 |
+| mix/9, the focused engine forced | 5870 | 5950 | 1.0136 | 0.997–1.024 |
+| chain/256 two-sided, forced | 270 | 280 | 1.0370 | 0.964–1.037 |
+| chain/512 two-sided, forced | 2300 | 2290 | 0.9957 | 0.987–1.018 |
+| **the focused rows summed** | 9686 | 9786 | **1.0103** | 0.997–1.022 |
+| the other rows summed | 8867 | 8847 | 0.9978 | 0.996–1.003 |
+
+  The rule holds: the focused rows summed are 1.03 % above the base,
+  within 3 %, and no focused row's median is more than 5 % above; the
+  two rows at 1.037 are one 10 ms tick of 270, and their journeys'
+  counts are +0.23 % and +0.24 %. `bench/targets/pinned-42d.csv` holds
+  every row with its spreads, `bench/targets/pinned-42d.runs.csv` every
+  run.
+
+### The reference's reviewer
+
+A fresh-context reviewer (Opus 5.5 at `high`) read
+`core/src/search/reference_fo.rs` against the calculus before it judged
+the engine, with its own scratch copy on cores 4 to 11. **No finding.**
+What it ran: 34 sequents whose verdicts it derived by hand (the
+eigenvariable condition through a chain of unknowns, the drinker formula
+linear and affine, a witness shared by the premises of `&`, an `∃` that
+waits for a `⊕` and a `&`, Mix, the exponentials, the units); about
+31 000 runs against a concrete prover of its own sharing no code (every
+rule on every formula, a fresh constant per `∀`, ground witnesses over
+the sequent's symbols, the eigenvariables in scope and one constant
+more), at formula depths 3 and 4, in the linear, Mix, affine and
+Mix-with-affine modes at copies 0 to 2: the reference never answered
+`Unprovable` where the other found a proof, and every proof the
+reference claimed the other derived too; 600 propositional sequents
+against `reference::sequent`, no contradiction; and a reading of the
+opening of binders, the undo on every failing path, the occurs check,
+the freshness check (sound, and complete since a most general unifier
+fails it only if every solution does), the invertible rules and the
+contraction flag. Its one note, no finding: like the propositional
+reference, `sequent` ignores `mode.order`, which no caller sets; left as
+it is, as the propositional one is.
+
+The committed comparison (`reference_fo::tests::the_focused_engine_agrees`,
+360 generated sequents in three modes, both the dispatch and the engine
+forced) passes; widened 25-fold in a scratch copy (9 000 sequents, 27 000
+cases, release build) it found no disagreement: the reference decided
+25 921, proved 11 381, and the engine proved 11 290 of those within its
+work bound (the rest unknown), against none.
+
+### The panel's findings and answers
+
+On the frozen tree `080c7adf` (the workspace `../linlog-step42d-panel`),
+each reviewer in a fresh context with its own scratch directory, on
+cores 4 and 5, 6 to 9, 10 and 11, after the pinned measurement.
+
+- **The argument (Fable 5.1, `high`)**: no break. It stated the
+  invariants from the code first (unification as most general unifiers
+  on shared terms with the occurs check, acyclic bindings; the trail
+  undone with the nodes at the same points and nothing read past a mark
+  after an undo; the levels sound against the checker's global
+  condition and complete because a refused binding always puts an
+  eigenvariable into the conclusion of its own `∀` step, the other order
+  reached as another alternative; the answer enumeration sound by
+  lifting a proof under an instance to one under the pattern, complete
+  because a refusal happens only at bindings and the intermediate tuples
+  of a proof are more general than its final one, and ending by
+  `exhausted`; the closing's fresh constants past every surviving
+  eigenvariable; the prunes kept and the switch-offs complete), checked
+  each line by line, and ran about 130 sequents of its own in every
+  classical mode, every proof re-read by `linlog check`. Two
+  observations, no finding: (1) a forced chain whose `!` factor fails
+  released its nodes but did not undo the zone, harmless while no atom
+  is open (no binding happens) but against the stated invariant:
+  answered, the chain undoes the zone with its nodes now; (2) the witness
+  depth also bounds a closed input term a witness takes: as specified,
+  the README shows it.
+- **The counterexamples (Opus 5.5, `high`)**: no break. A second
+  reference of its own in Python sharing no code (ground witnesses over
+  the sequent's names, closed under its function symbols to depth 1 or
+  2, freshness literal, unprovable only where complete); 8 539 generated
+  sequents in the classical, Mix, affine and affine Mix modes, about
+  270 000 engine decisions under ten option sets (copy bounds 0 to 3 and
+  none, both biases, the focused engine forced, `-j 4`, memory limits of
+  8 KiB to 256 KiB, tight instances and witness depths): never a proof
+  against a refutation from either reference, never a proof under one
+  option set and a refutation under another, and the two references
+  never contradicted each other (about 23 000 cases decided by both);
+  the committed comparison widened to 144 000 cases, no contradiction;
+  the families (the witness family proved up to 89 alternatives and at
+  200 and 1 000, refuted with `q(b)` at every size; the chain proved
+  within `n` copies and never within `n − 1`, up to 65, and at 66 to 70
+  unknown at the default witness depth, as specified); 150
+  graph-reachability sequents judged against a breadth-first search;
+  about 60 000 returned proofs read back by `linlog check`, all valid;
+  every other engine and the ordered modes refuse `LL1`. Its two notes
+  (the copy bound counts uses, not contractions; `-j 4` on three cores
+  prints a note) are no findings.
+- **The integers and limits (Sonnet 5.5, `high`)**: three findings, all
+  held, each reproduced before it was answered.
+  1. *A witness nested deeper than about 180 000 applications around an
+     eigenvariable aborted the command by a stack overflow*
+     (`|- forall z. (~p(f(…f(z)…)) par (exists y. p(y)))` at 200 000,
+     with `--witness-depth 4294967295`), in 42b's `Canonical::term`,
+     which recursed per argument list and which the engine's closed
+     proofs now feed: reproduced (exit by `stack overflow, aborting`).
+     Fixed at the cause: the walk has a stack of its own, arguments
+     first; 200 000 and 1 000 000 deep now prove and check;
+     `a_deep_witness_closes_without_recursion` pins it at 100 000.
+  2. *The time limit overshot in proportion to the terms' depth*: a
+     split search unifying terms 20 000 deep at every step ran 48 s past
+     a 1 s limit, since a split search polls every 4 096 steps and a
+     unification was no step: reproduced at 4 000 deep (8.7 s against
+     1 s). Fixed: the zone counts the terms its walks visit
+     (`Framed::steps`), and the engine counts them as work, one unit per
+     sixteen, and polls on them every 4 096 (`Run::poll_terms`, after
+     each unification and each step of `answers`); both witnesses now end
+     at the limit (0.98 s, 1.00 s); `a_deep_unification_is_counted_work`
+     pins it deterministically under a bound on work.
+  3. *The zone's memory was not charged to the bound*: a search held
+     882 MiB under `--memory-limit 16MiB`: reproduced. Fixed in part:
+     the zone's tables and its walks' retained buffers are charged to the
+     engine's account as they grow (`Zone::held`, in the same poll), and
+     the witness now ends `unknown` at the memory limit after 0.4 s. The
+     walks' temporary sets in `equal`, `fits`, `instance_of`, `pattern`
+     and `open_answers` stay uncharged; each is as large as the terms it
+     walks, so bounded by the input's terms and the witness depth, and
+     freed at the walk's end.
+  Its note 4 (the witness depth measured as each binding is made, so a
+  proof may hold a deeper witness built by several bindings) is the
+  specified behaviour (`Options::witness_depth`'s doc, the departures
+  above). Every other integer held at its limit, driven there with
+  overflow checks on: member ids and `member_limit` (13 607 refusals in
+  a sweep, no wrong verdict), frames below `u32::MAX`, variable ids, the
+  eigenvariable numbers and the fresh constants past them (a forged
+  clash rejected by the checker), the witness depth at and past it, the
+  instances at 0 to 13 and `u32::MAX`, the `child` arithmetic, the casts
+  of the patterns' counts, the counts' `i32` and the predicate groups,
+  the JSON reader's symbol index of a refutation, and the iterative walks
+  on terms nested up to 5 000 000 deep.
+
+The fixes are the commit after the frozen tree; they touch the first-order
+zone and 42b's canonicalization only (the forced chain's undo is behind
+`Z::FIRST_ORDER`), and the gate's ratchet counts them.
+
+### What is not verified
+
+- The pinned time was measured on the build before the panel's fixes;
+  those touch the first-order zone and the proof's canonicalization, and
+  the gate's ratchet counts every propositional journey exactly as before
+  them, so the measurement stands for the last commit by the counts, not
+  by a second run.
+- No problem library is first-order: the evidence is the generated
+  sequents, the two references, the families and the panel's runs. The
+  families as `linlog::families` entries, their harness columns and the
+  comparison with LinearOne are 42h's.
+- The walks' temporary sets are not charged to the memory bound (the
+  panel's third finding, fixed in part; above).
+- An unprovable first-order sequent with `!` that the counts do not
+  refute runs to the time limit (by default) or the copy bound; MELL1 is
+  undecidable, and no memo of this session would end it.
+
+### Checklist
+
+- [x] `Framed` as the second `impl Zone`, `Bindings` and the trail with
+  levels, unification with the occurs check on the shared terms, the
+  literal seam, a premise's answers enumerated under a shared
+  metavariable (`first_order.rs`, `framed.rs`); shown by the command on
+  first-order sequents in the classical modes, Mix included, every proof
+  checked (the session's last messages).
+- [x] The prunes' first-order forms or their switch-off (above; the
+  memo off, a departure).
+- [x] The dispatch row `LL1 → Focus` in the classical modes, Mix
+  included.
+- [x] The refuters' carry-over (decision 5): the per-predicate kinds,
+  their checks and JSON; the classical refuter's refusal.
+- [x] The proof returned closed, an unbound metavariable a fresh
+  constant.
+- [x] `Options::witness_depth` and `Options::instances` with
+  `DEFAULT_*`, flags, JSON keys and reasons; each bound's stop tested by
+  an input that reaches it (`the_first_order_bounds_stop_the_search`),
+  and the member ids' refusal
+  (`a_first_order_search_past_its_member_ids_stops`).
+- [x] The first-order reference prover committed, its reviewer's round
+  (no finding), the reference against the engine on generated sequents
+  with no disagreement.
+- [x] Both target sets against `42c.csv` and `net-42c.csv`, every
+  decided row's counters equal; the ratchet within its ceilings, none
+  raised; the pinned time with its rule set before, in the user unit
+  `linlog-step42d-pinned` on cores 2 and 3, resumable.
+- [x] The panel's round on a frozen tree, each finding answered above.
+- [x] README, the guide (its tests pass) and the changelog true.
+- [x] Every code commit gated (the engine's with the lock's that follows
+  it, the reference's, the panel's fixes'); `nix flake check` at the
+  last commit: see the last message to the supervisor for its exit
+  status.
+- [x] `jj st` clean, the session's commits in `jj log`.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **`.claude/rules/core-focus.md`, "The first-order zone"**, holds the
+  invariants: members as spans, terms read through frames and never
+  built, levels by one counter, the trail undone where nodes are
+  released, another answer by excluded patterns, the switch-offs, term
+  work polled and the zone's tables charged. `core-search.md` holds the
+  refuters with quantifiers, the `LL1` rows and the bounds.
+- **42e (the two-sided engine)** reuses `Framed` as it is: the reading
+  is per occurrence, so a span member's position is its occurrence's;
+  `TwoSided`'s `admits` takes `LL` today and must take `LL1` with the
+  intuitionistic rows; the two-sided `⊸L` split runs through `premises`,
+  hence through `answers`. `Interactive`'s open witness is a metavariable
+  of a session's own zone; `close` hands a goal to `search_goal`, which
+  must then choose `Framed` by the goal's fragment as `Focused::decide`
+  does.
+- **The memo is off for a first-order goal.** A later step that keys
+  ground or instance sequents needs canonical instance ids (the
+  closing's numbering is one, per proof) and must keep proofs out of the
+  memo or close them when kept: a kept proof's members name
+  metavariables that a later undo unbinds.
+- **`Ground` must stay the old code**: every first-order case sits
+  inside a match's existing fallback arm behind `Z::FIRST_ORDER`, and a
+  trait method `Ground` implements on a hot path is
+  `#[inline(always)]` where its signature changed (`dual_in`); a guarded
+  arm of its own cost `search-qbf-20-2` 0.4 % and an outlined `dual_in`
+  `search-chain-128` 2.6 % (profiled with callgrind against the base,
+  function by function: `bench.md`, 42a's note).
+- **0.2.0's list** (step 45) gains no variant of `Term`, `Kind`, `Node`,
+  `Rule` or `FoTerm`; the new variants are of non-exhaustive enums
+  (`Reason`, `Refutation`), listed above.
+- **The witness depth is per binding**: a proof may hold a deeper
+  witness built by several bindings, as `Options::witness_depth` says;
+  the panel measured the chain family needing exactly `n − 1`.
