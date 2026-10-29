@@ -291,9 +291,10 @@ pub(crate) fn cases() -> Vec<Case> {
         });
     }
 
-    // `∀x. p(x) ⊢ p(a)`: an axiom on the open atom named bare, a `∃`
-    // step whose witness is an eigenvariable no `∀` step introduces, and
-    // a `∀` step on the `∃` the hypothesis is one-sided.
+    // `∀x. p(x) ⊢ p(a)`: an axiom on the open atom named bare, `∀x. p(x)
+    // ⊢ ∃y. p(y)` with a witness no `∀` step introduces, a constant
+    // outside the signature, and a `∀` step on the `∃` the hypothesis is
+    // one-sided.
     {
         let b = Build::new("forall x. p(x) |- p(a)", &[]);
         let (ex, goal) = (b.root(0), b.root(1));
@@ -308,6 +309,8 @@ pub(crate) fn cases() -> Vec<Case> {
         let c = b.eigen(2);
         let frame = b.frame(&[c]);
         let (l, r) = (b.at(below(ex, 1), frame), b.at(below(ey, 1), frame));
+        // An eigenvariable no `∀` step introduces is a constant outside
+        // the signature, a witness of its own.
         cases.push(Case {
             name: "unintroduced",
             proof: b.proof(vec![
@@ -316,7 +319,7 @@ pub(crate) fn cases() -> Vec<Case> {
                 Exists(bare(ex), c, n(1)),
             ]),
             mode: classical,
-            fault: Some(("eigenvariable", 2)),
+            fault: None,
         });
         let mut b = Build::new("forall x. p(x) |- p(a)", &[]);
         let (ex, goal) = (b.root(0), b.root(1));
@@ -643,6 +646,91 @@ mod tests {
             "{}",
             text("witness_ill")
         );
+    }
+
+    /// The walk of the witnesses is work the pass counts: a tower of `∃`
+    /// steps each of whose witnesses holds the last, `f(t, a)`, is quadratic
+    /// in the walk, and a work limit above its nodes and below the walk
+    /// refuses it, without a verdict; without one it is a proof.
+    #[test]
+    fn the_walk_of_witnesses_is_counted_work() {
+        let n = 200u32;
+        let vars: Vec<String> = (0..n).map(|i| format!("x{i}")).collect();
+        let mut b = Build::new(
+            &format!("|- exists {}. top, p(f(a, a))", vars.join(" ")),
+            &[],
+        );
+        let outer = b.root(0);
+        let f = b
+            .forest
+            .sequent()
+            .symbols()
+            .iter()
+            .position(|(s, _)| s == "f");
+        let f = crate::sequents::Symbol::new(f.unwrap() as u32);
+        let a = b.term("a");
+        let mut witness = a;
+        let mut frame: Option<FrameId> = None;
+        let mut members = vec![];
+        for i in 0..n {
+            let member = match frame {
+                None => bare(below(outer, i)),
+                Some(frame) => b.at(below(outer, i), frame),
+            };
+            members.push((member, witness));
+            frame = Some(b.table.frame(frame, witness));
+            witness = b.table.apply(f, &[witness, a]);
+        }
+        let top = b.at(below(outer, n), frame.unwrap());
+        let mut nodes = vec![Node::Top(top)];
+        for (k, &(member, witness)) in members.iter().rev().enumerate() {
+            nodes.push(Node::Exists(member, witness, NodeId::new(k as u32)));
+        }
+        let proof = b.proof(nodes);
+        assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
+        let limits = Limits::default().with_work(Some(u64::from(n * n / 4)));
+        let result = proof.check_within(Mode::CLASSICAL, &limits, |_| false);
+        assert!(
+            matches!(
+                result,
+                Err(CheckError::Refused(crate::proofs::Refused {
+                    refusal: crate::Refusal::Work { .. },
+                    ..
+                }))
+            ),
+            "{result:?}"
+        );
+    }
+
+    /// An error writes a frame's term cut after a few thousand characters:
+    /// a witness of forty doubly shared levels, `f(t, t)`, which a file of
+    /// a kilobyte names and no memory holds written out, is reported in a
+    /// short message.
+    #[test]
+    fn an_error_cuts_a_frame_term() {
+        let mut b = Build::new("forall x. p(x) |- p(f(a, a))", &[]);
+        let (ex, goal) = (b.root(0), b.root(1));
+        let f = b
+            .forest
+            .sequent()
+            .symbols()
+            .iter()
+            .position(|(s, _)| s == "f");
+        let f = crate::sequents::Symbol::new(f.unwrap() as u32);
+        let mut t = b.term("a");
+        for _ in 0..40 {
+            t = b.table.apply(f, &[t, t]);
+        }
+        let frame = b.frame(&[t]);
+        let body = b.at(below(ex, 1), frame);
+        let proof = b.proof(vec![
+            Node::Ax(body, bare(goal)),
+            Node::Exists(bare(ex), t, NodeId::new(0)),
+        ]);
+        let error = proof.check(Mode::CLASSICAL).unwrap_err();
+        let message = error.describe(&proof).to_string();
+        assert!(message.contains("…"), "{message}");
+        assert!(message.len() < 3 * (1 << 13), "{} bytes", message.len());
     }
 
     /// Every written proof is pinned as a JSON file under

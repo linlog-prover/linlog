@@ -556,6 +556,11 @@ impl Seq {
         }
         let cuts: Vec<TermId> = cuts.into_iter().map(TermId::new).collect();
         s.push_cuts(&cuts);
+        // A cut formula is closed as a root is, which the check sees only
+        // once the cuts are the sequent's.
+        if !cuts.is_empty() && !s.fo.is_empty() {
+            s.check()?;
+        }
         s.merge_atoms();
         Ok(s)
     }

@@ -169,6 +169,7 @@ fn the_written_proofs_read_back_and_are_judged() {
         "cut_instance",
         "swap",
         "swap_ill",
+        "unintroduced",
         "witness",
         "witness_ill",
     ];
@@ -242,4 +243,14 @@ fn the_term_limit_refuses_at_every_reader() {
     let error = linlog::wire::upgrade::<Proof, _>(&mut document, &limits).unwrap_err();
     assert_eq!(error.code(), "too_many_terms", "{error}");
     assert_eq!(error.setting(), Some("limits.terms"));
+}
+
+/// A cut formula of a document is closed as a root is: one with a loose
+/// bound variable is refused when read, not left for the checker, which
+/// would look past its instance's frame.
+#[test]
+fn a_cut_formula_with_a_loose_variable_is_refused() {
+    let json = r#"{"version":7,"sequent":{"terms":[{"V":0},{"∀":0},"⊤",{"D":0},{"∃":3}],"roots":[2],"atoms":[{"P":[0,[0]]}],"symbols":[["p",1]],"fo":[{"B":1}],"binders":["x","x"],"antecedents":0,"cuts":[1]},"nodes":[{"ax":[5,6]}],"instances":{"members":[[2,0],[4,0]],"frames":[[null,1]],"terms":[{"E":0}]}}"#;
+    let error = serde_json::from_str::<Proof>(json).unwrap_err();
+    assert!(error.to_string().contains("bound variable"), "{error}");
 }

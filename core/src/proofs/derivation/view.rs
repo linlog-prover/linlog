@@ -299,7 +299,7 @@ pub struct Derivation<'a> {
     mode: Option<Mode>,
     /// The instances of the proof's members past the forest, where it
     /// has them.
-    framing: Option<Framing<'a>>,
+    framing: Option<Box<Framing<'a>>>,
 }
 
 impl<'a> Derivation<'a> {
@@ -387,7 +387,7 @@ impl<'a> Derivation<'a> {
             mode: proof.mode(),
             framing: proof
                 .instances()
-                .map(|table| Framing::new(&proof.forest().sequent().fo, table)),
+                .map(|table| Box::new(Framing::new(&proof.forest().sequent().fo, table))),
         })
     }
 
@@ -458,7 +458,7 @@ impl<'a> Derivation<'a> {
     /// Returns the occurrence a member of the derivation stands for.
     pub fn occurrence(&self, member: Member) -> OccId {
         self.framing
-            .as_ref()
+            .as_deref()
             .map_or(member.occ(), |framing| framing.occurrence(member))
     }
 
@@ -483,6 +483,7 @@ impl<'a> Derivation<'a> {
                     self.reading.as_ref(),
                     framing,
                     member,
+                    None,
                 )
                 .expect("writing into a string cannot fail");
             return text;
@@ -496,7 +497,7 @@ impl<'a> Derivation<'a> {
     /// Returns the instances of the proof's members past the forest,
     /// where it has them.
     pub(crate) fn framing(&self) -> Option<&Framing<'a>> {
-        self.framing.as_ref()
+        self.framing.as_deref()
     }
 
     /// Returns the intuitionistic reading of a two-sided derivation, or

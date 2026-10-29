@@ -163,6 +163,29 @@ struct Sides<'r, 'f> {
     marks: (&'static str, &'static str),
 }
 
+/// A string that takes `left` more characters and then refuses: a term
+/// written in it stops at the cap.
+struct Capped {
+    /// What was written.
+    text: String,
+    /// How many characters it takes still.
+    left: usize,
+}
+
+impl Write for Capped {
+    fn write_str(&mut self, s: &str) -> FmtResult {
+        let n = s.chars().count();
+        if n <= self.left {
+            self.left -= n;
+            self.text.push_str(s);
+            return Ok(());
+        }
+        self.text.extend(s.chars().take(self.left));
+        self.left = 0;
+        Err(std::fmt::Error)
+    }
+}
+
 /// A writer that passes everything on to the one it holds: a type of its
 /// own for the walks an instance makes.
 struct Apart<'w, W: ?Sized>(&'w mut W);
@@ -375,7 +398,9 @@ impl Notation {
     /// Writes the formula of the instance `member` of a proof's `framing`
     /// as [`term`](Self::term) writes an occurrence's, or under a reading
     /// as [`ill`](Self::ill) does: its bound variables that no binder of
-    /// it binds written as the terms of its frame.
+    /// it binds written as the terms of its frame, each cut after `cap`
+    /// characters with `…` where one is given (a term of shared subterms
+    /// can be exponentially longer than the proof that names it).
     #[cold]
     #[inline(never)]
     pub(crate) fn instance<W: Write>(
@@ -385,6 +410,7 @@ impl Notation {
         reading: Option<&Reading>,
         framing: &Framing<'_>,
         member: Member,
+        cap: Option<usize>,
     ) -> FmtResult {
         let (o, frame) = framing
             .table
@@ -395,10 +421,17 @@ impl Notation {
             .frame_terms(frame)
             .into_iter()
             .map(|t| {
-                let mut text = String::new();
-                framing
-                    .write_term(&mut text, t, &mut |out, name| self.atom.write(out, name))
-                    .map(|()| text)
+                let mut text = Capped {
+                    text: String::new(),
+                    left: cap.unwrap_or(usize::MAX),
+                };
+                match framing.write_term(&mut text, t, &mut |out, name| self.atom.write(out, name))
+                {
+                    Ok(()) => Ok(text.text),
+                    // Past the cap: what was written, and `…`.
+                    Err(_) if text.left == 0 => Ok(text.text + "…"),
+                    Err(e) => Err(e),
+                }
             })
             .collect::<Result<Vec<String>, _>>()?;
         let scope = Scope::framed(frame, framing.names());
@@ -905,7 +938,7 @@ impl Notation {
         m: Member,
     ) -> FmtResult {
         if m.index() >= forest.len() {
-            return self.instance(out, forest, reading, framing, m);
+            return self.instance(out, forest, reading, framing, m, None);
         }
         match reading {
             Some(reading) => self.ill(out, reading, m.occ(), false),

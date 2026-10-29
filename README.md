@@ -1656,8 +1656,10 @@ member past the sequent's occurrences as `[occurrence, frame]`, each
 frame as `[parent, term]` (the innermost quantifier's term first, `null`
 past the outermost), and the proof's own terms after the sequent's `fo`
 (an eigenvariable `{"E": k}`). `check` checks such a proof, with the
-eigenvariable condition: every eigenvariable is introduced by one `∀`
-step and named by witnesses above it alone. The derivation writes every
+eigenvariable condition: an eigenvariable a `∀` step introduces is
+introduced by that step alone and named by witnesses above it alone,
+while one no step introduces is a constant outside the signature, a
+witness like any other. The derivation writes every
 instance with its terms, the eigenvariables named after letters no
 symbol takes:
 

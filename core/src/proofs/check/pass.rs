@@ -540,12 +540,20 @@ impl<'a, 's, O: Observer, I: Instancing> Pass<'a, 's, O, I> {
             .as_deref()
             .expect("the root's sequent is kept");
         // A root's eigenvariable remained: a witness or a cut's frame
-        // names it outside the `∀` step that introduces it.
+        // names it outside the `∀` step that introduces it. One that no
+        // step introduces is a constant outside the signature.
         let remained = self
             .eigens
             .get(self.proof.root().index())
             .and_then(Option::as_deref);
-        if let Some(eigen) = remained.and_then(|e| e.set.iter().min().copied()) {
+        let escaped = remained.and_then(|e| {
+            e.set
+                .iter()
+                .copied()
+                .filter(|&a| self.inst.introduces(a))
+                .min()
+        });
+        if let Some(eigen) = escaped {
             return Err(Halt::Fault(Fault::Eigenvariable { eigen }));
         }
         let goal = Bag::of(goal.iter().copied().map(Member::from));
@@ -778,11 +786,16 @@ impl<'a, 's, O: Observer, I: Instancing> Pass<'a, 's, O, I> {
         {
             set.set.remove(&a);
         }
-        let brought = self.inst.eigens(id);
+        // The walk of the terms is work like any other, counted and
+        // polled for: a chain of witnesses each holding the last makes it
+        // quadratic in the proof.
+        let mut brought = Vec::new();
+        let units = self.inst.bring(node, &mut brought);
+        self.done = self.done.saturating_add(units);
         if !brought.is_empty() {
             let set = set.get_or_insert_with(|| Box::new(Eigens::default()));
             let before = set.bytes();
-            for &a in brought {
+            for a in brought {
                 set.insert(a);
             }
             let after = set.bytes();
@@ -815,6 +828,14 @@ impl<'a, 's, O: Observer, I: Instancing> Pass<'a, 's, O, I> {
                     if !f.is_literal(self.inst.occ(m)) {
                         return Err(Halt::Fault(Fault::Kind { member: m }));
                     }
+                }
+                if I::FRAMED {
+                    // Reading an instance's atom walks its frame.
+                    let frames = self
+                        .inst
+                        .frame_len(a)
+                        .saturating_add(self.inst.frame_len(b));
+                    self.done = self.done.saturating_add(frames);
                 }
                 if !self.inst.dual_literals(f, a, b) {
                     return Err(Halt::Fault(Fault::NotDual));

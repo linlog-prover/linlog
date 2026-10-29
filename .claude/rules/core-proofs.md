@@ -391,6 +391,49 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   does; without it a `∀` step beside the cut's dual, `cut_frame`, passed
   with its eigenvariable in its conclusion), `∀` steps remove their own,
   and a set left at the root is `Fault::Eigenvariable`, at the root.
+- **Why an accepted proof meets the calculus's condition** (the argument
+  the code rests on, which the plan's decision 3 does not state: there
+  "a frame is built by the nodes between the root and N", but here any
+  leaf or unary rule may name a member whose frame already holds `a`).
+  A member whose frame names `a` and that stands in the conclusion of
+  `N`, the one `∀` step introducing `a`, must be consumed on every path
+  to the root (the root's zone is frameless, `Θ` empty, and `&` keeps
+  every member of both sides). A framed member is consumed only by a
+  rule on its parent under the same frame, by a `∀` step whose
+  eigenvariable is its frame's innermost term, by an `∃` step whose
+  witness is, or by a cut on it. By induction on the frame the
+  consumption ends at `N` itself (impossible strictly below `N`) or at a
+  node that brings `a` in (an `∃` step or a cut) below `N`, whose `a`
+  reaches the root since `N` lies on no path from it to the root. The
+  panel's argument reviewer (Fable 5.1) derived it from the code; its 18
+  attacks and 18 mutants were judged as the calculus or the plan's
+  stricter form judges them.
+- **Stricter than the calculus, as the plan's form demands** (sound,
+  incomplete): two `∀` steps with one eigenvariable in disjoint branches
+  are `Reintroduced`; an eigenvariable named beside its `∀` step as a free
+  parameter is `Eigenvariable`; a vacuous frame
+  (`∃y. ⊤` under `y := a`) counts as an occurrence of `a`. One `∀` node
+  read by two parents is accepted: each unfolded copy has the same
+  `a`-free conclusion.
+- **An eigenvariable no `∀` step introduces is a constant outside the
+  signature** (`Instancing::introduces`; the oracle's `introduced`): the
+  fresh constant decision 2 closes an unbound metavariable with, which
+  the table has no other way to write. Before the panel's finding it was
+  `Eigenvariable`, and `∀x.p(x) ⊢ ∃y.p(y)` had no proof term.
+- **A cut formula's scope is checked once the cuts are the sequent's**
+  (`serialize/sequents.rs`): the JSON reader checked before
+  `push_cuts`, and a cut formula with a loose bound variable reached the
+  checker, which indexed past its frame (a panic the panel's fuzzer
+  found).
+- **The frame pass is linear; the walks are counted work**: the
+  eigenvariables of a witness or a cut's frame are walked in `flow`
+  (`Instancing::bring`), each term a unit of `limits.work`, and an
+  axiom's frames too, so a chain of witnesses each holding the last,
+  quadratic in its walk, is refused by the work bound and stoppable;
+  `Canonical::frame` makes each frame once; an error writes a frame's
+  term cut at 4 096 characters (`describe::TERM`, a term of shared
+  subterms can unfold past any memory). The panel's integers reviewer
+  found the three (a 2.6 MB file took 4 GB in the frame pass before).
 - **The axiom compares atoms' instances by hash-consed number**
   (`Numbering`): every term of both arenas numbered by its symbol and
   its arguments' numbers, an open atom's arguments substituted under

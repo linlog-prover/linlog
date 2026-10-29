@@ -64,6 +64,11 @@ pub(crate) struct Names<'a> {
     pub(crate) framing: Option<&'a Framing<'a>>,
 }
 
+/// The most characters of a term an error writes in an instance, past
+/// which it is cut: a term of shared subterms in a short file can unfold
+/// to more than any memory holds.
+const TERM: usize = 1 << 12;
+
 /// Writes a member as its formula when names are given, an instance as
 /// its owner's table says, else as its id.
 pub(crate) fn occurrence(
@@ -78,7 +83,7 @@ pub(crate) fn occurrence(
             framing: Some(framing),
         }) if o.index() >= forest.len() => {
             let mut text = String::new();
-            TEXT.instance(&mut text, forest, reading, framing, o)?;
+            TEXT.instance(&mut text, forest, reading, framing, o, Some(TERM))?;
             f.write_str(&text)
         }
         // An instance whose owner's table the names lack, by its id.

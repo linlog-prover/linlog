@@ -452,9 +452,10 @@ under quantifiers with the terms they were opened with), `frames`, each
 `[parent, term]` with the innermost quantifier's term first and `null`
 past the outermost, and `terms`, the proof's own terms after the
 sequent's `fo`, an eigenvariable as `{"E": k}`. `check` holds such a
-proof to the eigenvariable condition: every eigenvariable is introduced
-by one `∀` step and named by witnesses above it alone; the error names
-the one that is not (`eigenvariable a occurs outside the ∀ step that
+proof to the eigenvariable condition: an eigenvariable a `∀` step
+introduces is introduced by that step alone and named by witnesses above
+it alone (one no step introduces is a constant outside the signature);
+the error names the one that is not (`eigenvariable a occurs outside the ∀ step that
 introduces it`).
 
 ```console

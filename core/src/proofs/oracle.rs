@@ -118,6 +118,8 @@ struct Frames {
     /// The fault of a node, where the proof gives it one: a member under
     /// binders named bare, or a second introduction of an eigenvariable.
     faults: BTreeMap<NodeId, Fault>,
+    /// The eigenvariables a `∀` step introduces; any other is a constant.
+    introduced: BTreeSet<Eigen>,
 }
 
 impl Frames {
@@ -133,6 +135,7 @@ impl Frames {
             lists: BTreeMap::new(),
             symbols: fo.symbols.iter().map(|(n, _)| n.clone()).collect(),
             faults: BTreeMap::new(),
+            introduced: BTreeSet::new(),
         };
         for (k, &(start, len)) in fo.lists.iter().enumerate() {
             let items = fo.args[start as usize..(start + len) as usize].to_vec();
@@ -184,6 +187,7 @@ impl Frames {
                 }
             }
         }
+        this.introduced = first.keys().copied().collect();
         this
     }
 
@@ -249,8 +253,8 @@ impl Frames {
 pub(crate) fn conclude(proof: &Proof, mode: Mode, derived: &[Derived]) -> Result<(), CheckError> {
     let root = proof.root();
     let d = &derived[root.index()];
-    if let Some(&eigen) = d.eigens.iter().next() {
-        let frames = Frames::of(proof);
+    let frames = Frames::of(proof);
+    if let Some(&eigen) = d.eigens.iter().find(|a| frames.introduced.contains(a)) {
         return Err(Step::new(proof, mode, root, derived, None, &frames)
             .fail(Fault::Eigenvariable { eigen }));
     }

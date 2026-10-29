@@ -504,8 +504,10 @@ fn malformed(message: String) -> Error {
 /// number of arguments or a predicate applied as a function, a frame
 /// term with a loose bound variable, and a member whose frame has not
 /// one term for each binder above its occurrence;
-/// and a witness with a loose bound variable; [`Error::IndexOutOfBounds`]
-/// for a witness out of range.
+/// and a witness out of range or with a loose bound variable;
+/// [`Error::IndexOutOfBounds`] for a member past the table, and
+/// [`Refusal::Index`](crate::Refusal::Index) for a table whose ids would
+/// pass what a `u32` counts.
 pub(crate) fn canonical(
     forest: &Forest,
     table: &Instances,
@@ -624,11 +626,10 @@ pub(crate) fn canonical(
     for node in nodes.iter() {
         if let Node::Exists(_, w, _) = *node {
             if w.index() >= all_terms {
-                return Err(Error::IndexOutOfBounds {
-                    space: Space::Term,
-                    index: w.index(),
-                    len: all_terms,
-                });
+                return Err(malformed(format!(
+                    "the witness {} is past the {all_terms} terms",
+                    w.get()
+                )));
             }
             if !numbering.is_closed(w) {
                 return Err(malformed(format!(
@@ -657,6 +658,9 @@ struct Canonical<'a> {
     list_at: HashMap<u64, Args>,
     /// Per frame of the table made, by its parent and term.
     frame_at: HashMap<(Option<FrameId>, FoTermId), FrameId>,
+    /// Per frame of the table read, its frame in the table made once
+    /// made: a tower of frames is made once, not once per member.
+    made: Vec<Option<FrameId>>,
     /// Per member of the table made, by its occurrence and frame.
     member_at: HashMap<(OccId, FrameId), Member>,
 }
@@ -673,6 +677,7 @@ impl<'a> Canonical<'a> {
             term_at: HashMap::default(),
             list_at: HashMap::default(),
             frame_at: HashMap::default(),
+            made: vec![None; table.frames.len()],
             member_at: HashMap::default(),
         };
         for id in 0..fo.terms.len() {
@@ -746,19 +751,25 @@ impl<'a> Canonical<'a> {
     /// Returns the frame of the table made for the frame `f` of the table
     /// read.
     fn frame(&mut self, f: FrameId) -> FrameId {
+        // The frames up to the first made, then made downwards.
         let mut chain = Vec::new();
         let mut next = Some(f);
+        let mut below = None;
         while let Some(f) = next {
-            let (parent, term) = self.table.frames[f.index()];
-            chain.push(term);
-            next = parent;
+            if let Some(made) = self.made[f.index()] {
+                below = Some(made);
+                break;
+            }
+            chain.push(f);
+            next = self.table.frames[f.index()].0;
         }
-        let mut made = None;
-        for term in chain.into_iter().rev() {
-            let term = self.term(term);
-            made = Some(self.push(made, term));
+        for f in chain.into_iter().rev() {
+            let term = self.term(self.table.frames[f.index()].1);
+            let made = self.push(below, term);
+            self.made[f.index()] = Some(made);
+            below = Some(made);
         }
-        made.expect("a frame holds a term")
+        below.expect("a frame holds a term")
     }
 
     /// Returns the member of the table made for `o` under `frame`, a

@@ -216,8 +216,10 @@ pub enum Fault {
         member: Member,
     },
     /// The eigenvariable occurs outside the `∀` step that introduces it:
-    /// a witness or a cut's frame below that step, or beside it, names it,
-    /// or no `∀` step introduces it. Found at the root, where it remains.
+    /// a witness or a cut's frame below that step, or beside it, names it.
+    /// Found at the root, where it remains. (An eigenvariable no `∀` step
+    /// introduces is a constant outside the signature, a witness like any
+    /// other.)
     #[non_exhaustive]
     Eigenvariable {
         /// The eigenvariable.

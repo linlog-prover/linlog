@@ -52,9 +52,20 @@ pub(crate) trait Instancing {
     /// witness pushed.
     fn body(&self, node: NodeId) -> Member;
 
-    /// Returns the eigenvariables the `∃` step or the cut `node` brings
-    /// in: those of its witness, or of its member's frame.
-    fn eigens(&self, node: NodeId) -> &[Eigen];
+    /// Adds to `into` the eigenvariables the `∃` step or the cut `node`
+    /// brings in, those of its witness or of its member's frame, and
+    /// returns the units of work that took: a term or a frame visited is
+    /// one. Each shared term is visited once.
+    fn bring(&self, node: Node, into: &mut Vec<Eigen>) -> u64;
+
+    /// Returns whether a `∀` step of the proof introduces `a`: one no step
+    /// introduces is a constant outside the signature, which any witness
+    /// may name.
+    fn introduces(&self, a: Eigen) -> bool;
+
+    /// Returns how many terms the frame of `m` holds: the work of reading
+    /// its atom's instance, `0` for an occurrence.
+    fn frame_len(&self, m: Member) -> u64;
 }
 
 /// The members of a proof without binders: its occurrences.
@@ -99,8 +110,17 @@ impl Instancing for Ground {
         unreachable!("a binder's step on a forest without binders fails its kind")
     }
 
-    fn eigens(&self, _: NodeId) -> &[Eigen] {
-        &[]
+    fn bring(&self, _: Node, _: &mut Vec<Eigen>) -> u64 {
+        0
+    }
+
+    #[inline(always)]
+    fn frame_len(&self, _: Member) -> u64 {
+        0
+    }
+
+    fn introduces(&self, _: Eigen) -> bool {
+        false
     }
 }
 
@@ -111,8 +131,6 @@ struct Found {
     fault: Option<Fault>,
     /// The body's instance of a `∀` or `∃` step.
     body: Option<Member>,
-    /// The eigenvariables an `∃` step or a cut brings in.
-    eigens: Vec<Eigen>,
 }
 
 /// The members of a proof with an instance table, which
@@ -130,6 +148,10 @@ pub(crate) struct Framed<'a> {
     members: HashMap<(OccId, FrameId), Member>,
     /// What the frame pass found, by node.
     found: HashMap<NodeId, Found>,
+    /// Per frame, how many terms it holds.
+    lengths: Vec<u64>,
+    /// The eigenvariables a `∀` step introduces.
+    introduced: HashSet<Eigen>,
 }
 
 impl<'a> Framed<'a> {
@@ -164,7 +186,14 @@ impl<'a> Framed<'a> {
                 .map(|(&key, n)| (key, Member::new(table.occurrences + n)))
                 .collect(),
             found: HashMap::default(),
+            lengths: Vec::with_capacity(table.frames.len()),
+            introduced: HashSet::default(),
         };
+        // A parent precedes its frames in a canonical table.
+        for &(parent, _) in &table.frames {
+            let length = parent.map_or(1, |p| this.lengths[p.index()].saturating_add(1));
+            this.lengths.push(length);
+        }
         let eigen_terms: HashMap<Eigen, FoTermId> = table
             .terms
             .iter()
@@ -175,7 +204,6 @@ impl<'a> Framed<'a> {
             })
             .collect();
         let depth = binders(forest);
-        let mut held: HashMap<FoTermId, Vec<Eigen>> = HashMap::default();
         let mut introduced: HashMap<Eigen, NodeId> = HashMap::default();
         for id in proof.ids().rev() {
             let node = proof.node(id);
@@ -203,20 +231,14 @@ impl<'a> Framed<'a> {
                     if forest.kind(o).is_binder() {
                         found.body = Some(this.pushed(m, o, w));
                     }
-                    found.eigens = this.held(&mut held, std::iter::once(w));
-                }
-                Node::Cut(m, ..) if bare.is_none() => {
-                    if let Some((_, frame)) = table.instance(m) {
-                        let frame = table.frame_terms(frame);
-                        found.eigens = this.held(&mut held, frame.into_iter());
-                    }
                 }
                 _ => {}
             }
-            if found.fault.is_some() || found.body.is_some() || !found.eigens.is_empty() {
+            if found.fault.is_some() || found.body.is_some() {
                 this.found.insert(id, found);
             }
         }
+        this.introduced = introduced.keys().copied().collect();
         for id in proof.ids() {
             if let Node::Forall(_, a, _) = proof.node(id)
                 && introduced.get(&a).is_some_and(|&first| first != id)
@@ -239,39 +261,6 @@ impl<'a> Framed<'a> {
     fn pushed(&self, m: Member, o: OccId, term: FoTermId) -> Member {
         let frame = self.frames[&(self.frame(m), term)];
         self.members[&(OccId::new(o.get() + 1), frame)]
-    }
-
-    /// Returns the eigenvariables of `terms`, ascending and each once,
-    /// each term's walked once over the whole pass (`held`).
-    fn held(
-        &self,
-        held: &mut HashMap<FoTermId, Vec<Eigen>>,
-        terms: impl Iterator<Item = FoTermId>,
-    ) -> Vec<Eigen> {
-        let fo = self.numbering.terms();
-        let mut all = Vec::new();
-        for t in terms {
-            let eigens = held.entry(t).or_insert_with(|| {
-                let mut seen = HashSet::default();
-                let mut found = Vec::new();
-                let mut stack = vec![t];
-                while let Some(u) = stack.pop() {
-                    if !seen.insert(u) {
-                        continue;
-                    }
-                    match fo.term(u) {
-                        FoTerm::Eigen(a) => found.push(a),
-                        FoTerm::App(_, args) => stack.extend_from_slice(fo.list(args)),
-                        FoTerm::Bound(_) => {}
-                    }
-                }
-                found
-            });
-            all.extend_from_slice(eigens);
-        }
-        all.sort_unstable();
-        all.dedup();
-        all
     }
 }
 
@@ -352,7 +341,38 @@ impl Instancing for Framed<'_> {
             .expect("the kind test passed: the step acts on a binder")
     }
 
-    fn eigens(&self, node: NodeId) -> &[Eigen] {
-        self.found.get(&node).map_or(&[], |f| &f.eigens)
+    fn frame_len(&self, m: Member) -> u64 {
+        self.frame(m).map_or(0, |f| self.lengths[f.index()])
+    }
+
+    fn introduces(&self, a: Eigen) -> bool {
+        self.introduced.contains(&a)
+    }
+
+    fn bring(&self, node: Node, into: &mut Vec<Eigen>) -> u64 {
+        let mut stack = match node {
+            Node::Exists(_, w, _) => vec![w],
+            Node::Cut(m, ..) => match self.frame(m) {
+                Some(frame) => self.table.frame_terms(frame),
+                None => return 0,
+            },
+            _ => return 0,
+        };
+        // The frame's cells, each one unit.
+        let mut units = stack.len() as u64;
+        let terms = self.numbering.terms();
+        let mut seen = HashSet::default();
+        while let Some(t) = stack.pop() {
+            if !seen.insert(t) {
+                continue;
+            }
+            units = units.saturating_add(1);
+            match terms.term(t) {
+                FoTerm::Eigen(a) => into.push(a),
+                FoTerm::App(_, args) => stack.extend_from_slice(terms.list(args)),
+                FoTerm::Bound(_) => {}
+            }
+        }
+        units
     }
 }

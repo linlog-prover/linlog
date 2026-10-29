@@ -57,7 +57,8 @@ second number (0.1.x to 0.2.0), anything else the third.
   pass compares instances by number, the axiom on two literals whose
   atoms are equal under their frames, and carries every eigenvariable a
   witness or a cut's frame names to the root unless the `∀` step below
-  introduces it (`Fault::Eigenvariable`). `Rule::Forall` and
+  introduces it (`Fault::Eigenvariable`); an eigenvariable no `∀` step
+  introduces is a constant outside the signature. `Rule::Forall` and
   `Rule::Exists`, named `∀R`, `∃L`, `∃R` and `∀L` two-sided; the
   derivation, its size, its text and its LaTeX, Typst and SVG drawings
   write every instance with its frame's terms, an eigenvariable by a
