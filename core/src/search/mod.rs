@@ -36,6 +36,11 @@ mod planar;
 /// A reference prover for the tests: the plain unfocused calculus.
 #[cfg(all(test, feature = "parse"))]
 pub(crate) mod reference;
+/// A first-order reference prover for the tests: the plain unfocused
+/// calculus with unification and the eigenvariable condition by
+/// freshness.
+#[cfg(all(test, feature = "parse"))]
+pub(crate) mod reference_fo;
 /// Why a sequent is unprovable, and the disproof that says so.
 mod refutation;
 /// The check of a refutation by a saturated set, apart from the search.

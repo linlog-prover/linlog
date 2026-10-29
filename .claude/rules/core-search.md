@@ -5,6 +5,7 @@ paths:
   - "core/src/search/work.rs"
   - "core/src/search/additive.rs"
   - "core/src/search/reference.rs"
+  - "core/src/search/reference_fo.rs"
   - "core/src/search/refutation.rs"
 ---
 
