@@ -3746,3 +3746,43 @@ client follows it (step 32).
   to 42b; a clashing bound name written `x_1`. For the author too: 42c
   needs a night for pinned CPU time. Small finding here, for 42b: the
   parser's arity refusal points at the second use only. Next: 42b.
+- 2026-10-28: the author, at 23:50: stop after 42b, the benchmarks
+  waiting for their word; at 23:55 the target sets may run as usual;
+  on 2026-10-29 at 01:00: unattended until further notice, and 42c's
+  benchmarks may start directly (two cores or so left free, coordinated
+  with any other session that loads the machine, resumable).
+- 2026-10-29: review of session 42b, the first-order proof term and the
+  checker (Opus 5.5 at high, 23:40 to 05:20 with a usage-limit pause
+  from 01:08 to 03:52, unattended): `Node::Forall` and `Node::Exists`
+  with the proof's instance table (`Instances`, `FrameId`, `Eigen`), the
+  checker's frame pass and bottom-up pass with the eigenvariable set
+  flowing to the root, its faults (`Instance`, `Eigenvariable`,
+  `Reintroduced`), the oracle's first-order rules, the size, the
+  derivations and their exports printing instances, the proof's JSON at
+  level 7, `Limits::terms` (`--term-limit`); 16 hand-written proofs, 9
+  accepted and 7 refused, every fault reached; a cut on a first-order
+  formula and on an instance. The panel (the argument on Fable 5.1, its
+  three members restarted after the limit killed them): no soundness
+  break in about 15 million terms and mutants against a brute-force
+  MALL1 decider; a panic on a JSON cut formula with a loose variable, a
+  missing witness for `∀x.p(x) ⊢ ∃y.p(y)` (an eigenvariable no `∀` step
+  introduces now a fresh constant), and three unbounded passes, each
+  fixed with a test. Checked here: every committed proof through the
+  command (the affine ones in affine mode, since `check` ignores a
+  file's mode): a subproof shared under two `∀` steps with one
+  eigenvariable refused as reintroduced, the same with two
+  eigenvariables refused, two separate subproofs accepted (conservative
+  and sound); the target sets (0 of 145 and 0 of 64 decided rows
+  differ). The ratchet within its ceilings, none raised;
+  `derivation-chain-64` at +1.98 % of its 2 % margin (+0.34 % from
+  bounds-checked indexing in the inlined derivation text, no cheap fix
+  found; a heads-up box in the session's pane). Closed enums' new
+  variants for 45c: `Node::{Forall, Exists}`, `Rule::{Forall, Exists}`,
+  `FoTerm::Eigen`, `Fault::{Instance, Eigenvariable, Reintroduced}`,
+  `Refusal::Terms` (42a's `CheckError::Quantifiers`, never released,
+  removed). Departures, for the author: the frame pass derives no frame
+  (a node names its members' frames); a cut on an instance brings its
+  frame's eigenvariables into the set; an eigenvariable no `∀` step
+  introduces is a constant outside the signature; eigenvariables named
+  `a_1` past a clash. Next: 42c, the focused engine generic over its
+  zone, with its pinned-time comparison.
