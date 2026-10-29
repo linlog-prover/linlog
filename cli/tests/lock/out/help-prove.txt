@@ -170,6 +170,20 @@ Options:
           
           [default: 67108864]
 
+      --witness-depth <N>
+          The deepest term a variable of a first-order search may be bound to (search.witness_depth)
+          
+          The focused engine searches a sequent with quantifiers by leaving the witness of each `exists` open and filling it in where an axiom matches two atoms. A constant has depth 0, `f(t)` one more than `t`. A branch that would bind a deeper term is cut, and a search that cut one is unknown (exit status 3) rather than unprovable.
+          
+          [default: 64]
+
+      --instances <N>
+          The most instances of quantified formulas a first-order search may hold at once (search.instances)
+          
+          Each `forall` and `exists` the search steps through opens one, and copies of quantified hypotheses under `!` multiply them. A branch that would hold more is cut, and a search that cut one is unknown (exit status 3) rather than unprovable.
+          
+          [default: 65536]
+
       --memory-limit <SIZE>
           The most memory the search may hold: a number of bytes with a unit such as 512MiB or 4GiB, or `none` for no limit (limits.memory_bytes)
           
