@@ -314,3 +314,77 @@ and tested, and the reviewer confirmed D17 on the target sets itself.
   them under the panel, with the argument the plan gives to be attacked
   on a shared subproof under two `Forall` nodes and on an `Exists` below
   the `Forall` whose witness names the eigenvariable.
+
+## Session 42b: the proof term and the checker
+
+Opus 5.5 at `high`, unattended, 2026-10-28/29, in the jj workspace
+`../linlog-step42b` on `yztusxvs`. **In progress**: the usage limit cut
+the session after the code, the gates and the target sets; the panel's
+round, the answers to its findings, `nix flake check` and the last
+message are still to do.
+
+### Outcome so far
+
+`Node::Forall`/`Node::Exists` with the proof's instance table
+(`Instances`, `FrameId`, `Eigen`, `FoTerm::Eigen`,
+`Proof::with_instances`), the checker's two passes (the frame pass in
+`check/frames.rs`, the bottom-up pass over members with the
+eigenvariable sets carried to the root in `pass.rs`), the oracle's own
+first-order rules, the size, the derivation and its text, LaTeX, Typst
+and SVG printing instances, the proof's JSON at level 7,
+`Limits::terms` with `Refusal::Terms` on every reader and the flag
+`--term-limit`. Sixteen proofs written by hand under
+`core/tests/first-order/` (eight accepted, eight refused, every new
+fault reached: `instance`, `eigenvariable`, `reintroduced`, and
+`missing`, `not_dual`, `kind` of the new rules), among them a subproof
+shared under two `∀` steps (`shared`, `shared_apart`) and `∃` steps
+below the `∀` steps whose eigenvariables they name (`swap_back`).
+Commits: `vmpysoru` (the checker, gated), `ptnkzrlt` (`--term-limit`)
+and `uyzrlxrk` (the behaviour lock re-blessed for the flag's help text),
+the pair gated at `uyzrlxrk`.
+
+### Departures from the design
+
+- The frame pass derives no frame (departs from the design): a node
+  names its members with their frames, so the pass resolves them and
+  finds the bodies, faults and eigenvariables; "a node reached from two
+  parents must receive equal frames" is the bottom-up comparison by
+  number (`shared_apart` refused by `Missing`).
+- A cut on an instance brings its frame's eigenvariables in, as a
+  witness does (an addition to decision 3: without it `cut_frame`, a
+  `∀` step beside the cut's dual, passed).
+- Eigenvariables are named `a_1` past a clash, not primed (as 42a's
+  bound names). `CheckError::Quantifiers` (42a's, unreleased) is gone.
+- The parser's arity refusal still names the second use only (the
+  review's small finding, not taken: `ParseError` has one span).
+
+### Checks
+
+- Gate passed at `vmpysoru` and at `uyzrlxrk`; the ratchet within its
+  ceilings, none raised (`check-qbf-20-2` +0.61 %, `derivation-chain-64`
+  +1.98 %, `render-latex` +0.90 %, `render-typst` +1.09 %).
+- Target sets at `vmpysoru` against `42a.csv` and `net-42a.csv`: no
+  verdict differs; 0 of 145 and 0 of 64 rows decided alike differ in a
+  counter.
+
+### Checklist
+
+- [x] Proof term, instance table, two passes, faults, oracle, size,
+  views, JSON, term limits, written proofs, gates, target sets.
+- [ ] The panel's findings answered (three reviewers launched on the
+  frozen tree `vmpysoru`).
+- [ ] `nix flake check` at the last commit.
+- [ ] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- `.claude/rules/core-proofs.md` ("First-order proofs"),
+  `core-derivations.md`, `core-sequents.md` and `core-export.md` hold the
+  invariants; the instance table is canonical and closed at
+  construction, so every member a check or view names has a number.
+- No fresh constant exists yet: `∀x.p(x) ⊢ ∃y.p(y)` has no proof term
+  until 42d adds the symbols' extension (an eigenvariable no `∀`
+  introduces is refused).
+- The JSON reader numbers argument lists apart from the parser, so a
+  parsed and a read first-order sequent are unequal by `==` (a
+  follow-up).
