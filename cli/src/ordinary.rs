@@ -24,7 +24,11 @@ use std::fmt::Write;
 ///
 /// Text that is no ordinary sequent, with a caret under the place, no
 /// TPTP problem, or one past `most`.
-pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<ordinary::Sequent> {
+pub(crate) fn sequent_in(
+    text: &str,
+    format: InputFormat,
+    most: crate::io::Most,
+) -> Result<ordinary::Sequent> {
     let within = bound(most);
     match format {
         // The library's error says that the text is no TPTP problem.
@@ -54,7 +58,7 @@ pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<o
 pub(crate) fn image(
     options: &ordinary::Options,
     sequent: &ordinary::Sequent,
-    most: u64,
+    most: crate::io::Most,
 ) -> Result<Image> {
     ordinary::translate(sequent, options.logic, options.translation(), &bound(most))
         .map_err(|e| refused(e, most))

@@ -829,6 +829,17 @@ $ linlog seq fragment --file shared.json
 error: the sequent unfolds to 67108863 subformula occurrences, more than the limit of 50000000; raise it with --occurrence-limit
 ```
 
+A first-order sequent's terms have a limit of their own, `--term-limit`
+(fifty million by default, or `none`): the terms its atoms' arguments
+unfold to, which shared terms in JSON can make many from a short file,
+and the entries of a proof's instance table that `check` reads:
+
+<!-- readme-check: machine -->
+```console
+$ linlog seq fragment --term-limit 2 "|- p(f(f(a)))"
+error: the first-order terms unfold to at least 3 terms, more than the limit of 2; raise it with --term-limit
+```
+
 No input ends the command other than by a verdict or an error: a formula
 nested a hundred thousand deep is parsed, printed and searched without
 recursion on it (the search itself gives up at `--recursion-limit`), and

@@ -621,6 +621,11 @@ pub(crate) struct CheckArgs {
     /// `none` (limits.occurrences); see `prove --occurrence-limit`
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_OCCURRENCES)))]
     pub(crate) occurrence_limit: Count<u64>,
+    /// The most first-order terms the proof's sequent may unfold to and
+    /// entries its instance table may hold, or `none` (limits.terms); see
+    /// `prove --term-limit`
+    #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_TERMS)))]
+    pub(crate) term_limit: Count<u64>,
     /// The proof file, or standard input when absent or `-`
     #[arg(value_name = "PROOF")]
     pub(crate) proof: Option<PathBuf>,
@@ -813,6 +818,15 @@ pub(crate) struct SequentInput {
     /// refused the same way.
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_OCCURRENCES)))]
     pub(crate) occurrence_limit: Count<u64>,
+    /// The most first-order terms the atoms' arguments may unfold to, or
+    /// `none` (limits.terms)
+    ///
+    /// A first-order sequent in JSON can share its terms, so a small file
+    /// may name an atom of any length; one beyond the limit is refused
+    /// before it is unfolded, and so is a proof whose instance table has
+    /// more entries.
+    #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_TERMS)))]
+    pub(crate) term_limit: Count<u64>,
     /// How the text of an intuitionistic sequent is read: in its own
     /// syntax alone, or in the classical one (input.intuitionistic)
     ///

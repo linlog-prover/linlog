@@ -123,6 +123,9 @@ pub(crate) fn read_proof(text: &str, limits: &Limits) -> Result<Proof> {
         Err(error) if error.setting() == Some("limits.occurrences") => {
             bail!("{error}; raise it with --occurrence-limit")
         }
+        Err(error) if error.setting() == Some("limits.terms") => {
+            bail!("{error}; raise it with --term-limit")
+        }
         Err(error) if error.kind() == ErrorKind::Limit => Err(error.into()),
         Err(error) => {
             // An outcome without a proof is a file the user may well hand

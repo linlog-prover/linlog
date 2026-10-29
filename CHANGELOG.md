@@ -68,7 +68,8 @@ second number (0.1.x to 0.2.0), anything else the third.
   a sequent's atoms unfold to (`Sequent::fo_size`) on every reader, and
   a proof's instance table, refused with `Refusal::Terms` (code
   `too_many_terms`); the JSON readers counted them against
-  `limits.occurrences` before.
+  `limits.occurrences` before. The command's `--term-limit` sets it, on
+  every command that reads a sequent and on `check`.
 
 - `IllSequent`, a sequent of intuitionistic linear logic as written: its
   hypotheses in the order written and exactly one goal, every formula

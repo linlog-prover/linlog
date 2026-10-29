@@ -234,7 +234,7 @@ pub(crate) fn affine_for(format: InputFormat, mode: Mode) -> Mode {
 pub(crate) fn sequent_in(
     text: &str,
     format: InputFormat,
-    most: u64,
+    most: Most,
     mode: Mode,
     read: &InputOptions,
 ) -> Result<Sequent> {
@@ -278,7 +278,8 @@ pub(crate) fn sequent_in(
             ) => Err(crate::Explained::error(
                 format!(
                     "the problem's tokens alone are {occurrences} subformula occurrences, more \
-                     than the limit of {most}; raise it with --occurrence-limit"
+                     than the limit of {}; raise it with --occurrence-limit",
+                    most.occurrences
                 ),
                 error,
             )),
@@ -313,7 +314,7 @@ pub(crate) type AsRead = (Sequent, Option<Box<[Written]>>);
 pub(crate) fn written_in(
     text: &str,
     format: InputFormat,
-    most: u64,
+    most: Most,
     mode: Mode,
     read: &InputOptions,
     keep: bool,
@@ -344,24 +345,51 @@ fn is_ill_json(text: &str) -> bool {
 
 /// Returns the library's error, or for an input refused past `most`
 /// occurrences the line that names the flag raising it.
-pub(crate) fn refused(error: linlog::Error, most: u64) -> anyhow::Error {
+pub(crate) fn refused(error: linlog::Error, most: Most) -> anyhow::Error {
     match error {
         linlog::Error::Refused(linlog::limits::Refusal::Occurrences { .. }) => {
             crate::Explained::error(
                 format!(
-                    "the sequent has more subformula occurrences than the limit of {most}; \
-                     raise it with --occurrence-limit"
+                    "the sequent has more subformula occurrences than the limit of {}; \
+                     raise it with --occurrence-limit",
+                    most.occurrences
                 ),
                 error,
             )
+        }
+        linlog::Error::Refused(linlog::limits::Refusal::Terms { .. }) => {
+            crate::Explained::error(format!("{error}; raise it with --term-limit"), error)
         }
         error => error.into(),
     }
 }
 
-/// Returns the default limits with `most` occurrences at most.
-pub(crate) fn bound(most: u64) -> Limits {
-    Limits::default().with_occurrences(Some(most))
+/// The bounds a sequent is read within: the most occurrences
+/// (`--occurrence-limit`, `limits.occurrences`) and the most first-order
+/// terms (`--term-limit`, `limits.terms`, `None` for any number).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Most {
+    /// The most subformula occurrences.
+    pub(crate) occurrences: u64,
+    /// The most first-order terms the atoms unfold to.
+    pub(crate) terms: Option<u64>,
+}
+
+impl Most {
+    /// Returns the bounds `limits` give a sequent.
+    pub(crate) fn of(limits: &Limits) -> Self {
+        Self {
+            occurrences: limits.occurrences.unwrap_or(u64::MAX),
+            terms: limits.terms,
+        }
+    }
+}
+
+/// Returns the default limits with the bounds of `most`.
+pub(crate) fn bound(most: Most) -> Limits {
+    Limits::default()
+        .with_occurrences(Some(most.occurrences))
+        .with_terms(most.terms)
 }
 
 /// Refuses a sequent that unfolds to more than `most` occurrences, before
@@ -371,17 +399,18 @@ pub(crate) fn bound(most: u64) -> Limits {
 ///
 /// The library's [`Refusal::Occurrences`](linlog::Refusal::Occurrences)
 /// past `most`, naming the flag that raises it.
-pub(crate) fn admit(sequent: Sequent, most: u64) -> Result<Sequent> {
+pub(crate) fn admit(sequent: Sequent, most: Most) -> Result<Sequent> {
     let occurrences = sequent.occurrences();
-    if occurrences > most {
+    if occurrences > most.occurrences {
         bail!(
-            "the sequent unfolds to {} subformula occurrences, more than the limit of {most}; \
+            "the sequent unfolds to {} subformula occurrences, more than the limit of {}; \
              raise it with --occurrence-limit",
             if occurrences == u64::MAX {
                 "more than 10¹⁹".to_owned()
             } else {
                 occurrences.to_string()
             },
+            most.occurrences,
         );
     }
     Ok(sequent)
@@ -459,7 +488,7 @@ impl SequentInput {
         mode: Mode,
         keep: bool,
     ) -> Result<AsRead> {
-        let most = limits.occurrences.unwrap_or(u64::MAX);
+        let most = Most::of(limits);
         let (text, format) = self.text(false, limits.memory_bytes)?;
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
@@ -494,7 +523,7 @@ impl SequentInput {
         options: &linlog::ordinary::Options,
         limits: &Limits,
     ) -> Result<(Forest, Image)> {
-        let most = limits.occurrences.unwrap_or(u64::MAX);
+        let most = Most::of(limits);
         let (text, format) = self.text(true, limits.memory_bytes)?;
         let ordinary = crate::ordinary::sequent_in(&text, format, most)?;
         let image = crate::ordinary::image(options, &ordinary, most)?;
@@ -502,9 +531,12 @@ impl SequentInput {
         Ok((Forest::from_owned(sequent, &bound(most))?, image))
     }
 
-    /// Returns the most occurrences the flag gives the sequent.
-    pub(crate) fn most(&self) -> u64 {
-        self.occurrence_limit.0.unwrap_or(u64::MAX)
+    /// Returns the bounds the flags give the sequent.
+    pub(crate) fn most(&self) -> Most {
+        Most {
+            occurrences: self.occurrence_limit.0.unwrap_or(u64::MAX),
+            terms: self.term_limit.0,
+        }
     }
 
     /// Reads the sequent and lays it out as a forest, within the limits
@@ -521,7 +553,7 @@ impl SequentInput {
         mode: Mode,
         keep: bool,
     ) -> Result<(Forest, Option<Box<[Written]>>)> {
-        let most = limits.occurrences.unwrap_or(u64::MAX);
+        let most = Most::of(limits);
         let (sequent, writing) = self.written(limits, read, mode, keep)?;
         Ok((Forest::from_owned(sequent, &bound(most))?, writing))
     }

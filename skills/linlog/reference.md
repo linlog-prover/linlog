@@ -123,7 +123,9 @@ coverability problem in the format of the Mist tool (decided in affine
 mode), `.json` a sequent in JSON (section 8), anything else the text
 syntax, which may span lines. `--occurrence-limit N` refuses a sequent
 with more subformula occurrences, before anything unfolds it
-(`--occurrence-limit 50000000` by default, or `none`).
+(`--occurrence-limit 50000000` by default, or `none`), and `--term-limit
+N` one whose atoms' arguments unfold to more first-order terms
+(`50000000` by default).
 
 ## 3. Choosing the logic
 
@@ -307,6 +309,7 @@ exit 3
 | `--classical-work N` | `67108864` | the classical refutation after the search |
 | `--derivation-limit SIZE` | `64MiB` | the derivation built from a proof; above it the verdict stands without it |
 | `--occurrence-limit N` | `50000000` | the sequent's subformula occurrences |
+| `--term-limit N` | `50000000` | the first-order terms the sequent's atoms unfold to, and a proof's instance table |
 
 Threads: one thread searches first, and after `--pool-after 100ms` by
 default the machine's other threads join it; `-j N` (`--jobs`) uses N threads from

@@ -226,6 +226,9 @@ impl ProveArgs {
         if apply.set("occurrence_limit") {
             settings.limits.occurrences = self.input.occurrence_limit.0;
         }
+        if apply.set("term_limit") {
+            settings.limits.terms = self.input.term_limit.0;
+        }
         if apply.set("ill_syntax") {
             settings.input.intuitionistic = self.input.ill_syntax.into();
         }
@@ -276,6 +279,9 @@ impl InteractArgs {
         if apply.set("occurrence_limit") {
             settings.limits.occurrences = self.input.occurrence_limit.0;
         }
+        if apply.set("term_limit") {
+            settings.limits.terms = self.input.term_limit.0;
+        }
         if apply.set("ill_syntax") {
             settings.input.intuitionistic = self.input.ill_syntax.into();
         }
@@ -313,6 +319,9 @@ impl CheckArgs {
         }
         if apply.set("occurrence_limit") {
             settings.limits.occurrences = self.occurrence_limit.0;
+        }
+        if apply.set("term_limit") {
+            settings.limits.terms = self.term_limit.0;
         }
         if apply.set("derivation_limit") {
             settings.limits.derivation_bytes = self.output.derivation_limit.0;
@@ -441,11 +450,6 @@ pub(crate) fn ordinary(
     })
 }
 
-/// Returns the most occurrences the settings give a sequent.
-pub(crate) fn most(settings: &Settings) -> u64 {
-    settings.limits.occurrences.unwrap_or(u64::MAX)
-}
-
 /// Returns the settings' time limit as a duration.
 pub(crate) fn time_limit(settings: &Settings) -> Option<Duration> {
     settings.clock.time_limit_ms.map(Duration::from_millis)
@@ -566,6 +570,7 @@ mod tests {
             --recursion-limit 99    /limits/recursion_depth    77                99
             --work-limit 6          /limits/work               5                 6
             --occurrence-limit 12   /limits/occurrences        11                12
+            --term-limit 12         /limits/terms              11                12
             --derivation-limit 3KiB /limits/derivation_bytes   1024              3072"#;
         const PROVE: &str = r#"
             --engine focus          /search/engine             "two-sided"       "focus"
@@ -585,6 +590,7 @@ mod tests {
             --timeout 3s            /clock/time_limit_ms       5000              3000
             --work-limit 6          /limits/work               5                 6
             --occurrence-limit 12   /limits/occurrences        11                12
+            --term-limit 12         /limits/terms              11                12
             --derivation-limit 3KiB /limits/derivation_bytes   1024              3072
             --compact never         /view/compact              "always"          "never""#;
         const ELIMINATE: &str = r#"

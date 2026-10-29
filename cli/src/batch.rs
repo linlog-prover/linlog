@@ -450,7 +450,7 @@ struct Shared {
     /// The options of ordinary logic, under `--logic`.
     ordinary: Option<linlog::ordinary::Options>,
     /// The most occurrences a sequent may have.
-    most: u64,
+    most: io::Most,
     /// How the input is read.
     read: InputOptions,
     /// The mode of an entry that names none: the mode flags', else the
@@ -1139,7 +1139,7 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
         )?,
         timeout: time_limit(settings),
         ordinary: crate::settings::ordinary(settings, &args.logic),
-        most: crate::settings::most(settings),
+        most: io::Most::of(&settings.limits),
         read: settings.input,
         mode: settings.batch.mode,
         threads,
@@ -1204,7 +1204,7 @@ fn one(
         batch: Deadline::start(None, Instant::now())?,
         timeout: time_limit(settings),
         ordinary: crate::settings::ordinary(settings, &args.logic),
-        most: crate::settings::most(settings),
+        most: io::Most::of(&settings.limits),
         read: settings.input,
         mode: settings.batch.mode,
         threads,
