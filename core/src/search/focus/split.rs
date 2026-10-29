@@ -5,46 +5,19 @@
 //! chain of them, and the search for the free splits whose two sides
 //! pass the counts.
 
-use super::context::Context;
 use super::counts::{Split, Tally};
 use super::scratch::Pooled;
+use super::zone::{Cursors, Linear as _, Unrestricted as _, Zone};
 use super::{
     Cuts, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, Run, SPLITS_PER_POLL, Searched, Step,
     Unrestricted,
 };
-use crate::occurrences::{Forest, Member, OccId, Side};
+use crate::occurrences::{OccId, Side};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::search::Reason;
 use crate::sequents::Kind;
 
-impl Run<'_> {
-    /// The first occurrence of the literal dual to `literal` in `rest`, the
-    /// context of a chain of forced splits, which is what [`Self::dual_in`]
-    /// finds there, read from where the chain's last lookup of that
-    /// literal ended: the context of a chain only loses members, so the
-    /// occurrences passed over once are in it no more. A chain's lookups
-    /// of one literal together cost its list once and not once each,
-    /// which on a marking of thousands of equal tokens was most of a
-    /// search's time.
-    fn dual_from(&self, literal: OccId, rest: &Context, cursors: &mut Cursors) -> Option<OccId> {
-        let f = self.problem.forest;
-        let (atom, sign) = (f.atom(literal)?, f.sign(literal)?);
-        let duals = f.literals(atom, !sign);
-        let list = Forest::list(atom, !sign);
-        let start = cursors.passed[list] as usize;
-        let found = duals[start..].iter().position(|&d| rest.contains(d));
-        let passed = found.map_or(duals.len(), |at| start + at);
-        if passed != start {
-            if start == 0 {
-                cursors.moved.push(list as u32);
-            }
-            // A list is a part of the forest's occurrences, which a `u32`
-            // indexes.
-            cursors.passed[list] = passed as u32;
-        }
-        found.map(|at| duals[start + at])
-    }
-
+impl<Z: Zone> Run<'_, Z> {
     /// What a factor of a `⊗` forces on its side of the split
     /// ([`Counts::forced`](super::counts::Counts::forced)). With weakening
     /// nothing but `0` forces anything, since every leaf takes any context.
@@ -63,11 +36,8 @@ impl Run<'_> {
     /// before a tensor of literals, which takes a focus of its own: a
     /// tensor of a thousand literals, nested to the left as it is read,
     /// must not pay a level of recursion per link; otherwise the left one.
-    fn forced_factor(&self, f: OccId) -> Option<Forcing> {
-        let (a, b) = (
-            self.problem.forest.left(f).unwrap(),
-            self.problem.forest.right(f).unwrap(),
-        );
+    fn forced_factor(&self, f: Z::Member) -> Option<Forcing<Z::Member>> {
+        let (a, b) = (self.left(f), self.right(f));
         let left = |forced| {
             Some(Forcing {
                 forced,
@@ -84,7 +54,7 @@ impl Run<'_> {
                 side: Branch::Right,
             })
         };
-        match (self.forced_side(a), self.forced_side(b)) {
+        match (self.forced_side(self.occ(a)), self.forced_side(self.occ(b))) {
             (Some(x), _) if x != Forced::Duals => left(x),
             (_, Some(y)) if y != Forced::Duals => right(y),
             (Some(x), _) => left(x),
@@ -98,9 +68,9 @@ impl Run<'_> {
     /// the splits whose two sides pass the counts.
     pub(super) fn split(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        f: OccId,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        f: Z::Member,
         budget: u32,
     ) -> Step {
         let Some(forcing) = self.forced_factor(f) else {
@@ -127,7 +97,7 @@ impl Run<'_> {
                     } else {
                         (node, x_node)
                     };
-                    node = self.push(Node::Tensor(Member::from(f), left, right));
+                    node = self.push(Node::Tensor(f.into(), left, right));
                 }
                 Ok(Found::proved(node))
             }
@@ -155,10 +125,10 @@ impl Run<'_> {
     /// every [`FORCED_PER_POLL`] splits and literals closed.
     fn forced_splits(
         &mut self,
-        theta: &Unrestricted,
-        rest: &mut Context,
-        (mut f, first): (OccId, Forcing),
-        (links, cursors): (&mut Vec<(OccId, NodeId, Branch)>, &mut Cursors),
+        theta: &Unrestricted<Z>,
+        rest: &mut Z::Linear,
+        (mut f, first): (Z::Member, Forcing<Z::Member>),
+        (links, cursors): (&mut Vec<Link<Z::Member>>, &mut Cursors),
         budget: u32,
     ) -> Step {
         // What the focuses on forcing factors along the chain cut.
@@ -198,16 +168,18 @@ impl Run<'_> {
                 // and copies from `Θ` here is a proof with the roles
                 // swapped.
                 Forced::Dual => {
-                    if let Some(dual) = self.dual_from(x, rest, cursors) {
+                    let forest = self.problem.forest;
+                    if let Some(dual) = self.zone.dual_from(forest, x, rest, cursors) {
                         rest.remove(dual);
                         Some(self.push(Node::Ax(x.into(), dual.into())))
-                    } else if let Some(d) = self.dual_in(x, |d| theta.set.contains(d)) {
+                    } else if let Some(d) = self.zone.dual_in(forest, x, |d| theta.set.contains(d))
+                    {
                         if budget == 0 {
                             cuts = cuts.and(Cuts::BUDGET);
                             None
                         } else {
                             let ax = self.push(Node::Ax(x.into(), d.into()));
-                            Some(self.push(Node::Copy(Member::from(d), ax)))
+                            Some(self.push(Node::Copy(d.into(), ax)))
                         }
                     } else {
                         None
@@ -222,7 +194,7 @@ impl Run<'_> {
                 return Ok(Found::failed(cuts));
             };
             links.push((f, x_node, x_side));
-            if self.problem.forest.kind(y) != Kind::Tensor {
+            if self.kind(y) != Kind::Tensor {
                 return Ok(self.focus(theta, rest, y, budget)?.after(cuts));
             }
             f = y;
@@ -236,14 +208,21 @@ impl Run<'_> {
     /// nodes from the last occurrence back, so a tensor of any depth costs
     /// no recursion; the stop condition is polled as in the chain around
     /// it.
-    fn literal_tensor(&mut self, x: OccId, rest: &mut Context, cursors: &mut Cursors) -> Searched {
+    fn literal_tensor(
+        &mut self,
+        x: Z::Member,
+        rest: &mut Z::Linear,
+        cursors: &mut Cursors,
+    ) -> Searched {
+        let forest = self.problem.forest;
         let mut duals = self.take_list();
-        for leaf in self.problem.forest.subtree(x) {
-            if !self.problem.forest.is_literal(leaf) {
+        for leaf in forest.subtree(self.occ(x)) {
+            if !forest.is_literal(leaf) {
                 continue;
             }
             self.poll_forced()?;
-            let Some(dual) = self.dual_from(leaf, rest, cursors) else {
+            let leaf = self.zone.child(x, leaf);
+            let Some(dual) = self.zone.dual_from(forest, leaf, rest, cursors) else {
                 self.give_list(duals);
                 return Ok(None);
             };
@@ -253,17 +232,18 @@ impl Run<'_> {
         // An occurrence's subtree follows it, so in reverse a `⊗` comes
         // after both its subformulas, the left one's proof on top.
         let mut built = self.take_links();
-        for o in self.problem.forest.subtree(x).rev() {
-            let node = if self.problem.forest.is_literal(o) {
+        for o in forest.subtree(self.occ(x)).rev() {
+            let m = self.zone.child(x, o);
+            let node = if forest.is_literal(o) {
                 let dual = duals.pop().expect("a dual per literal");
-                self.push(Node::Ax(o.into(), dual.into()))
+                self.push(Node::Ax(m.into(), dual.into()))
             } else {
                 self.statistics.splits += 1;
                 let (_, left, _) = built.pop().expect("the left subformula's proof");
                 let (_, right, _) = built.pop().expect("the right subformula's proof");
-                self.push(Node::Tensor(Member::from(o), left, right))
+                self.push(Node::Tensor(m.into(), left, right))
             };
-            built.push((o, node, Branch::Left));
+            built.push((m, node, Branch::Left));
         }
         let (_, node, _) = built.pop().expect("the tensor's proof");
         self.give_list(duals);
@@ -302,7 +282,13 @@ impl Run<'_> {
     /// the counts. A left factor whose split is free again continues the
     /// search as a chain ([`Self::chain`]), in the same order.
     #[inline(always)]
-    fn free_split(&mut self, theta: &Unrestricted, gamma: &Context, f: OccId, budget: u32) -> Step {
+    fn free_split(
+        &mut self,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        f: Z::Member,
+        budget: u32,
+    ) -> Step {
         let opened = self.open_split(gamma, f);
         #[cfg(feature = "parallel")]
         if self.cubes() && opened.members.len() >= 2 {
@@ -353,36 +339,33 @@ impl Run<'_> {
     /// the counts, every member on the right, and, two-sided, on a
     /// hypothesis `A ⊸ B`, the goal on the consequent's side.
     #[inline(always)]
-    fn open_split(&mut self, gamma: &Context, f: OccId) -> Opened {
-        let (a, b) = (
-            self.problem.forest.left(f).unwrap(),
-            self.problem.forest.right(f).unwrap(),
-        );
+    fn open_split(&mut self, gamma: &Z::Linear, f: Z::Member) -> Opened<Z> {
+        let (a, b) = (self.left(f), self.right(f));
         let mut members = self.take_list();
         gamma.list_into(&mut members);
         let mut left = self.take_context();
         let mut right = self.take_context_from(gamma);
         let mut split = self.take_split();
-        split.place(self.problem.counts, a, Branch::Left);
-        split.place(self.problem.counts, b, Branch::Right);
+        split.place(self.problem.counts, self.occ(a), Branch::Left);
+        split.place(self.problem.counts, self.occ(b), Branch::Right);
         let mut placed = self.take_list();
         placed.extend([a, b]);
         // Two-sided, on a hypothesis `A ⊸ B`: the goal stays with `B`, so it
         // is fixed on the consequent's side and left out of the search.
         if let Some(reading) = self.problem.reading
-            && let Some((_, consequent)) = reading.implication(f)
+            && let Some((_, consequent)) = reading.implication(self.occ(f))
             && let Some(at) = members
                 .iter()
-                .position(|&m| reading.position(m) == Side::Output)
+                .position(|&m| reading.position(self.occ(m)) == Side::Output)
         {
             let goal = members.remove(at);
             placed.push(goal);
-            if consequent == a {
+            if consequent == self.occ(a) {
                 right.remove(goal);
                 left.insert(goal);
-                split.place(self.problem.counts, goal, Branch::Left);
+                split.place(self.problem.counts, self.occ(goal), Branch::Left);
             } else {
-                split.place(self.problem.counts, goal, Branch::Right);
+                split.place(self.problem.counts, self.occ(goal), Branch::Right);
             }
         }
         self.open(&mut members, &mut split, &placed);
@@ -399,7 +382,7 @@ impl Run<'_> {
     }
 
     /// Gives the buffers of a split search back to the pools.
-    fn close_split(&mut self, opened: Opened) {
+    fn close_split(&mut self, opened: Opened<Z>) {
         self.give_list(opened.members);
         self.give_context(opened.left);
         self.give_context(opened.right);
@@ -412,13 +395,13 @@ impl Run<'_> {
     /// few links, a clause's body, recurses: the frames' bookkeeping cost
     /// a seventh of the stable sequents per second on Petri nets whose
     /// clauses have such bodies.
-    fn chains_on(&self, a: OccId) -> bool {
+    fn chains_on(&self, a: Z::Member) -> bool {
         #[cfg(feature = "parallel")]
         if self.cubes() {
             return false;
         }
-        self.problem.forest.size(a) >= CHAIN_SIZE
-            && self.problem.forest.kind(a) == Kind::Tensor
+        self.problem.forest.size(self.occ(a)) >= CHAIN_SIZE
+            && self.kind(a) == Kind::Tensor
             && self.forced_factor(a).is_none()
     }
 
@@ -432,7 +415,7 @@ impl Run<'_> {
     /// only the levels of recursion are not taken, one per link, which a
     /// tensor of thousands of factors whose splits are searched used to
     /// run out of.
-    fn chain(&mut self, theta: &Unrestricted, first: Opened, budget: u32) -> Step {
+    fn chain(&mut self, theta: &Unrestricted<Z>, first: Opened<Z>, budget: u32) -> Step {
         let mut frames = self.take_frames();
         let walk = self.walk(first.members.len(), (0, 0));
         frames.push(Frame {
@@ -450,7 +433,12 @@ impl Run<'_> {
     }
 
     /// The loop of [`Self::chain`] over its frames, the last on top.
-    fn run_chain(&mut self, theta: &Unrestricted, frames: &mut Vec<Frame>, budget: u32) -> Step {
+    fn run_chain(
+        &mut self,
+        theta: &Unrestricted<Z>,
+        frames: &mut Vec<Frame<Z>>,
+        budget: u32,
+    ) -> Step {
         // What the left premise of the frame on top was found to be, once
         // the frame has asked for it.
         let mut given: Option<Found> = None;
@@ -463,11 +451,8 @@ impl Run<'_> {
                     });
                     match r? {
                         Found::Proved(r_node) => {
-                            let node = self.push(Node::Tensor(
-                                Member::from(frame.opened.f),
-                                l_node,
-                                r_node,
-                            ));
+                            let node =
+                                self.push(Node::Tensor(frame.opened.f.into(), l_node, r_node));
                             let frame = frames.pop().expect("the frame on top");
                             self.close_frame(frame);
                             if frames.is_empty() {
@@ -521,7 +506,7 @@ impl Run<'_> {
     }
 
     /// Gives the buffers of a frame of a chain back to the pools.
-    fn close_frame(&mut self, frame: Frame) {
+    fn close_frame(&mut self, frame: Frame<Z>) {
         self.give_trail(frame.walk.trail);
         self.close_split(frame.opened);
     }
@@ -533,12 +518,12 @@ impl Run<'_> {
     /// its counts are settled early (those without a row last);
     /// interchangeable members next to each other, the lowest id last.
     /// `placed` are the members that have their side already.
-    fn open(&self, members: &mut [OccId], split: &mut Split, placed: &[OccId]) {
+    fn open(&self, members: &mut [Z::Member], split: &mut Split, placed: &[Z::Member]) {
         members.sort_unstable_by_key(|&m| {
             (
-                std::cmp::Reverse(self.problem.counts.row_len(m)),
-                self.problem.counts.first_rank(m),
-                self.problem.classes.of(m),
+                std::cmp::Reverse(self.problem.counts.row_len(self.occ(m))),
+                self.problem.counts.first_rank(self.occ(m)),
+                self.class(m),
                 std::cmp::Reverse(m),
             )
         });
@@ -546,13 +531,13 @@ impl Run<'_> {
         // member whose own interval of some atom excludes zero: with none,
         // every sum of intervals contains zero and every split passes, and
         // the counts need not know the members at all.
-        let tight = |o: &OccId| self.problem.counts.tight(*o);
+        let tight = |o: &Z::Member| self.problem.counts.tight(self.occ(*o));
         let inert = !self.problem.rules.equation
             && (!self.problem.rules.intervals || !placed.iter().chain(members.iter()).any(tight));
         split.set_inert(inert);
         if !inert {
             for &m in members.iter() {
-                split.open(self.problem.counts, m);
+                split.open(self.problem.counts, self.occ(m));
             }
         }
     }
@@ -574,12 +559,12 @@ impl Run<'_> {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn search_splits(
         &mut self,
-        theta: &Unrestricted,
-        members: &[OccId],
+        theta: &Unrestricted<Z>,
+        members: &[Z::Member],
         (start, prefix): (usize, u64),
-        (left, right): (&mut Context, &mut Context),
+        (left, right): (&mut Z::Linear, &mut Z::Linear),
         split: &mut Split,
-        join: Join,
+        join: Join<Z::Member>,
         budget: u32,
     ) -> Step {
         let mut walk = self.walk(members.len(), (start, prefix));
@@ -642,8 +627,8 @@ impl Run<'_> {
     fn next_split(
         &mut self,
         walk: &mut Walk,
-        members: &[OccId],
-        (left, right): (&mut Context, &mut Context),
+        members: &[Z::Member],
+        (left, right): (&mut Z::Linear, &mut Z::Linear),
         split: &mut Split,
     ) -> Result<bool, Reason> {
         let rules = self.problem.rules;
@@ -668,7 +653,7 @@ impl Run<'_> {
                         // interchangeable and went left: the lowest ids do.
                         let side = if next > 0
                             && trail[next - 1] == Branch::Left
-                            && self.problem.classes.same(members[next - 1], m)
+                            && self.zone.same(self.problem.classes, members[next - 1], m)
                         {
                             right.remove(m);
                             left.insert(m);
@@ -676,7 +661,7 @@ impl Run<'_> {
                         } else {
                             Branch::Right
                         };
-                        split.assign(self.problem.counts, m, side);
+                        split.assign(self.problem.counts, self.occ(m), side);
                         trail[next] = side;
                         next += 1;
                         continue;
@@ -694,14 +679,14 @@ impl Run<'_> {
                 next -= 1;
                 let m = members[next];
                 if trail[next] == Branch::Right {
-                    split.flip(self.problem.counts, m, Branch::Left);
+                    split.flip(self.problem.counts, self.occ(m), Branch::Left);
                     right.remove(m);
                     left.insert(m);
                     trail[next] = Branch::Left;
                     next += 1;
                     continue 'search;
                 }
-                split.unassign(self.problem.counts, m, Branch::Left);
+                split.unassign(self.problem.counts, self.occ(m), Branch::Left);
                 left.remove(m);
                 right.insert(m);
             }
@@ -750,18 +735,18 @@ impl Run<'_> {
     )]
     fn premises(
         &mut self,
-        theta: &Unrestricted,
-        left: &Context,
-        right: &Context,
-        f: OccId,
-        a: OccId,
-        b: OccId,
+        theta: &Unrestricted<Z>,
+        left: &Z::Linear,
+        right: &Z::Linear,
+        f: Z::Member,
+        a: Z::Member,
+        b: Z::Member,
         budget: u32,
     ) -> Step {
         self.two_premises(
             |run| run.focus(theta, left, a, budget),
             |run| run.focus(theta, right, b, budget),
-            |l, r| Node::Tensor(Member::from(f), l, r),
+            |l, r| Node::Tensor(f.into(), l, r),
         )
     }
 
@@ -779,9 +764,9 @@ impl Run<'_> {
     /// and the partitions are cheaper.
     pub(super) fn mix(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        members: &[OccId],
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        members: &[Z::Member],
         tally: &Tally,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
@@ -796,7 +781,7 @@ impl Run<'_> {
         let mut right = self.take_context_from(gamma);
         right.remove(members[0]);
         let mut split = self.take_split();
-        split.place(self.problem.counts, members[0], Branch::Left);
+        split.place(self.problem.counts, self.occ(members[0]), Branch::Left);
         let mut rest = self.take_list();
         rest.extend_from_slice(&members[1..]);
         self.open(&mut rest, &mut split, &members[..1]);
@@ -829,9 +814,9 @@ impl Run<'_> {
     /// repeated one is left out, since the others leave a relative.
     fn parts_fail(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        members: &[OccId],
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        members: &[Z::Member],
         budget: u32,
     ) -> Result<bool, Reason> {
         let mut left_out = self.take_list();
@@ -862,9 +847,9 @@ impl Run<'_> {
     /// Both parts of a Mix, and the Mix node if both are provable.
     fn parts(
         &mut self,
-        theta: &Unrestricted,
-        left: &Context,
-        right: &Context,
+        theta: &Unrestricted<Z>,
+        left: &Z::Linear,
+        right: &Z::Linear,
         budget: u32,
     ) -> Step {
         self.two_premises(
@@ -875,23 +860,16 @@ impl Run<'_> {
     }
 }
 
-/// How far a chain of forced splits has read the forest's lists of the
-/// occurrences of each literal in its search for duals.
-pub(super) struct Cursors {
-    /// Per list, twice the atom plus the sign as the forest numbers them:
-    /// how many occurrences at its head are no longer in the chain's
-    /// context.
-    pub(super) passed: Vec<u32>,
-    /// The lists whose entry is not zero.
-    pub(super) moved: Vec<u32>,
-}
+/// A link of a chain of forced splits: the `⊗`, the proof of its forcing
+/// factor, and which factor that is.
+type Link<M> = (M, NodeId, Branch);
 
 /// What joins the two sides of a split of a context.
 #[derive(Clone, Copy, Debug)]
-pub(super) enum Join {
+pub(super) enum Join<M> {
     /// The `⊗` rule on this formula, with its left and right subformula:
     /// the sides are its premises' contexts.
-    Tensor(OccId, OccId, OccId),
+    Tensor(M, M, M),
     /// The Mix rule: the sides are its parts.
     Mix,
 }
@@ -899,13 +877,13 @@ pub(super) enum Join {
 /// The factor of a `⊗` that forces its split, as
 /// [`forced_factor`](Run::forced_factor) returns it.
 #[derive(Clone, Copy, Debug)]
-struct Forcing {
+struct Forcing<M> {
     /// What the factor forces on its side of the split.
     forced: Forced,
     /// The forcing factor.
-    factor: OccId,
+    factor: M,
     /// The other factor.
-    other: OccId,
+    other: M,
     /// Which of the two the forcing factor is.
     side: Branch,
 }
@@ -932,19 +910,19 @@ const CHAIN_SIZE: u32 = 256;
 
 /// A search for the free splits of a `⊗` over its context, opened: the
 /// members it assigns, the two sides and their counts.
-pub(super) struct Opened {
+pub(super) struct Opened<Z: Zone> {
     /// The `⊗`.
-    f: OccId,
+    f: Z::Member,
     /// Its left factor.
-    a: OccId,
+    a: Z::Member,
     /// Its right factor.
-    b: OccId,
+    b: Z::Member,
     /// The members the search assigns, in its order.
-    members: Pooled<OccId>,
+    members: Pooled<Z::Member>,
     /// The left side.
-    left: Context,
+    left: Z::Linear,
     /// The right side.
-    right: Context,
+    right: Z::Linear,
     /// The counts of the two sides.
     split: Box<Split>,
 }
@@ -966,9 +944,9 @@ pub(super) struct Walk {
 /// A link of a chain of free splits: its split search, what the splits
 /// it tried cut, and the arena's mark when its last split's premises
 /// began.
-pub(super) struct Frame {
+pub(super) struct Frame<Z: Zone> {
     /// The split search.
-    opened: Opened,
+    opened: Opened<Z>,
     /// Where it stands.
     walk: Walk,
     /// What the premises of the splits tried cut.

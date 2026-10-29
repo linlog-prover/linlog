@@ -23,15 +23,14 @@
 //! read.
 
 use super::arena::{Arena, Kept};
-use super::context::Context;
 use super::counts::{Counts, Split};
 use super::memo::{Key, Shared, Table};
 use super::schedule::{Plan, merged};
 use super::split::Join;
+use super::zone::Zone;
 use super::{Alternative, Cuts, Found, Problem, Run, SetUp, Step, Unrestricted};
 use crate::Error;
 use crate::limits::Limits;
-use crate::occurrences::OccId;
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
 use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime, record};
@@ -59,7 +58,7 @@ const MAX_FIXED: usize = 6;
 /// # Errors
 ///
 /// [`Error::ThreadPool`] when a pool's threads cannot start.
-pub(crate) fn search_goal(
+pub(super) fn search_goal<Z: Zone>(
     task: &Task<'_>,
     options: &Options,
     limits: &Limits,
@@ -80,7 +79,7 @@ pub(crate) fn search_goal(
     let stack = limits.stack_bytes();
     let search = |plan: Plan, runtime: &Runtime, account: &Account, flags: Flags<'_>| {
         account.charge(classes.bytes());
-        plan.search_on(set_up, account, runtime, flags)
+        plan.search_on::<Z>(set_up, account, runtime, flags)
     };
     let Some(second) = second else {
         let runtime = Lent::take(options.pool.as_ref(), options.threads(), stack)?;
@@ -117,7 +116,7 @@ impl Plan {
     /// with a memo and an arena of its own that its workers share, stopped
     /// by the flags; on a pool of one thread it is the sequential engine.
     /// Returns what [`Plan::search`] does.
-    fn search_on(
+    fn search_on<Z: Zone>(
         self,
         set_up: SetUp<'_>,
         account: &Account,
@@ -140,6 +139,7 @@ impl Plan {
                 Stop::flags(flags),
                 Table::Shared(&memo),
                 Arena::new(Kept::Shared(&arena), account),
+                Z::new(forest),
             );
             engine.runtime = (runtime.threads() > 1).then_some(runtime);
             (engine.run_kept(set_up.task.goal), engine.statistics())
@@ -155,9 +155,11 @@ impl Plan {
 /// What a worker starts from: the problem of the engine that spawns it at
 /// a parallel choice, the shared parts and the branch by reference, the
 /// branch read in place while the spawning engine waits at the scope.
-struct Spawn<'s> {
+struct Spawn<'s, Z: Zone> {
     /// The problem.
     problem: Problem<'s>,
+    /// The spawning engine's zone, which each worker's is forked from.
+    zone: &'s Z,
     /// The shared memo.
     memo: &'s Shared,
     /// The shared arena.
@@ -175,15 +177,16 @@ struct Spawn<'s> {
     or_depth: u32,
 }
 
-impl<'s> Spawn<'s> {
+impl<'s, Z: Zone> Spawn<'s, Z> {
     /// Starts a worker: a fresh engine on the spawn's problem that
     /// continues its branch, stopped by the spawn's flags or by `cancel`.
-    fn worker<'w>(&'w self, cancel: &'w AtomicBool) -> Run<'w> {
+    fn worker<'w>(&'w self, cancel: &'w AtomicBool) -> Run<'w, Z> {
         let mut worker = Run::new(
             self.problem,
             Stop::flags(self.flags.child(cancel)),
             Table::Shared(self.memo),
             Arena::new(Kept::Shared(self.arena), self.problem.account),
+            self.zone.fork(),
         );
         worker.runtime = Some(self.runtime);
         // A task stolen by a thread that waits at a scope runs on that
@@ -221,7 +224,7 @@ impl Collected {
 
     /// Takes a worker's result: a proof or an error settles the choice
     /// and raises its flag, a failure adds its cuts.
-    fn take(&mut self, result: Step, worker: &Run<'_>, cancel: &AtomicBool) {
+    fn take<Z: Zone>(&mut self, result: Step, worker: &Run<'_, Z>, cancel: &AtomicBool) {
         self.statistics.add_run(&worker.statistics);
         match result {
             Ok(Found::Proved(node)) => {
@@ -263,7 +266,7 @@ struct Premise {
 
 impl Premise {
     /// What a worker found on a premise, with its counters.
-    fn of(worker: &Run<'_>, result: Step) -> Self {
+    fn of<Z: Zone>(worker: &Run<'_, Z>, result: Step) -> Self {
         Self {
             result,
             statistics: worker.statistics,
@@ -271,7 +274,7 @@ impl Premise {
     }
 }
 
-impl<'a> Run<'a> {
+impl<'a, Z: Zone> Run<'a, Z> {
     /// Whether the next choice of the branch runs on several threads.
     pub(super) fn cubes(&self) -> bool {
         self.runtime.is_some() && self.or_depth < LEVELS
@@ -280,7 +283,7 @@ impl<'a> Run<'a> {
     /// The state a worker starts from, with `or_depth` levels of
     /// cube-and-conquer above it. The branch is read in place, so the
     /// engine's own stack stays as it is while the workers run.
-    fn spawn<'s>(&'s self, or_depth: u32) -> Spawn<'s>
+    fn spawn<'s>(&'s self, or_depth: u32) -> Spawn<'s, Z>
     where
         'a: 's,
     {
@@ -291,6 +294,7 @@ impl<'a> Run<'a> {
         };
         Spawn {
             problem: self.problem,
+            zone: &self.zone,
             memo,
             arena,
             runtime,
@@ -322,9 +326,9 @@ impl<'a> Run<'a> {
     /// returns what leaves it.
     fn run_alternative(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        alternative: Alternative<'_>,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        alternative: Alternative<'_, Z>,
         budget: u32,
     ) -> Step {
         let mut rest = None;
@@ -344,9 +348,9 @@ impl<'a> Run<'a> {
     /// pool may decide where one thread gives up.
     pub(super) fn choose_parallel(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        alternatives: &[Alternative<'_>],
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        alternatives: &[Alternative<'_, Z>],
         budget: u32,
     ) -> Step {
         let cancel = AtomicBool::new(false);
@@ -402,11 +406,11 @@ impl<'a> Run<'a> {
     /// are the state before any member moved.
     pub(super) fn split_parallel(
         &mut self,
-        theta: &Unrestricted,
-        members: &[OccId],
-        sides: (&Context, &Context),
+        theta: &Unrestricted<Z>,
+        members: &[Z::Member],
+        sides: (&Z::Linear, &Z::Linear),
         split: &Split,
-        join: Join,
+        join: Join<Z::Member>,
         budget: u32,
     ) -> Step {
         let threads = self.runtime.map_or(1, Runtime::threads);
@@ -419,10 +423,12 @@ impl<'a> Run<'a> {
             (1..fixed).all(|i| {
                 pattern >> (i - 1) & 1 == 0
                     || pattern >> i & 1 == 1
-                    || !self.problem.classes.same(members[i - 1], members[i])
+                    || !self
+                        .zone
+                        .same(self.problem.classes, members[i - 1], members[i])
             })
         };
-        let alternatives: Vec<Alternative<'_>> = (0..1u64 << fixed)
+        let alternatives: Vec<Alternative<'_, Z>> = (0..1u64 << fixed)
             .filter(|&pattern| canonical(pattern))
             .map(|pattern| Alternative::Splits {
                 join,
@@ -444,10 +450,10 @@ impl<'a> Run<'a> {
     /// An engine that is stopped already starts neither.
     pub(super) fn with_parallel(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        list: &[OccId],
-        o: OccId,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        list: &[Z::Member],
+        o: Z::Member,
         budget: u32,
     ) -> Step {
         // The asynchronous phase polls nowhere else before its stable
@@ -460,16 +466,13 @@ impl<'a> Run<'a> {
         let cancel = AtomicBool::new(false);
         let spawn = self.spawn(self.or_depth + 1);
         let premise: Mutex<Option<Premise>> = Mutex::new(None);
-        let (left_sub, right_sub) = (
-            self.problem.forest.left(o).unwrap(),
-            self.problem.forest.right(o).unwrap(),
-        );
+        let (left_sub, right_sub) = (self.left(o), self.right(o));
         // A premise on a worker, which cancels the other when it fails:
         // the rule fails then, whatever the other finds. A left premise
         // that gives up cancels the right one too, which one thread never
         // starts then; a right one that gives up leaves the left to run,
         // since its failure still decides the rule, as on one thread.
-        let search = |worker: &mut Run<'_>, sub: OccId, left: bool| {
+        let search = |worker: &mut Run<'_, Z>, sub: Z::Member, left: bool| {
             // A premise that panics cancels the other.
             let _cancel = RaiseOnPanic(&cancel);
             let result = worker.premise(theta, gamma, list, sub, budget);

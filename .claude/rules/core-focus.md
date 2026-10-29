@@ -21,8 +21,10 @@ and the interface the front door calls (`Focused`, `ONE_SIDED`,
 search); `arena.rs` the proof arena; `scratch.rs` the pools of buffers
 (`Pools`); `schedule.rs` the two searches of the default bias (`plan`,
 `chains`, `Plan`, `turns`, and the threaded `alternate` with its baton);
-`parallel.rs` the engine on a pool; `tests.rs` the tests; `bias.rs`,
-`classes.rs`, `context.rs`, `counts.rs`, `memo.rs` as named below.
+`parallel.rs` the engine on a pool; `zone.rs` what the engine is generic
+over (`Zone`, `Linear`, `Unrestricted`, `Ground`, `Cursors`, below);
+`tests.rs` the tests; `bias.rs`, `classes.rs`, `context.rs`,
+`counts.rs`, `memo.rs` as named below.
 
 `search/focus/mod.rs` is the spec's MALL-Seq and MELL-Seq in one engine, for
 every classical fragment up to full LL, with units, Mix, the exponentials

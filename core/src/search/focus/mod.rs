@@ -65,16 +65,19 @@ mod split;
 mod tests;
 /// The failures that wait on an open ancestor.
 mod waiting;
+/// What the engine is generic over: its zones' members and how their
+/// literals meet.
+mod zone;
 
 use self::arena::Arena;
 use self::classes::Classes;
-use self::context::Context;
 use self::counts::{Counts, Split, Tally, intervals_run};
 use self::memo::{Entry, Failure, Inserted, Key, Table, Zones};
 use self::schedule::{Plan, plan, turns};
 use self::scratch::{Pooled, Pools};
 use self::split::Join;
 use self::waiting::Waiting;
+use self::zone::{Ground, Linear as _, Unrestricted as _, Zone};
 use super::memory::{Account, Charged};
 use super::{
     Answer, Decide, Finished, Options, Reason, Statistics, Stop, Task, Work, set_up_stopped,
@@ -82,7 +85,7 @@ use super::{
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
-use crate::occurrences::{Forest, Member, OccId, OccSet, Reading};
+use crate::occurrences::{Forest, OccId, Reading};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::sequents::Kind;
 
@@ -169,10 +172,11 @@ impl Decide for Focused {
     ) -> Result<Answer, Error> {
         #[cfg(feature = "parallel")]
         if options.threads() > 1 {
-            let found = parallel::search_goal(task, options, limits, account, work, stop)?;
+            let found =
+                parallel::search_goal::<Ground>(task, options, limits, account, work, stop)?;
             return Ok(Answer::of_arena(task.forest, found, stop));
         }
-        let found = search_goal(task, options, limits, account, work, stop);
+        let found = search_goal::<Ground>(task, options, limits, account, work, stop);
         Ok(Answer::of_arena(task.forest, found, stop))
     }
 }
@@ -186,7 +190,7 @@ impl Decide for Focused {
 /// lives in, and the statistics. What the search allocates is charged to
 /// `account`; two searches that decide the goal together have half its
 /// bound each.
-pub(crate) fn search_goal(
+fn search_goal<Z: Zone>(
     task: &Task<'_>,
     options: &Options,
     limits: &Limits,
@@ -211,7 +215,7 @@ pub(crate) fn search_goal(
             Ok(counts) => counts,
             Err(reason) => return gave_up(reason),
         };
-        let (finished, _) = first.search(set_up, &counts, account, Stop::Closure(stop));
+        let (finished, _) = first.search::<Z>(set_up, &counts, account, Stop::Closure(stop));
         return Finished {
             result: finished.result.map_err(|r| r.as_set(options, limits)),
             ..finished
@@ -243,11 +247,11 @@ pub(crate) fn search_goal(
     let _ = work;
     #[cfg(feature = "parallel")]
     if options.schedule == super::Schedule::Auto
-        && let Some(result) = schedule::alternate(set_up, searches, work, stop)
+        && let Some(result) = schedule::alternate::<Z>(set_up, searches, work, stop)
     {
         return result;
     }
-    turns(set_up, searches, stop)
+    turns::<Z>(set_up, searches, stop)
 }
 
 /// What every search of a goal is set up with: the task, the classes of
@@ -440,14 +444,13 @@ type Step = Result<Found, Reason>;
 
 /// An alternative of a choice: what one thread tries in its order and a
 /// pool's search runs as a task of its own.
-#[derive(Clone, Copy)]
-enum Alternative<'m> {
+enum Alternative<'m, Z: Zone> {
     /// A focus on a member of `Γ`, which leaves the context.
-    Focus(OccId),
+    Focus(Z::Member),
     /// A copy of a member of `Θ` in focus, at one unit less of the budget.
-    Copy(OccId),
+    Copy(Z::Member),
     /// A side of a `⊕` in focus, with the subformula on that side.
-    Branch(OccId, Branch, OccId),
+    Branch(Z::Member, Branch, Z::Member),
     /// The free splits of a `⊗` that assign the first `fixed` members as
     /// the bits of `pattern` say, one for the left premise, from the sides
     /// and counts before any member moved.
@@ -457,19 +460,27 @@ enum Alternative<'m> {
     )]
     Splits {
         /// The `⊗` rule the sides are the premises of.
-        join: Join,
+        join: Join<Z::Member>,
         /// The members of the context that the search assigns.
-        members: &'m [OccId],
+        members: &'m [Z::Member],
         /// How many of them the pattern assigns.
         fixed: usize,
         /// Their assignment.
         pattern: u64,
         /// The sides before any member moved.
-        sides: (&'m Context, &'m Context),
+        sides: (&'m Z::Linear, &'m Z::Linear),
         /// Their counts, the members open.
         split: &'m Split,
     },
 }
+
+impl<Z: Zone> Clone for Alternative<'_, Z> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<Z: Zone> Copy for Alternative<'_, Z> {}
 
 /// What every engine of one search reads and none changes: the problem,
 /// the rules it is searched under, the account its memory is charged to,
@@ -520,44 +531,33 @@ impl<'a> Problem<'a> {
     }
 }
 
-/// What the members marked last have on one list of a literal's
-/// occurrences.
-#[derive(Clone, Copy, Debug)]
-struct Marks {
-    /// The stamp of the marking that last found a member on the list.
-    stamp: u64,
-    /// The first member that marking found there.
-    first: OccId,
-    /// The stamp of the marking whose initial rules last looked for the
-    /// list's literal in `Θ`.
-    tried: u64,
-}
-
 /// The unrestricted zone of a sequent: the subformulas of the `?`
 /// formulas decomposed on the branch, and the id the memo interned it
 /// under ([`Table::intern`]), by which keys name it.
-struct Unrestricted {
+struct Unrestricted<Z: Zone> {
     /// The zone.
-    set: OccSet,
+    set: Z::Unrestricted,
     /// Its id: another for another zone.
     id: u64,
 }
 
 /// The members of an unrestricted zone in the order of their classes.
-struct ByClass {
+struct ByClass<Z: Zone> {
     /// The id of the zone; `None` before the first.
     zone: Option<u64>,
     /// Its members with their classes, by class and then by id.
-    members: Pooled<(OccId, OccId)>,
+    members: Pooled<(Z::Member, Z::Member)>,
 }
 
 /// The state of one run: the problem, the memo, the proof arena, the
 /// counters, the branch, and pools of scratch buffers so that no step
 /// allocates once the pools are warm.
-struct Run<'a> {
+struct Run<'a, Z: Zone> {
     /// The problem: the forest and what was computed from it, the rules,
     /// the account and the limits.
     problem: Problem<'a>,
+    /// The zones' members and how their literals meet.
+    zone: Z,
     /// The memo of stable sequents.
     memo: Table<'a>,
     /// The proof arena.
@@ -612,26 +612,26 @@ struct Run<'a> {
     /// depth of an entry of `stack` counts these first.
     ancestors: Vec<(&'a [Key], &'a [u64])>,
     /// The spare buffers.
-    pools: Pools,
-    /// Per list of a literal's occurrences, twice the atom plus the sign
-    /// as the forest numbers them: what the members marked last have on
-    /// it. Empty until the first marking.
-    lists: Vec<Marks>,
-    /// The stamp of the members marked last. A search that marks a
-    /// billion sets a second takes five centuries to wrap it.
-    stamp: u64,
+    pools: Pools<Z>,
     /// The unrestricted zone of the stable sequent whose copies were
     /// listed last, with its members by class.
-    by_class: ByClass,
+    by_class: ByClass<Z>,
 }
 
-impl<'a> Run<'a> {
-    /// Prepares a run on the problem with the stop condition, the memo and
-    /// the arena to use, at the root of its branch; a pool's worker is one
-    /// that is then given the branch it continues.
-    fn new(problem: Problem<'a>, stop: Stop<'a>, memo: Table<'a>, nodes: Arena<'a>) -> Self {
+impl<'a, Z: Zone> Run<'a, Z> {
+    /// Prepares a run on the problem with the stop condition, the memo,
+    /// the arena and the zone to use, at the root of its branch; a pool's
+    /// worker is one that is then given the branch it continues.
+    fn new(
+        problem: Problem<'a>,
+        stop: Stop<'a>,
+        memo: Table<'a>,
+        nodes: Arena<'a>,
+        zone: Z,
+    ) -> Self {
         Self {
             problem,
+            zone,
             memo,
             scratch: Charged::new(problem.account),
             nodes,
@@ -651,8 +651,6 @@ impl<'a> Run<'a> {
             waiting: Waiting::default(),
             ancestors: Vec::new(),
             pools: Pools::default(),
-            lists: Vec::new(),
-            stamp: 0,
             by_class: ByClass {
                 zone: None,
                 members: Pooled::default(),
@@ -668,6 +666,38 @@ impl<'a> Run<'a> {
         };
         let stop = &mut self.stop;
         self.nodes.keep_all(root, &mut || stop.fired(0)).map(Some)
+    }
+
+    /// The occurrence of a member.
+    #[inline]
+    fn occ(&self, m: Z::Member) -> OccId {
+        self.zone.occurrence(m)
+    }
+
+    /// The kind of a member's occurrence.
+    #[inline]
+    fn kind(&self, m: Z::Member) -> Kind {
+        self.problem.forest.kind(self.occ(m))
+    }
+
+    /// The member of the left subformula of a member's occurrence.
+    #[inline]
+    fn left(&self, m: Z::Member) -> Z::Member {
+        let left = self.problem.forest.left(self.occ(m)).unwrap();
+        self.zone.child(m, left)
+    }
+
+    /// The member of the right subformula of a member's occurrence.
+    #[inline]
+    fn right(&self, m: Z::Member) -> Z::Member {
+        let right = self.problem.forest.right(self.occ(m)).unwrap();
+        self.zone.child(m, right)
+    }
+
+    /// The class of a member.
+    #[inline]
+    fn class(&self, m: Z::Member) -> Z::Member {
+        self.zone.class(self.problem.classes, m)
     }
 
     /// Returns the counters, with the memo's.
@@ -691,7 +721,7 @@ impl<'a> Run<'a> {
         };
         let set = self.take_set();
         let theta = Unrestricted {
-            id: self.memo.intern(&set, self.problem.account),
+            id: self.memo.intern(set.ground(), self.problem.account),
             set,
         };
         // The failures cut by the budget that the levels read, a generation
@@ -709,7 +739,7 @@ impl<'a> Run<'a> {
             let mut gamma = self.take_context();
             let mut list = self.take_list();
             // A stack: the first formula is decomposed first.
-            list.extend(goal.iter().rev());
+            list.extend(goal.iter().rev().map(|&o| self.zone.root(o)));
             let result = self.asynchronous(&theta, &mut gamma, &mut list, budget);
             self.give_context(gamma);
             self.give_list(list);
@@ -742,9 +772,9 @@ impl<'a> Run<'a> {
     /// The list is a stack; the order does not matter for completeness.
     fn asynchronous(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &mut Context,
-        list: &mut Vec<OccId>,
+        theta: &Unrestricted<Z>,
+        gamma: &mut Z::Linear,
+        list: &mut Vec<Z::Member>,
         budget: u32,
     ) -> Step {
         self.enter()?;
@@ -759,9 +789,9 @@ impl<'a> Run<'a> {
     /// level of recursion and not one each.
     fn decompose(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &mut Context,
-        list: &mut Vec<OccId>,
+        theta: &Unrestricted<Z>,
+        gamma: &mut Z::Linear,
+        list: &mut Vec<Z::Member>,
         budget: u32,
     ) -> Step {
         // The `⅋`, `⊥` and `?` rules applied, to wrap around the proof of
@@ -769,21 +799,21 @@ impl<'a> Run<'a> {
         let mut applied = self.take_list();
         // The unrestricted zone once a `?` added a formula to it, and,
         // once it is complete, the zone with the id it was interned under.
-        let mut grown: Option<OccSet> = None;
-        let mut interned: Option<Unrestricted> = None;
+        let mut grown: Option<Z::Unrestricted> = None;
+        let mut interned: Option<Unrestricted<Z>> = None;
         let result = loop {
             let Some(o) = list.pop() else {
                 interned = self.interned(grown.take());
                 break self.prove(interned.as_ref().unwrap_or(theta), gamma, budget);
             };
-            match self.problem.forest.kind(o) {
+            match self.kind(o) {
                 Kind::Par => {
-                    list.push(self.problem.forest.right(o).unwrap());
-                    list.push(self.problem.forest.left(o).unwrap());
+                    list.push(self.right(o));
+                    list.push(self.left(o));
                     applied.push(o);
                 }
                 Kind::Bot => applied.push(o),
-                Kind::Top => break Ok(Found::proved(self.push(Node::Top(Member::from(o))))),
+                Kind::Top => break Ok(Found::proved(self.push(Node::Top(o.into())))),
                 Kind::With => {
                     interned = self.interned(grown.take());
                     break self.with(interned.as_ref().unwrap_or(theta), gamma, list, o, budget);
@@ -791,11 +821,11 @@ impl<'a> Run<'a> {
                 Kind::Quest => {
                     // The subformula joins the unrestricted zone, which is
                     // a set: a formula already there changes nothing.
-                    let a = self.problem.forest.left(o).unwrap();
+                    let a = self.left(o);
                     if !grown.as_ref().unwrap_or(&theta.set).contains(a) {
                         if grown.is_none() {
                             let mut larger = self.take_set();
-                            larger.clone_from(&theta.set);
+                            larger.copy_from(&theta.set);
                             grown = Some(larger);
                         }
                         grown.as_mut().unwrap().insert(a);
@@ -815,10 +845,10 @@ impl<'a> Run<'a> {
         let result = result.map(|found| {
             found.map(|mut node| {
                 for &o in applied.iter().rev() {
-                    node = self.push(match self.problem.forest.kind(o) {
-                        Kind::Par => Node::Par(Member::from(o), node),
-                        Kind::Quest => Node::Quest(Member::from(o), node),
-                        _ => Node::Bot(Member::from(o), node),
+                    node = self.push(match self.kind(o) {
+                        Kind::Par => Node::Par(o.into(), node),
+                        Kind::Quest => Node::Quest(o.into(), node),
+                        _ => Node::Bot(o.into(), node),
                     });
                 }
                 node
@@ -829,9 +859,9 @@ impl<'a> Run<'a> {
     }
 
     /// Returns a zone that grew with the id the memo interns it under.
-    fn interned(&mut self, grown: Option<OccSet>) -> Option<Unrestricted> {
+    fn interned(&mut self, grown: Option<Z::Unrestricted>) -> Option<Unrestricted<Z>> {
         grown.map(|set| Unrestricted {
-            id: self.memo.intern(&set, self.problem.account),
+            id: self.memo.intern(set.ground(), self.problem.account),
             set,
         })
     }
@@ -841,10 +871,10 @@ impl<'a> Run<'a> {
     /// is proved. On several threads both are searched at once.
     fn with(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &mut Context,
-        list: &mut Vec<OccId>,
-        o: OccId,
+        theta: &Unrestricted<Z>,
+        gamma: &mut Z::Linear,
+        list: &mut Vec<Z::Member>,
+        o: Z::Member,
         budget: u32,
     ) -> Step {
         // A proof of `&` rules closed by `⊤` reaches no stable sequent,
@@ -859,18 +889,12 @@ impl<'a> Run<'a> {
             return self.with_parallel(theta, gamma, list, o, budget);
         }
         let mark = self.nodes.mark();
-        let left = self.premise(
-            theta,
-            gamma,
-            list,
-            self.problem.forest.left(o).unwrap(),
-            budget,
-        )?;
+        let left = self.premise(theta, gamma, list, self.left(o), budget)?;
         let Found::Proved(left_node) = left else {
             return Ok(left);
         };
         // The right premise on the state itself, which the rule leaves.
-        list.push(self.problem.forest.right(o).unwrap());
+        list.push(self.right(o));
         let (left_node, right) = self.holding(left_node, |run| {
             run.asynchronous(theta, gamma, list, budget)
         });
@@ -900,10 +924,10 @@ impl<'a> Run<'a> {
     /// the list with the subformula on top.
     fn premise(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        list: &[OccId],
-        sub: OccId,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        list: &[Z::Member],
+        sub: Z::Member,
         budget: u32,
     ) -> Step {
         let mut premise_gamma = self.take_context_from(gamma);
@@ -959,18 +983,18 @@ impl<'a> Run<'a> {
     /// The `&` node on `o` from the proof of its left premise and what the
     /// search of the right one found; the right one's failure, with the
     /// nodes pending since `mark` released, when it failed.
-    fn both(&mut self, o: OccId, left: NodeId, right: Found, mark: usize) -> Found {
+    fn both(&mut self, o: Z::Member, left: NodeId, right: Found, mark: usize) -> Found {
         let Found::Proved(right) = right else {
             self.nodes.release(mark);
             return right;
         };
-        Found::proved(self.push(Node::With(Member::from(o), left, right)))
+        Found::proved(self.push(Node::With(o.into(), left, right)))
     }
 
     /// `prove(Θ ; Γ)` for a stable `Γ`: the memo, the loop check, the
     /// immediate tests, then a focus on each positive
     /// formula in turn, first from `Γ`, then copied from `Θ`, then Mix.
-    fn prove(&mut self, theta: &Unrestricted, gamma: &Context, budget: u32) -> Step {
+    fn prove(&mut self, theta: &Unrestricted<Z>, gamma: &Z::Linear, budget: u32) -> Step {
         Ok(self.prove_part(theta, gamma, budget)?.0)
     }
 
@@ -978,8 +1002,8 @@ impl<'a> Run<'a> {
     /// sub-multiset of `Γ` is provable either.
     fn prove_part(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
         self.enter()?;
@@ -993,8 +1017,8 @@ impl<'a> Run<'a> {
     /// `Γ` listed once. Says whether a failure is hereditary.
     fn prove_stable(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
         self.statistics.nodes += 1;
@@ -1007,18 +1031,42 @@ impl<'a> Run<'a> {
         if self.problem.account.over() {
             self.relieve()?;
         }
-        // The key's words: the members, each once, where none repeats.
-        let mut words = self.take_list();
-        let repeats = gamma.repeats();
-        if repeats {
-            gamma.key_into(&mut words);
-        } else {
-            gamma.list_into(&mut words);
+        if !self.zone.memoizes(&theta.set, gamma) {
+            return self.prove_unkeyed(theta, gamma, budget);
         }
-        let mut canonical = self.take_list();
+        // The key's words: the members, each once, where none repeats.
+        let mut words = self.take_words();
+        let ground = gamma.ground();
+        let repeats = ground.repeats();
+        if repeats {
+            ground.key_into(&mut words);
+        } else {
+            ground.list_into(&mut words);
+        }
+        let mut canonical = self.take_words();
         let result = self.prove_listed(theta, gamma, (&words, repeats), &mut canonical, budget);
-        self.give_list(words);
-        self.give_list(canonical);
+        self.give_words(words);
+        self.give_words(canonical);
+        result
+    }
+
+    /// The decision of a stable sequent that the memo and the loop check
+    /// may not key.
+    #[cold]
+    fn prove_unkeyed(
+        &mut self,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        budget: u32,
+    ) -> Result<(Found, bool), Reason> {
+        let mut members = self.take_list();
+        gamma.list_into(&mut members);
+        let mark = self.nodes.mark();
+        let result = self.decide(theta, gamma, &members, budget);
+        self.give_list(members);
+        if let Ok((Found::Failed(_), _)) = result {
+            self.nodes.release(mark);
+        }
         result
     }
 
@@ -1028,8 +1076,8 @@ impl<'a> Run<'a> {
     /// with a buffer for its canonical key.
     fn prove_listed(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
         (words, repeats): (&[OccId], bool),
         canonical: &mut Vec<OccId>,
         budget: u32,
@@ -1047,7 +1095,7 @@ impl<'a> Run<'a> {
         };
         // Complete failures are recorded up to interchangeable members:
         // under the canonical key, where it differs from the sequent's own.
-        let renamed = self.problem.classes.renames(gamma);
+        let renamed = self.problem.classes.renames(gamma.ground());
         if renamed {
             self.problem.classes.canonical(words, repeats, canonical);
             debug_assert!(
@@ -1138,14 +1186,15 @@ impl<'a> Run<'a> {
         let mark = self.nodes.mark();
         // The members with their repeats, listed only to be decided: a
         // marking of a hundred tokens is a hundred members.
-        let result = if repeats {
+        let listed = if repeats { None } else { Z::listed(words) };
+        let result = if let Some(members) = listed {
+            self.decide(theta, gamma, members, budget)
+        } else {
             let mut members = self.take_list();
             gamma.list_into(&mut members);
             let result = self.decide(theta, gamma, &members, budget);
             self.give_list(members);
             result
-        } else {
-            self.decide(theta, gamma, words, budget)
         };
         let own_depth = if self.problem.rules.stack {
             self.stack_len -= 1;
@@ -1314,7 +1363,7 @@ impl<'a> Run<'a> {
                 .remember(key, hash, Entry::Failed(complete))
                 .map(|_| ());
         }
-        let mut canonical = self.take_list();
+        let mut canonical = self.take_words();
         let repeats = key.members.iter().any(|o| o.get() & memo::REPEATED != 0);
         self.problem
             .classes
@@ -1324,7 +1373,7 @@ impl<'a> Run<'a> {
             members: &canonical,
         };
         let recorded = self.remember(canonical_key, canonical_key.hash(), Entry::Failed(complete));
-        self.give_list(canonical);
+        self.give_words(canonical);
         recorded.map(|_| ())
     }
 
@@ -1435,9 +1484,9 @@ impl<'a> Run<'a> {
     /// one member less hereditarily failed.
     fn decide(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        members: &[OccId],
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        members: &[Z::Member],
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
         let mut tally = self.take_tally();
@@ -1470,12 +1519,12 @@ impl<'a> Run<'a> {
     #[allow(clippy::too_many_arguments)]
     fn decide_with(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        members: &[OccId],
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        members: &[Z::Member],
         tally: &mut Tally,
-        candidates: &mut Vec<OccId>,
-        copies: &mut Vec<OccId>,
+        candidates: &mut Vec<Z::Member>,
+        copies: &mut Vec<Z::Member>,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
         let affine = self.problem.rules.affine;
@@ -1487,8 +1536,8 @@ impl<'a> Run<'a> {
         self.work += members.len() as u64;
         let mut zero = false;
         for &o in members {
-            tally.add(self.problem.counts, o);
-            match self.problem.forest.kind(o) {
+            tally.add(self.problem.counts, self.occ(o));
+            match self.kind(o) {
                 Kind::Zero => zero = true,
                 Kind::Tensor | Kind::Plus => candidates.push(o),
                 Kind::One | Kind::Bang if members.len() == 1 || affine => candidates.push(o),
@@ -1504,7 +1553,10 @@ impl<'a> Run<'a> {
         if zero
             && !affine
             && !tally.absorbs()
-            && !theta.set.iter().any(|a| self.problem.counts.absorbs(a))
+            && !theta
+                .set
+                .iter()
+                .any(|a| self.problem.counts.absorbs(self.occ(a)))
         {
             return Ok((Found::NOTHING, false));
         }
@@ -1544,12 +1596,13 @@ impl<'a> Run<'a> {
                 // asked once per formula, not once per comparison.
                 copies.sort_unstable();
                 self.work += (copies.len() * members.len() / MEETS_PER_WORK) as u64;
-                self.mark_literals(members);
+                self.zone
+                    .mark_literals(self.problem.forest, members, &mut self.scratch);
                 let mut others = self.take_list();
                 let mut met = 0;
                 for i in 0..copies.len() {
                     let a = copies[i];
-                    if self.meets(a) {
+                    if self.zone.meets(self.problem.forest, a) {
                         copies[met] = a;
                         met += 1;
                     } else {
@@ -1579,14 +1632,14 @@ impl<'a> Run<'a> {
     /// the alternatives searched.
     fn choose<'m>(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        alternatives: impl Iterator<Item = Alternative<'m>>,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        alternatives: impl Iterator<Item = Alternative<'m, Z>>,
         budget: u32,
     ) -> Step {
         #[cfg(feature = "parallel")]
         if self.cubes() {
-            let alternatives: Vec<Alternative<'m>> = alternatives.collect();
+            let alternatives: Vec<Alternative<'m, Z>> = alternatives.collect();
             if alternatives.len() >= 2 {
                 return self.choose_parallel(theta, gamma, &alternatives, budget);
             }
@@ -1598,9 +1651,9 @@ impl<'a> Run<'a> {
     /// Decides a choice among alternatives on this engine, in their order.
     fn choose_here<'m>(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        alternatives: impl Iterator<Item = Alternative<'m>>,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        alternatives: impl Iterator<Item = Alternative<'m, Z>>,
         budget: u32,
     ) -> Step {
         let mut cuts = Cuts::NONE;
@@ -1627,10 +1680,10 @@ impl<'a> Run<'a> {
     /// first time one needs it.
     fn alternative(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        alternative: Alternative<'_>,
-        rest: &mut Option<Context>,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        alternative: Alternative<'_, Z>,
+        rest: &mut Option<Z::Linear>,
         budget: u32,
     ) -> Step {
         match alternative {
@@ -1639,16 +1692,16 @@ impl<'a> Run<'a> {
                     *rest = Some(self.take_context_any());
                 }
                 let rest = rest.as_mut().expect("taken");
-                rest.clone_from(gamma);
+                rest.copy_from(gamma);
                 rest.remove(f);
                 self.focus(theta, rest, f, budget)
             }
             Alternative::Copy(a) => Ok(self
                 .focus(theta, gamma, a, budget - 1)?
-                .map(|node| self.push(Node::Copy(Member::from(a), node)))),
+                .map(|node| self.push(Node::Copy(a.into(), node)))),
             Alternative::Branch(f, side, sub) => Ok(self
                 .focus(theta, gamma, sub, budget)?
-                .map(|node| self.push(Node::Plus(Member::from(f), side, node)))),
+                .map(|node| self.push(Node::Plus(f.into(), side, node)))),
             Alternative::Splits {
                 join,
                 members,
@@ -1665,9 +1718,9 @@ impl<'a> Run<'a> {
                     if pattern >> i & 1 == 1 {
                         right.remove(m);
                         left.insert(m);
-                        counts.assign(self.problem.counts, m, Branch::Left);
+                        counts.assign(self.problem.counts, self.occ(m), Branch::Left);
                     } else {
-                        counts.assign(self.problem.counts, m, Branch::Right);
+                        counts.assign(self.problem.counts, self.occ(m), Branch::Right);
                     }
                 }
                 let result = self.search_splits(
@@ -1696,17 +1749,20 @@ impl<'a> Run<'a> {
     /// of what one cost on a net of thousands of transitions.
     fn one_of_each_copy(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        copies: &mut Vec<OccId>,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        copies: &mut Vec<Z::Member>,
     ) -> usize {
         let by_class = &mut self.by_class;
         if by_class.zone != Some(theta.id) {
             by_class.zone = Some(theta.id);
             by_class.members.clear();
-            by_class
-                .members
-                .extend(theta.set.iter().map(|a| (self.problem.classes.of(a), a)));
+            by_class.members.extend(
+                theta
+                    .set
+                    .iter()
+                    .map(|a| (self.zone.class(self.problem.classes, a), a)),
+            );
             by_class.members.sort_unstable();
             by_class.members.settle(&mut self.scratch);
         }
@@ -1727,9 +1783,9 @@ impl<'a> Run<'a> {
 
     /// Keeps, of the occurrences that are interchangeable, the one with
     /// the lowest id.
-    fn one_of_each(&self, occurrences: &mut Vec<OccId>) {
-        occurrences.sort_unstable_by_key(|&o| (self.problem.classes.of(o), o));
-        occurrences.dedup_by_key(|o| self.problem.classes.of(*o));
+    fn one_of_each(&self, occurrences: &mut Vec<Z::Member>) {
+        occurrences.sort_unstable_by_key(|&o| (self.class(o), o));
+        occurrences.dedup_by_key(|o| self.class(*o));
     }
 
     /// What is tried on a stable sequent after every focus failed: Mix,
@@ -1737,9 +1793,9 @@ impl<'a> Run<'a> {
     /// because no part of `Γ` is provable.
     fn last_resort(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        members: &[OccId],
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        members: &[Z::Member],
         tally: &Tally,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
@@ -1760,28 +1816,28 @@ impl<'a> Run<'a> {
     /// weakening, where any number of members may close a sequent.
     fn initial(
         &mut self,
-        theta: &Unrestricted,
-        gamma: &Context,
-        members: &[OccId],
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        members: &[Z::Member],
         budget: u32,
     ) -> Step {
         let affine = self.problem.rules.affine;
         if !affine && members.len() > 2 {
             return Ok(Found::NOTHING);
         }
-        self.mark_literals(members);
         let f = self.problem.forest;
+        self.zone.mark_literals(f, members, &mut self.scratch);
         let mut cuts = Cuts::NONE;
         for &p in members {
-            let (Some(atom), Some(sign)) = (f.atom(p), f.sign(p)) else {
+            let Some(dual) = self.zone.duals(f, p) else {
                 continue;
             };
-            let dual = Forest::list(atom, !sign);
             // No member before `p` has a dual among the members, else the
             // pair would have closed the sequent there, so `p`'s first dual
             // comes after it.
-            if (affine || members.len() == 2) && self.lists[dual].stamp == self.stamp {
-                let q = self.lists[dual].first;
+            if (affine || members.len() == 2)
+                && let Some(q) = self.zone.marked(dual)
+            {
                 let ax = self.push(Node::Ax(p.into(), q.into()));
                 if !affine {
                     return Ok(Found::proved(ax));
@@ -1798,12 +1854,11 @@ impl<'a> Run<'a> {
             // what the first found.
             if !(affine || members.len() == 1)
                 || !self.problem.rules.exponentials
-                || self.lists[dual].tried == self.stamp
+                || !self.zone.first_lookup(dual)
             {
                 continue;
             }
-            self.lists[dual].tried = self.stamp;
-            if let Some(d) = self.dual_in(p, |d| theta.set.contains(d)) {
+            if let Some(d) = self.zone.dual_in(f, p, |d| theta.set.contains(d)) {
                 if budget == 0 {
                     // Another pair may still close the sequent without a
                     // copy.
@@ -1811,7 +1866,7 @@ impl<'a> Run<'a> {
                     continue;
                 }
                 let ax = self.push(Node::Ax(p.into(), d.into()));
-                let copy = self.push(Node::Copy(Member::from(d), ax));
+                let copy = self.push(Node::Copy(d.into(), ax));
                 if !affine {
                     return Ok(Found::proved(copy));
                 }
@@ -1825,70 +1880,17 @@ impl<'a> Run<'a> {
         Ok(Found::failed(cuts))
     }
 
-    /// The first occurrence of the literal dual to `literal` that is `within`
-    /// a zone, found through the forest's list of that literal's
-    /// occurrences rather than through the zone's members.
-    fn dual_in(&self, literal: OccId, within: impl Fn(OccId) -> bool) -> Option<OccId> {
-        let f = self.problem.forest;
-        let (atom, sign) = (f.atom(literal)?, f.sign(literal)?);
-        f.literals(atom, !sign).iter().copied().find(|&d| within(d))
-    }
-
-    /// Marks the lists of the literals among the members of a stable
-    /// sequent, under a stamp of their own, with the first member on each,
-    /// for [`Self::initial`] and [`Self::meets`]. One pass over the
-    /// members, so that ranking the copies costs the members and the
-    /// formulas of `Θ` once each and not their product, which on a
-    /// marking of thousands of tokens under clauses of thousands of
-    /// literals was a quarter of a second per stable sequent.
-    fn mark_literals(&mut self, members: &[OccId]) {
-        let f = self.problem.forest;
-        if self.lists.is_empty() {
-            let lists = f.lists();
-            self.scratch.charge(lists * size_of::<Marks>());
-            self.lists = vec![
-                Marks {
-                    stamp: 0,
-                    first: OccId::new(0),
-                    tried: 0,
-                };
-                lists
-            ];
-        }
-        self.stamp += 1;
-        for &m in members {
-            if let (Some(atom), Some(sign)) = (f.atom(m), f.sign(m)) {
-                let list = &mut self.lists[Forest::list(atom, sign)];
-                if list.stamp != self.stamp {
-                    list.stamp = self.stamp;
-                    list.first = m;
-                }
-            }
-        }
-    }
-
-    /// Whether a formula of `Θ` has a literal below it whose dual is a
-    /// member of the stable sequent marked last: the copy heuristic's
-    /// notion of a copy that can meet something.
-    fn meets(&self, a: OccId) -> bool {
-        let f = self.problem.forest;
-        f.subtree(a).any(|l| match (f.atom(l), f.sign(l)) {
-            (Some(atom), Some(sign)) => self.lists[Forest::list(atom, !sign)].stamp == self.stamp,
-            _ => false,
-        })
-    }
-
     /// Orders the focus candidates: `1` and `!`, then a `⊗` whose split is
     /// forced by a factor (a positive literal, `1`, `!`; or `0`, which
     /// fails at once), then `⊕`, then a `⊗` whose split must be searched.
-    fn focus_class(&self, o: OccId) -> u8 {
-        match self.problem.forest.kind(o) {
+    fn focus_class(&self, o: Z::Member) -> u8 {
+        match self.kind(o) {
             Kind::One | Kind::Bang => 0,
             Kind::Tensor => {
                 let forced = self
                     .problem
                     .forest
-                    .children(o)
+                    .children(self.occ(o))
                     .any(|c| self.forced_side(c).is_some());
                 if forced { 1 } else { 3 }
             }
@@ -1899,7 +1901,13 @@ impl<'a> Run<'a> {
     /// `focus(Θ ; Γ ⇓ F)` with `F` taken out of `Γ` (or copied from `Θ`):
     /// the positive rules along `F`, and a release into the asynchronous
     /// phase once `F` is negative.
-    fn focus(&mut self, theta: &Unrestricted, gamma: &Context, f: OccId, budget: u32) -> Step {
+    fn focus(
+        &mut self,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        f: Z::Member,
+        budget: u32,
+    ) -> Step {
         self.enter()?;
         let result = self.focus_on(theta, gamma, f, budget);
         self.leave();
@@ -1907,18 +1915,24 @@ impl<'a> Run<'a> {
     }
 
     /// The body of `focus`.
-    fn focus_on(&mut self, theta: &Unrestricted, gamma: &Context, f: OccId, budget: u32) -> Step {
-        match self.problem.forest.kind(f) {
+    fn focus_on(
+        &mut self,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        f: Z::Member,
+        budget: u32,
+    ) -> Step {
+        match self.kind(f) {
             Kind::Plus => {
                 let sides = [
-                    Alternative::Branch(f, Branch::Left, self.problem.forest.left(f).unwrap()),
-                    Alternative::Branch(f, Branch::Right, self.problem.forest.right(f).unwrap()),
+                    Alternative::Branch(f, Branch::Left, self.left(f)),
+                    Alternative::Branch(f, Branch::Right, self.right(f)),
                 ];
                 self.choose(theta, gamma, sides.into_iter(), budget)
             }
             Kind::Tensor => self.split(theta, gamma, f, budget),
             Kind::One if self.leftover(gamma) => {
-                let one = self.push(Node::One(Member::from(f)));
+                let one = self.push(Node::One(f.into()));
                 Ok(Found::proved(self.weakened(gamma, one)))
             }
             Kind::One => Ok(Found::NOTHING),
@@ -1930,17 +1944,22 @@ impl<'a> Run<'a> {
                 }
                 let mut released = self.take_context();
                 let mut list = self.take_list();
-                list.push(self.problem.forest.left(f).unwrap());
+                list.push(self.left(f));
                 let result = self.asynchronous(theta, &mut released, &mut list, budget);
                 self.give_context(released);
                 self.give_list(list);
                 Ok(result?.map(|node| {
-                    let bang = self.push(Node::Bang(Member::from(f), node));
+                    let bang = self.push(Node::Bang(f.into(), node));
                     self.weakened(gamma, bang)
                 }))
             }
             Kind::Zero => Ok(Found::NOTHING),
-            Kind::Atom | Kind::DualAtom if self.problem.counts.positive(self.problem.forest, f) => {
+            Kind::Atom | Kind::DualAtom
+                if self
+                    .problem
+                    .counts
+                    .positive(self.problem.forest, self.occ(f)) =>
+            {
                 // The initial rules: the context is the dual literal, or
                 // nothing and the dual lies in `Θ`.
                 let mut members = self.take_list();
@@ -1968,13 +1987,13 @@ impl<'a> Run<'a> {
 
     /// Whether a rule that needs an empty linear zone can be applied with
     /// this one: it is empty, or weakening will discard it.
-    fn leftover(&self, gamma: &Context) -> bool {
+    fn leftover(&self, gamma: &Z::Linear) -> bool {
         gamma.is_empty() || self.problem.rules.affine
     }
 
     /// Weakens every member of `gamma` below `node`, one `Weaken` per copy;
     /// nothing when it is empty.
-    fn weakened(&mut self, gamma: &Context, mut node: NodeId) -> NodeId {
+    fn weakened(&mut self, gamma: &Z::Linear, mut node: NodeId) -> NodeId {
         debug_assert!(
             gamma.is_empty() || self.problem.rules.affine,
             "weakening needs affine mode"
@@ -1982,11 +2001,11 @@ impl<'a> Run<'a> {
         debug_assert!(
             self.problem
                 .reading
-                .is_none_or(|r| r.outputs(gamma.iter()) == 0),
+                .is_none_or(|r| r.outputs(gamma.iter().map(|m| self.occ(m))) == 0),
             "a leaf is the goal, so only hypotheses are left over"
         );
         for o in gamma.iter() {
-            node = self.push(Node::Weaken(Member::from(o), node));
+            node = self.push(Node::Weaken(o.into(), node));
         }
         node
     }

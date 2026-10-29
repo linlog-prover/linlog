@@ -5,6 +5,7 @@
 
 use super::*;
 use crate::Sequent;
+use crate::occurrences::Member;
 use crate::search::generate::{self, Rng, Rules};
 use crate::search::{Bias, Goal, Verdict, prove_goal};
 use crate::{Limits, Progress};
@@ -671,7 +672,7 @@ fn default_bias_takes_turns() {
         };
         let Finished {
             result, statistics, ..
-        } = turns(
+        } = turns::<Ground>(
             set_up,
             [
                 (first, &counts[0], &account),
@@ -2128,6 +2129,7 @@ fn a_worker_drops_what_rests_on_the_spawning_branch() {
         Stop::Closure(&mut never),
         table,
         Arena::new(arena::Kept::Own(Vec::new()), &account),
+        Ground::new(&forest),
     );
     worker.ancestors.push((&branch, &hashes));
     assert!(matches!(worker.run(forest.roots()), Ok(None)));

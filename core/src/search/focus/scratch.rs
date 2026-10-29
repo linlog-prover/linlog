@@ -6,16 +6,16 @@
 //! pools are warm.
 
 use super::Run;
-use super::context::Context;
 use super::counts::{Split, Tally};
-use super::split::{Cursors, Frame};
-use crate::occurrences::{OccId, OccSet};
+use super::split::Frame;
+use super::zone::{Cursors, Linear as _, Unrestricted as _, Zone};
+use crate::occurrences::OccId;
 use crate::proofs::{Branch, NodeId};
 use crate::search::memory::{Charged, bytes_of};
 
-impl Run<'_> {
+impl<Z: Zone> Run<'_, Z> {
     /// Takes an empty set from the pool.
-    pub(super) fn take_set(&mut self) -> OccSet {
+    pub(super) fn take_set(&mut self) -> Z::Unrestricted {
         match self.pools.sets.pop() {
             Some(mut set) => {
                 set.clear();
@@ -23,18 +23,18 @@ impl Run<'_> {
             }
             None => {
                 self.scratch.charge(self.set_bytes());
-                self.problem.forest.empty_set()
+                Z::Unrestricted::empty(self.problem.forest)
             }
         }
     }
 
     /// Returns a set to the pool.
-    pub(super) fn give_set(&mut self, set: OccSet) {
+    pub(super) fn give_set(&mut self, set: Z::Unrestricted) {
         self.pools.sets.push(set);
     }
 
     /// Takes an empty linear zone from the pool.
-    pub(super) fn take_context(&mut self) -> Context {
+    pub(super) fn take_context(&mut self) -> Z::Linear {
         match self.pools.contexts.pop() {
             Some(mut context) => {
                 context.clear();
@@ -42,7 +42,7 @@ impl Run<'_> {
             }
             None => {
                 self.scratch.charge(self.set_bytes());
-                Context::empty(self.problem.forest.len())
+                Z::Linear::empty(self.problem.forest)
             }
         }
     }
@@ -50,36 +50,49 @@ impl Run<'_> {
     /// Takes a linear zone from the pool with any contents, for a caller
     /// that overwrites it whole: clearing it first would write the
     /// forest's width once more.
-    pub(super) fn take_context_any(&mut self) -> Context {
+    pub(super) fn take_context_any(&mut self) -> Z::Linear {
         self.pools.contexts.pop().unwrap_or_else(|| {
             self.scratch.charge(self.set_bytes());
-            Context::empty(self.problem.forest.len())
+            Z::Linear::empty(self.problem.forest)
         })
     }
 
     /// Takes a linear zone from the pool that is a copy of `gamma`.
-    pub(super) fn take_context_from(&mut self, gamma: &Context) -> Context {
+    pub(super) fn take_context_from(&mut self, gamma: &Z::Linear) -> Z::Linear {
         let mut context = self.take_context_any();
-        context.clone_from(gamma);
+        context.copy_from(gamma);
         context
     }
 
     /// Returns a linear zone to the pool.
-    pub(super) fn give_context(&mut self, context: Context) {
+    pub(super) fn give_context(&mut self, context: Z::Linear) {
         self.pools.contexts.push(context);
     }
 
     /// Takes an empty list from the pool.
-    pub(super) fn take_list(&mut self) -> Pooled<OccId> {
+    pub(super) fn take_list(&mut self) -> Pooled<Z::Member> {
         let mut list = self.pools.lists.pop().unwrap_or_default();
         list.clear();
         list
     }
 
     /// Returns a list to the pool.
-    pub(super) fn give_list(&mut self, mut list: Pooled<OccId>) {
+    pub(super) fn give_list(&mut self, mut list: Pooled<Z::Member>) {
         list.settle(&mut self.scratch);
         self.pools.lists.push(list);
+    }
+
+    /// Takes an empty list of the words of a memo's key from the pool.
+    pub(super) fn take_words(&mut self) -> Pooled<OccId> {
+        let mut words = Z::word_lists(&mut self.pools).pop().unwrap_or_default();
+        words.clear();
+        words
+    }
+
+    /// Returns a list of words to the pool.
+    pub(super) fn give_words(&mut self, mut words: Pooled<OccId>) {
+        words.settle(&mut self.scratch);
+        Z::word_lists(&mut self.pools).push(words);
     }
 
     /// Takes an empty tally from the pool.
@@ -138,26 +151,26 @@ impl Run<'_> {
     }
 
     /// Takes an empty list of links from the pool.
-    pub(super) fn take_links(&mut self) -> Pooled<(OccId, NodeId, Branch)> {
+    pub(super) fn take_links(&mut self) -> Pooled<(Z::Member, NodeId, Branch)> {
         let mut links = self.pools.links.pop().unwrap_or_default();
         links.clear();
         links
     }
 
     /// Returns a list of links to the pool.
-    pub(super) fn give_links(&mut self, mut links: Pooled<(OccId, NodeId, Branch)>) {
+    pub(super) fn give_links(&mut self, mut links: Pooled<(Z::Member, NodeId, Branch)>) {
         links.settle(&mut self.scratch);
         self.pools.links.push(links);
     }
 
     /// Takes an empty list of the frames of a chain of free splits from
     /// the pool.
-    pub(super) fn take_frames(&mut self) -> Vec<Frame> {
+    pub(super) fn take_frames(&mut self) -> Vec<Frame<Z>> {
         self.pools.frames.pop().unwrap_or_default()
     }
 
     /// Returns a list of frames to the pool, emptied.
-    pub(super) fn give_frames(&mut self, frames: Vec<Frame>) {
+    pub(super) fn give_frames(&mut self, frames: Vec<Frame<Z>>) {
         debug_assert!(frames.is_empty(), "the frames are closed");
         self.pools.frames.push(frames);
     }
@@ -184,14 +197,13 @@ impl Run<'_> {
 }
 
 /// The spare buffers of an engine, one pool of each kind.
-#[derive(Default)]
-pub(super) struct Pools {
-    /// Spare occurrence sets of the forest's width.
-    sets: Vec<OccSet>,
+pub(super) struct Pools<Z: Zone> {
+    /// Spare unrestricted zones of the forest's width.
+    sets: Vec<Z::Unrestricted>,
     /// Spare linear zones of the forest's width.
-    contexts: Vec<Context>,
-    /// Spare lists of occurrences.
-    lists: Vec<Pooled<OccId>>,
+    contexts: Vec<Z::Linear>,
+    /// Spare lists of members.
+    pub(super) lists: Vec<Pooled<Z::Member>>,
     /// Spare tallies, a column per atom that has rows.
     tallies: Vec<Tally>,
     /// Spare counts of splits, boxed so that a split search holds a
@@ -202,11 +214,27 @@ pub(super) struct Pools {
     /// Spare trails of split searches.
     trails: Vec<Pooled<Branch>>,
     /// Spare lists of the links of a chain of forced splits.
-    links: Vec<Pooled<(OccId, NodeId, Branch)>>,
+    links: Vec<Pooled<(Z::Member, NodeId, Branch)>>,
     /// Spare cursors of a chain of forced splits.
     cursors: Vec<Cursors>,
     /// Spare lists of the frames of a chain of free splits.
-    frames: Vec<Vec<Frame>>,
+    frames: Vec<Vec<Frame<Z>>>,
+}
+
+impl<Z: Zone> Default for Pools<Z> {
+    fn default() -> Self {
+        Self {
+            sets: Vec::new(),
+            contexts: Vec::new(),
+            lists: Vec::new(),
+            tallies: Vec::new(),
+            splits: Vec::new(),
+            trails: Vec::new(),
+            links: Vec::new(),
+            cursors: Vec::new(),
+            frames: Vec::new(),
+        }
+    }
 }
 
 /// A list from one of the engine's pools, which knows how much of its

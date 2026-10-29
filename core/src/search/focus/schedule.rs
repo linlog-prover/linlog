@@ -10,6 +10,7 @@
 use super::arena::{Arena, Kept};
 use super::counts::Counts;
 use super::memo::Table;
+use super::zone::Zone;
 use super::{Problem, Run, SetUp};
 use crate::fragment::{Fragment, Mode};
 #[cfg(feature = "parallel")]
@@ -30,7 +31,7 @@ use std::sync::{Condvar, Mutex};
 /// ended without deciding takes no further turn, and the other then runs
 /// to its own end. The counters are those of every turn together, the
 /// memo's entries the most of one turn.
-pub(super) fn turns(
+pub(super) fn turns<Z: Zone>(
     set_up: SetUp<'_>,
     searches: [(Plan, &Counts, &Account); 2],
     stop: &mut dyn FnMut(u64) -> bool,
@@ -67,7 +68,7 @@ pub(super) fn turns(
                     statistics: run,
                 },
                 over,
-            ) = plan.search(
+            ) = plan.search::<Z>(
                 set_up,
                 counts,
                 // A turn's memo and arena go when it ends.
@@ -139,7 +140,7 @@ impl Plan {
     /// own, until it ends or the stop condition fires. Returns what
     /// [`search_goal`](super::search_goal) does, and whether it was a turn that ran out of
     /// its work.
-    pub(super) fn search<'a>(
+    pub(super) fn search<'a, Z: Zone>(
         self,
         set_up: SetUp<'a>,
         counts: &'a Counts,
@@ -151,6 +152,7 @@ impl Plan {
             stop,
             Table::own(set_up.options.memo_entries()),
             Arena::new(Kept::Own(Vec::new()), account),
+            Z::new(set_up.task.forest),
         );
         let result = engine.run_kept(set_up.task.goal);
         let statistics = engine.statistics();
@@ -432,7 +434,7 @@ impl Drop for Ended<'_> {
 /// has its turn or runs on alone. Returns what
 /// [`search_goal`](super::search_goal) does, the counters of both searches together,
 /// or `None` when the thread cannot start.
-pub(super) fn alternate(
+pub(super) fn alternate<Z: Zone>(
     set_up: SetUp<'_>,
     [
         (first, first_counts, first_account),
@@ -464,7 +466,7 @@ pub(super) fn alternate(
                         || (passed && baton.pass(1))
                 };
                 let slice = SLICE * BACKWARD_SHARE;
-                let (finished, _) = second.search(
+                let (finished, _) = second.search::<Z>(
                     set_up,
                     second_counts,
                     second_account,
@@ -482,7 +484,7 @@ pub(super) fn alternate(
             let _ended = Ended(baton, 0);
             let mut give_way =
                 |units: u64, passed: bool| stop(units) || (passed && baton.pass_polling(stop));
-            let (finished, _) = first.search(
+            let (finished, _) = first.search::<Z>(
                 set_up,
                 first_counts,
                 first_account,
