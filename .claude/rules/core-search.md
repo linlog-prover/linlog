@@ -265,6 +265,24 @@ copies they had are gone (F103, F104).
   `RefutationFault::Uncertified` (code `uncertified`, kind unsupported);
   a refutation that does not hold answers code `invalid_refutation`.
   Sums are of at most a forest's 2³² occurrences, within `i64`.
+- **The refuters with quantifiers** (decision 5 of the first-order
+  plan): the counts carry over, per predicate where one of its atoms is
+  open (`counts::Predicates`: the predicate's atoms counted as its first
+  atom), and a refutation of such a group names the predicate
+  (`Refutation::UnbalancedSymbol`, `OneSidedSymbol`, JSON
+  `unbalanced_symbol` and `one_sided_symbol` with the symbol's index,
+  checked against the sequent's symbols on reading); a predicate whose
+  atoms are all closed keeps `Unbalanced` per atom. `Disproof::check`
+  takes `Unbalanced` on a quantified sequent only where no atom of its
+  predicate is open (else `NotApplicable`), `UnbalancedSymbol` by
+  `check_balance` over the predicate's literals, and `Equation` with a
+  quantifier counted as its body; `Classical` and `Saturated` are
+  `NotApplicable` there, and `OneSidedSymbol` `Uncertified` as
+  `OneSided` is. The classical refuter answers nothing for a forest with
+  a binder (an assignment has no domain), and the inverse method, hence
+  `Saturated`, refuses quantifiers by its fragment. The Rocq writer
+  refuses a quantified disproof (`Unsupported::Quantifiers`) before its
+  match, whose symbol arms are unreachable for that reason.
 - **The command lets the refutation run past its deadline**
   (`cli/src/prove.rs`, `halting`): its stop answers a `Phase::Refute`
   poll with Ctrl-C alone, so a search the time limit ended is still
@@ -332,6 +350,22 @@ copies they had are gone (F103, F104).
   with an exponential in the goal (`Feature::Exponentials`) before the
   general intuitionistic row, and classical Mix without weakening
   (`Modes::Mix`) before the general classical row.
+- **`LL1` rows**: the two classical rows (Mix and classical) take
+  `Fragment::LL1`, so a first-order goal in a classical mode goes to the
+  focused engine, whose `admits` takes `LL1` one-sided and `LL`
+  two-sided; every other row and engine refuses the quantifier bit by
+  its fragment (`NoEngine` in the intuitionistic modes until the
+  two-sided engine gains it). The Mix row's turn of the inverse method
+  is asked of the inverse method's `admits`, which refuses `LL1`, so a
+  first-order goal takes no turn. The documented table names the rows'
+  fragment `any, quantifiers too` (`the_documented_dispatch_is_the_dispatch`).
+- **The first-order bounds** are `Options` fields (`witness_depth`,
+  `DEFAULT_WITNESS_DEPTH` 64; `instances`, `DEFAULT_INSTANCES` 2¹⁶),
+  JSON keys of the same names, the command's `--witness-depth` and
+  `--instances` (settings `search.witness_depth`, `search.instances`),
+  each answered by a `Reason` of its own (`WitnessDepth`, `Instances`,
+  `Reason::setting` naming the key, the command's line naming the
+  flag). Only the first-order zone reads them.
 - **An ordered mode at the front door** (`prepare`, `read`): `Mode::check`
   first (`OrderedMode`), then a fragment beyond unit-free MLL is
   `OrderedFragment` (before the dispatch, so that it is named and not

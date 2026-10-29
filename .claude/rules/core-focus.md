@@ -1138,6 +1138,90 @@ relies on:
   `default_bias_decides_what_either_rule_does` runs the default bias,
   whose contract needs no stop, only where a single bias decided.
 
+## The first-order zone
+
+`Framed` (`focus/framed.rs`) is the second `impl Zone`, chosen by the
+quantifier bit in `Focused::decide` (`search_goal::<Framed>`, one
+thread: a first-order goal never reaches the pool). `first_order.rs`
+holds the rules it adds; every first-order path in the generic engine
+is behind `if Z::FIRST_ORDER`, a constant, so `Ground` compiles to the
+code it was. What a later session must keep:
+
+- **Members are spans.** An instance of a binder's body is a span of
+  member ids, one per occurrence of the body's subtree, with the body's
+  frame, so `child` is arithmetic and `occurrence` a binary search over
+  the spans. A binder is never crossed by `child` (`Run::left` on a
+  binder member would give the outer frame): `decompose` opens a `∀`,
+  `exists` opens a `∃`, each a span of its own. Member ids stop at
+  `member_limit()` (`u32::MAX`, a test's thread lowers it) with
+  `Reason::IndexLimit`, before an id wraps.
+- **Terms are never built during the search**: a term is an id of the
+  sequent's arena under a frame, or a variable (a metavariable, bound to
+  such a term, or an eigenvariable). The closing (`Zone::close`, in
+  `Plan::search` on a proof only) writes the instance table: every member
+  as `(occurrence, frame)`, every witness resolved, an unbound
+  metavariable a fresh constant numbered past every eigenvariable the
+  search made (an eigenvariable no `∀` step introduces, which the
+  checker takes as a constant). `Answer::of_arena` builds the proof
+  with `Proof::with_instances` where `Finished::instances` is set.
+- **Levels are the eigenvariable condition.** Eigenvariables are
+  numbered as made, level number + 1; a metavariable's level is the
+  eigenvariables made before it; a binding refuses an eigenvariable at
+  or above the metavariable's level and lowers the term's metavariables
+  to it (trailed). One global counter suffices, not one per branch: an
+  eigenvariable made on another branch reaches a metavariable only
+  through older metavariables, whose levels refuse it. Every proof still
+  passes the checker in `conclude`, so a level error would be
+  `Error::Rejected`, never a wrong proof.
+- **The trail is undone exactly where pending nodes are released**, and
+  where a binder rule or an identity tried fails: `decompose` and
+  `exists` on their own failure, `initial_framed` per pair tried,
+  `answers` per answer abandoned, `prove_unkeyed` as a safety net. The
+  invariant: a step that fails leaves the zone as it found it. A zone
+  (`Γ`) a caller holds after a failed call may name members past the
+  mark; every such zone is a copy the caller drops (`premise`, a
+  release, `with`'s state at the end of a `decompose`).
+- **Another answer** (`Run::answers`, for `⊗`'s premises, Mix's parts and
+  `&`): the metavariables the second premise shares are collected
+  before the first runs; when the second fails, the first's answer (their
+  terms, with the levels of the metavariables in them) is recorded as a
+  pattern, the zone undone, and the first searched again with every
+  binding that makes the tuple an instance of a pattern refused
+  (`Framed::passes`, after each unification, only while the first
+  premise runs). It ends when the bindings before the first premise are
+  an instance of a pattern (`exhausted`; else a first premise that binds
+  nothing would loop) or when the first fails. Sound because the second
+  premise failed under the pattern and so under any instance whose
+  metavariables are no less constrained (`fits`); complete because a
+  binding only specializes the tuple. The patterns' bytes are charged
+  to the engine's scratch while the rule is open.
+- **Switched off for a first-order goal** (the table of `api.md` 10.10
+  (f)): the memo and the loop check (`Table::own(0)`, `memoizes`
+  false, so every stable sequent goes through `prove_unkeyed` and every
+  `Θ` gets a fresh id, which `by_class` keys on); the chains of free
+  splits (`chains_on`); a `!` factor's forced split (a promotion may
+  bind a metavariable the other factor holds); a positive literal's
+  forced split and the tensor of literals where the predicate has an
+  open atom (`Counts`, `Predicates`). Kept: the classes of members
+  outside every binder (closed formulas, interchangeable whatever the
+  bindings), the counts per predicate, the copy budget and its
+  deepening. Not memoizing even the ground stable sequents was weighed:
+  their proofs hold members whose metavariables a later undo unbinds, so
+  only failures could be kept, and the members after the first binder
+  step are rarely all outside binders; an unprovable sequent with `!`
+  (`p(a), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(b)`) meets new instances at every
+  level, which no memo of instances would end either.
+- **The first-order bounds** (`Options::witness_depth`,
+  `Options::instances`) cut a branch like the copy budget
+  (`Cuts::BUDGET`), and `Framed::cut` names the bound; `Run::run`
+  answers that reason where the last level was cut by one, else
+  `CopyBound`. A cut never refutes.
+- **The bias and the counts group a predicate with an open atom**
+  (`counts::Predicates`): one polarity per such predicate (a literal and
+  an instance of an open one that it unifies with must have opposite
+  polarities, or no focused proof joins them), and one row per such
+  predicate. A predicate with closed atoms only keeps one per atom.
+
 ## Decisions
 
 The author's answers for the release (`plan/notes/api.md` §14), which
