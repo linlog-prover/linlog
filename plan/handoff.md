@@ -65,7 +65,7 @@ memory notes: so it is self-contained.
   key-warming loop `step-gpg-warm`. **Start nothing until the author
   says go**, then ask whether it is unattended again (it was, "until
   further notice", from 2026-10-29 01:00 to this stop).
-- **linlog `main`** = the commit "Plan: a manual instead of a wiki, session 44b" (with this
+- **linlog `main`** = the commit "Plan: mdBook for the manual" (with this
   file), pushed. **The web client's `main`** = `olvxtklw` (4a3c26fb),
   41d's cut on the page, pushed. Only the default workspaces exist.
 - A stray change `ulktsrrq` (2026-10-23, `core/src/nets/mell/review.rs`,

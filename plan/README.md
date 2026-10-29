@@ -3863,3 +3863,9 @@ client follows it (step 32).
   and the reference an mdBook manual on the Pages site beside the
   rustdoc, every example still run by `cli/tests/readme.rs`; after 42i
   and 43d, before step 45.
+- 2026-10-29: the author chose mdBook for 44b's manual, on the planning
+  session's comparison (Starlight, Material for MkDocs in maintenance
+  mode and its successor Zensical, Docusaurus, Sphinx, rustdoc
+  chapters, Zola): the Rust ecosystem's form, no new toolchain, the
+  manual beside the code where its examples are tested; its theme in the
+  page's violet with the logo.

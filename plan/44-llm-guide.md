@@ -90,10 +90,15 @@ say search engines do not index wikis, pointing to Pages instead.
 - **README becomes a front page** of about 150 lines: what linlog is,
   install, a first proof, where to go next (the manual, the web page,
   the guide for AI models, the API documentation), citing, licence.
-- **A manual in the form the Rust ecosystem uses for one**, mdBook at
-  the time of writing (adopted through the `new-tool` skill, its
-  current documents read; if the session finds a better-suited tool,
-  it says why), under `docs/`, a chapter per area: the commands and
+- **A manual in mdBook** (the author's choice, 2026-10-29, over
+  Astro's Starlight, Material for MkDocs and its successor Zensical,
+  Docusaurus, Sphinx and rustdoc chapters: the form the Rust ecosystem
+  uses, one binary from nixpkgs and no new toolchain in linlog's flake,
+  plain Markdown beside the code that the README test reads), adopted
+  through the `new-tool` skill at its current version with its
+  documents read, its theme in the page's colours (the violet accent,
+  the logo in the header, both themes) and links both ways between the
+  manual and the page, under `docs/`, a chapter per area: the commands and
   their output formats, interactive proving, cut and its elimination,
   proof nets, first-order logic, ordinary logic, the batch, the
   benchmarks and the comparison, what exists and what is planned, the
