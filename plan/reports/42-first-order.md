@@ -318,73 +318,192 @@ and tested, and the reviewer confirmed D17 on the target sets itself.
 ## Session 42b: the proof term and the checker
 
 Opus 5.5 at `high`, unattended, 2026-10-28/29, in the jj workspace
-`../linlog-step42b` on `yztusxvs`. **In progress**: the usage limit cut
-the session after the code, the gates and the target sets; the panel's
-round, the answers to its findings, `nix flake check` and the last
-message are still to do.
+`../linlog-step42b` on `yztusxvs` (linlog's `main`). The usage limit cut
+the session once, after the code, the gates and the target sets; the
+panel's first round died on it unreported and ran again afresh.
 
-### Outcome so far
+### Outcome
 
-`Node::Forall`/`Node::Exists` with the proof's instance table
-(`Instances`, `FrameId`, `Eigen`, `FoTerm::Eigen`,
-`Proof::with_instances`), the checker's two passes (the frame pass in
-`check/frames.rs`, the bottom-up pass over members with the
-eigenvariable sets carried to the root in `pass.rs`), the oracle's own
-first-order rules, the size, the derivation and its text, LaTeX, Typst
-and SVG printing instances, the proof's JSON at level 7,
-`Limits::terms` with `Refusal::Terms` on every reader and the flag
-`--term-limit`. Sixteen proofs written by hand under
-`core/tests/first-order/` (eight accepted, eight refused, every new
-fault reached: `instance`, `eigenvariable`, `reintroduced`, and
-`missing`, `not_dual`, `kind` of the new rules), among them a subproof
-shared under two `∀` steps (`shared`, `shared_apart`) and `∃` steps
-below the `∀` steps whose eigenvariables they name (`swap_back`).
-Commits: `vmpysoru` (the checker, gated), `ptnkzrlt` (`--term-limit`)
-and `uyzrlxrk` (the behaviour lock re-blessed for the flag's help text),
-the pair gated at `uyzrlxrk`.
+The checker checks first-order proofs. `Node::Forall(member, eigen,
+premise)` and `Node::Exists(member, witness, premise)` act on members
+that are occurrences under binders with frames of terms, numbered by
+the proof's instance table (`Instances`), which `Proof::with_instances`
+checks and keeps canonical and closed. The checker's two passes (the
+frame pass, then the bottom-up pass comparing instances by number and
+carrying the eigenvariables to the root) decide the eigenvariable
+condition; the first implementation (`oracle.rs`) has first-order rules
+of its own and agrees on every committed proof and every mutant. The
+size estimate, the derivation (one-sided and two-sided: `∀R`, `∃L`,
+`∃R`, `∀L`) and its LaTeX, Typst and SVG drawings write every instance
+with its terms; the proof's JSON at level 7 adds the steps and
+`instances`; `Limits::terms` with `Refusal::Terms` bounds first-order
+terms on every reader, with the command's `--term-limit`. Sixteen
+proofs written by hand are pinned under `core/tests/first-order/`: nine
+accepted, seven refused, every new fault reached. The propositional
+case is unchanged in its counters and within every ceiling.
+
+### What was built
+
+- **The proof term** (`proofs/mod.rs`, `occurrences/instances.rs`):
+  `Node::Forall`/`Exists` (16 bytes still), `Eigen`, `FoTerm::Eigen`,
+  `Instances` and `FrameId` with a builder (`new`, `eigen`, `apply`,
+  `frame`, `member`) and readers; `Proof::with_instances`,
+  `Proof::instances`, `occurrence` and `formula` reading the table;
+  `Proof::new` on a forest with binders goes through it. The table is
+  made canonical (equal terms, lists, frames and members one entry) and
+  closed (every member a rule derives from a named one), so every member
+  a check, a view or an error names has a number.
+- **The checker** (`check/frames.rs`, `check/pass.rs`, `check/zones.rs`):
+  the zones hold members; the pass is generic over `Instancing`
+  (`Ground`, the propositional instance, compiled as before; `Framed`).
+  New faults `Fault::Instance`, `Eigenvariable`, `Reintroduced`.
+  `CheckError::Quantifiers` (42a's, unreleased) is gone with its guard.
+- **The oracle**: members by their written-out frames, atoms compared by
+  their written instances, its own eigenvariable sets.
+- **The views**: `Rule::Forall`/`Exists` and their two-sided names and
+  labels; `Build`, `Record` and `Measure` generic like the pass;
+  `Notation::sequent` sends a sequent with instances out of line;
+  `Notation::instance` writes an instance through a scope holding its
+  frame's terms; eigenvariables named `a`, `b`, … past the symbols.
+- **The wire**: `{"∀": [m, a, p]}`, `{"∃": [m, w, p]}`, `"instances":
+  {"members", "frames", "terms"}` (`{"E": k}` an eigenvariable), level 7.
+- **Bounds**: `Limits::terms` (`DEFAULT_TERMS` 50 000 000) bounds
+  `Sequent::fo_size` in the parser, the JSON sequent reader (42a's count
+  against `limits.occurrences` replaced) and a proof's table; the
+  table's ids refused past `u32` at construction; the hash-consed
+  numbers are `u64`.
+- **Cut at first order**: a cut on a cut formula with binders and on an
+  instance of one (`cut`, `cut_ill`, `cut_instance`); `push_cuts` names
+  a dual binder's variable.
+- **Docs**: README (first-order proofs, `--term-limit`, the built and
+  planned lists), the guide's reference, the changelog, the rules files
+  (`core-proofs.md`, `core-derivations.md`, `core-sequents.md`,
+  `core-export.md`).
 
 ### Departures from the design
 
-- The frame pass derives no frame (departs from the design): a node
-  names its members with their frames, so the pass resolves them and
-  finds the bodies, faults and eigenvariables; "a node reached from two
-  parents must receive equal frames" is the bottom-up comparison by
-  number (`shared_apart` refused by `Missing`).
-- A cut on an instance brings its frame's eigenvariables in, as a
-  witness does (an addition to decision 3: without it `cut_frame`, a
-  `∀` step beside the cut's dual, passed).
-- Eigenvariables are named `a_1` past a clash, not primed (as 42a's
-  bound names). `CheckError::Quantifiers` (42a's, unreleased) is gone.
-- The parser's arity refusal still names the second use only (the
-  review's small finding, not taken: `ParseError` has one span).
+- **The frame pass derives no frame** (departs from the design): a node
+  names its members with their frames, so the pass resolves them, finds
+  the bodies and the faults; "a shared node receives equal frames" is
+  the bottom-up comparison by number (`shared_apart`, `Missing`).
+- **A cut on an instance brings its frame's eigenvariables** (departs
+  from the design, an addition): without it `cut_frame` passed.
+- **An eigenvariable no `∀` step introduces is a constant outside the
+  signature** (departs from the design's "every eigenvariable is
+  introduced by exactly one `Forall` node"): decision 2's fresh constant
+  had no other way into the table (the counterexamples finding, below).
+- Eigenvariables named with `_` and a number past a clash, not primed.
+- The parser's arity refusal still names the second use only (the small
+  finding of 42a's review, not taken: `ParseError` has one span).
 
-### Checks
+### The panel's findings and answers
 
-- Gate passed at `vmpysoru` and at `uyzrlxrk`; the ratchet within its
-  ceilings, none raised (`check-qbf-20-2` +0.61 %, `derivation-chain-64`
-  +1.98 %, `render-latex` +0.90 %, `render-typst` +1.09 %).
-- Target sets at `vmpysoru` against `42a.csv` and `net-42a.csv`: no
-  verdict differs; 0 of 145 and 0 of 64 rows decided alike differ in a
-  counter.
+On the frozen tree `vmpysoru`, each reviewer in a fresh context with its
+own scratch directory, under the machine's rules.
+
+- **The argument (Fable 5.1, `high`)**: no break. It derived the
+  invariant from the code first, then found the plan's argument resting
+  on frames "built by the nodes between the root and N", which the code
+  does not need and does not give (any leaf may name a framed member);
+  the argument the code rests on (consumption of framed members) was
+  stated nowhere. Answer: recorded in `core-proofs.md`. Its 18 attacks
+  and 18 mutants were judged as the calculus or the plan's stricter
+  form judges them. A misleading message for a witness out of range
+  ("a root formula is term …") is fixed.
+- **The counterexamples (Opus 5.5, `high`)**: no soundness bug in
+  45 531 mutants of the committed proofs, about 610 000 random terms and
+  14.7 million of their mutants against a brute-force MALL1 decider and
+  a derivation re-checker, and 3.3 million fuzzed documents. Two
+  findings, both held: (1) a panic on a JSON proof whose cut formula has
+  a loose bound variable: the reader checked the scope before the cuts
+  joined; now it checks after them (`a_cut_formula_with_a_loose_variable_is_refused`);
+  (2) a fresh constant could not be a witness, so `∀x.p(x) ⊢ ∃y.p(y)`
+  had no proof term: an eigenvariable no `∀` step introduces is now such
+  a constant, and the committed `unintroduced` is accepted (checker and
+  oracle alike).
+- **The integers and limits (Sonnet 5.5, `high`)**: no wrap, no
+  soundness break; three resource holes, all held: (1) the frame pass
+  kept every witness's eigenvariables per term and per node, quadratic
+  and outside the pass's bounds and stop (a 2.6 MB file took 4 GB): the
+  walk moved into the bottom-up pass as counted, polled work
+  (`the_walk_of_witnesses_is_counted_work`); (2) an error wrote a frame
+  term in full, exponential for shared terms: cut at 4 096 characters
+  (`an_error_cuts_a_frame_term`); (3) frames canonicalized by walking
+  each chain anew, quadratic in a tower, and an axiom's frame read
+  uncounted: each frame made once, the frame lengths counted as work.
+  Its requests to run the command on its witnesses were covered by the
+  library tests above.
+
+### The propositional case (D17)
+
+- Target sets at `vmpysoru` against `bench/targets/42a.csv` and
+  `bench/targets/net-42a.csv` (`linlog-bench summary --against …
+  --counters`): no verdict differs; of the 145 focused and 64 net rows
+  both decide alike, none differs in a counter. The later commits touch
+  the command and the first-order paths only.
+- The ratchet, none raised: `check-qbf-20-2` +0.61 %, `check-wide`
+  +0.17 %, `render-latex` +0.90 %, `render-typst` +1.09 %, `render-svg`
+  +0.89 %, `derivation-chain-64` +1.98 %. It first failed (`check-*` up
+  to +3.5 %, renders up to +28 %); the causes, found by callgrind against
+  the base build, were the eigenvariable set in `State` (moved to a side
+  table only the framed pass has), the formula walk instantiated twice
+  (the instance printer writes through its own writer type), the sequent
+  writer's shape (instances out of line), `Named::index`'s search and the
+  labels' symbol scan (direct paths), and a branch per weight (one vector
+  by member).
+
+### What is not verified
+
+- Pinned CPU time (42c's, on an idle machine); the evidence is the
+  instruction counts.
+- The command was not run on the panel's largest witnesses; the library
+  tests reach the same bounds.
 
 ### Checklist
 
-- [x] Proof term, instance table, two passes, faults, oracle, size,
-  views, JSON, term limits, written proofs, gates, target sets.
-- [ ] The panel's findings answered (three reviewers launched on the
-  frozen tree `vmpysoru`).
-- [ ] `nix flake check` at the last commit.
-- [ ] The last message to `linlog-orchestrator`.
+- [x] `Node::Forall`/`Exists`, the instance table, the two passes and
+  the eigenvariable condition, their faults (`first_order.rs` tests).
+- [x] Written proofs, every fault reached, a shared subproof under two
+  `∀` steps and `∃` steps below the `∀` steps they name.
+- [x] The oracle's rules agreeing; the cut rule at first order; the
+  size; the term limits with refusals reached.
+- [x] JSON read back equal; the derivation, LaTeX, Typst and SVG
+  printing instances.
+- [x] The panel's round, each finding answered above.
+- [x] Both target sets, every decided row's counters equal; the ratchet
+  within its ceilings, none raised.
+- [x] Every code commit gated; `nix flake check` at the last commit: see
+  the last message to the supervisor for its exit status.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
 
 ### What the next sessions must know
 
-- `.claude/rules/core-proofs.md` ("First-order proofs"),
-  `core-derivations.md`, `core-sequents.md` and `core-export.md` hold the
-  invariants; the instance table is canonical and closed at
-  construction, so every member a check or view names has a number.
-- No fresh constant exists yet: `∀x.p(x) ⊢ ∃y.p(y)` has no proof term
-  until 42d adds the symbols' extension (an eigenvariable no `∀`
-  introduces is refused).
+- The rules files hold the invariants: `core-proofs.md` ("First-order
+  proofs": the table canonical and closed at construction, the frame
+  pass, the eigenvariable flow, why it meets the condition, what is
+  stricter than the calculus), `core-derivations.md` (instances in the
+  views), `core-sequents.md` (`Limits::terms`, `push_cuts`' names),
+  `core-export.md` (the quantifier rules' labels).
+- **A fresh constant is an eigenvariable no `∀` step introduces**: 42d
+  closes an unbound metavariable with one, and needs no symbols'
+  extension for it.
+- **The derivation journey has 0.02 % of margin** (`derivation-chain-64`
+  +1.98 % against 2 %): 42a's +1.62 % plus 0.34 % of this session's,
+  which callgrind with line tables places in bounds-checked slice
+  indexing inside the inlined derivation-text path, in no first-order
+  code. The next change to the derivation's propositional path must be
+  measured against the base build first.
+- `CheckError::Quantifiers` no longer exists; interactive proving, cut
+  elimination, the classical two-sided view, the nets and the Rocq
+  export still refuse a sequent with binders, their quantifier arms
+  unreachable behind those guards.
 - The JSON reader numbers argument lists apart from the parser, so a
   parsed and a read first-order sequent are unequal by `==` (a
-  follow-up).
+  follow-up; the tests compare texts).
+- 0.2.0's break adds: `Node::{Forall, Exists}`, `Rule::{Forall,
+  Exists}`, `FoTerm::Eigen`, `Fault::{Instance, Eigenvariable,
+  Reintroduced}`, `Refusal::Terms`; additions: `Instances`, `FrameId`,
+  `Eigen`, `Proof::{with_instances, instances}`, `Sequent::fo_size`,
+  `Limits::{terms, DEFAULT_TERMS, with_terms}`; removed (unreleased):
+  `CheckError::Quantifiers`.
