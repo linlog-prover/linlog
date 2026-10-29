@@ -3786,3 +3786,30 @@ client follows it (step 32).
   introduces is a constant outside the signature; eigenvariables named
   `a_1` past a clash. Next: 42c, the focused engine generic over its
   zone, with its pinned-time comparison.
+- 2026-10-29: review of session 42c, the focused engine generic over its
+  zone (Opus 5.5 at high, 05:20 to 10:30 with a usage-limit pause from
+  07:14 to 09:28, unattended): `Run<'a, Z: Zone>` with `Ground` its one
+  instance, the seam in `search/focus/zone.rs` (the literal seam's
+  handles and cursors, `meets`, `class`, `root`, `child`, `fork`, the
+  memo, the loop check and the waiting failures behind
+  `Zone::memoizes`), no first-order code, nothing public changed. D17:
+  the target sets equal on every decided row (145 and 64), the search
+  journeys −0.75 % to +0.34 % (−0.33 % summed), none raised; the pinned
+  time (`bench/pinned-time.py`, resumable, the unit
+  `linlog-step42c-pinned`): both builds at once on cores 2 and 3,
+  swapped halfway, five runs per row, the focused rows summed 0.9968 of
+  the base (worst `mix/8` +1.5 %), all rows 0.9972, against a rule of
+  3 % summed and 5 % a row set before the run: the lift stands, D17's
+  fast path not taken (`bench/targets/pinned-42c.csv`). The panel (the
+  argument on Fable 5.1; the counterexamples restarted after the limit):
+  no break, among them 99 232 deterministic run pairs equal in proofs
+  and counters. Heads-up box: the rows api.md named for the pinned time
+  had passed to the Horn engine; the focused and two-sided engines'
+  rows were forced instead (a departure). Checked here: the target sets
+  and the pinned-time table (medians, spreads, ratios). Departures, for
+  the author: the pinned rows chosen anew; the machine not idle (another
+  session's nix builds, coordinated with it, ran on other cores; both
+  builds shared every minute); `zone.rs` in `search/focus/`; no trail
+  in the trait yet (42d's); `mark_literals` charging through the passed
+  account; two hooks the spike lacked (`Zone::word_lists`,
+  `Zone::listed`). Next: 42d, the first-order focused engine.
