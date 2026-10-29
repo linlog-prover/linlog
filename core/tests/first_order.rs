@@ -483,3 +483,50 @@ fn the_counts_refute_first_order_sequents() {
         "{open:?}"
     );
 }
+
+/// A witness as deep as its terms go, here a hundred thousand
+/// applications around an eigenvariable, is closed into the proof's
+/// instance table and checked without a recursion per level, which ran
+/// out of the search's stack.
+#[test]
+fn a_deep_witness_closes_without_recursion() {
+    let n = 100_000;
+    let text = format!(
+        "|- forall z. (~p({}z{}) par (exists y. p(y)))",
+        "f(".repeat(n),
+        ")".repeat(n)
+    );
+    let options = Options::default().with_witness_depth(u32::MAX);
+    assert_eq!(decided(&text, Mode::CLASSICAL, &options), Some(true));
+}
+
+/// Unifying deep terms is work the search counts and polls its stop on:
+/// one split search whose every step unifies terms two thousand deep ends
+/// at a bound on work, where it used to count none of it and run to its
+/// end between two polls.
+#[test]
+fn a_deep_unification_is_counted_work() {
+    use linlog::Reason;
+    let deep = format!("{}z{}", "f(".repeat(2000), ")".repeat(2000));
+    let literals: Vec<String> = (0..6).map(|i| format!("~p(g{i}({deep}))")).collect();
+    let text = format!(
+        "|- forall z. ({} par ~q(a) par (exists y. (p(y) * q(y))))",
+        literals.join(" par ")
+    );
+    let sequent: Sequent = text.parse().unwrap();
+    let options = Options::default().with_witness_depth(u32::MAX);
+    let limits = Limits::default().with_work(Some(20_000));
+    let outcome = linlog::prove_within(
+        &sequent,
+        Mode::CLASSICAL.with_affine(),
+        &options,
+        &limits,
+        |_| false,
+    )
+    .unwrap();
+    assert!(
+        matches!(outcome.verdict, Verdict::Unknown(Reason::WorkLimit { .. })),
+        "{:?}",
+        outcome.verdict
+    );
+}

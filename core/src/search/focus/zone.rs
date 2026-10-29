@@ -226,6 +226,19 @@ pub(super) trait Zone: Sized + Send + Sync {
         unreachable!("a zone without binders has one answer")
     }
 
+    /// The terms the zone's walks visited since this was last asked:
+    /// work that grows with the size of the terms, which the engine counts
+    /// and polls its stop on.
+    fn take_steps(&mut self) -> u64 {
+        unreachable!("a zone without binders walks no term")
+    }
+
+    /// The bytes the zone's tables held when last asked and hold now,
+    /// which the engine charges to its account.
+    fn held(&mut self) -> (usize, usize) {
+        unreachable!("a zone without binders holds no table")
+    }
+
     /// Closes the proof found, renaming its members and witnesses to an
     /// instance table's, every metavariable left unbound a fresh
     /// constant.

@@ -693,38 +693,55 @@ impl<'a> Canonical<'a> {
     }
 
     /// Returns the id in the table made of the closed term `id` of the
-    /// table read, adding it and its arguments where they are new.
+    /// table read, adding it and its arguments where they are new. A walk
+    /// with a stack of its own, arguments first, since a search's
+    /// witness may be nested as deep as its bindings go.
     fn term(&mut self, id: FoTermId) -> FoTermId {
-        let n = self.numbering.number(id);
-        if let Some(&at) = self.term_at.get(&n) {
-            return at;
-        }
-        // Not among the sequent's terms: an extension term, whose
-        // arguments precede it.
-        let term = match self.numbering.terms.term(id) {
-            FoTerm::App(f, args) => {
-                let ln = self.numbering.list_number(args);
-                let list = match self.list_at.get(&ln) {
-                    Some(&list) => list,
-                    None => {
-                        let items: Vec<FoTermId> = self.numbering.terms.list(args).to_vec();
-                        let items: Vec<FoTermId> =
-                            items.into_iter().map(|t| self.term(t)).collect();
-                        let start = self.out.args.len() as u32;
-                        self.out.args.extend_from_slice(&items);
-                        self.out.lists.push((start, items.len() as u32));
-                        let list = Args::new(self.out.base_lists + self.out.lists.len() as u32 - 1);
-                        self.list_at.insert(ln, list);
-                        list
-                    }
-                };
-                FoTerm::App(f, list)
+        let mut walk = vec![(id, false)];
+        while let Some((t, expanded)) = walk.pop() {
+            let n = self.numbering.number(t);
+            if self.term_at.contains_key(&n) {
+                continue;
             }
-            other @ (FoTerm::Eigen(_) | FoTerm::Bound(_)) => other,
-        };
-        let at = self.out.push_term(term);
-        self.term_at.insert(n, at);
-        at
+            // Not among the sequent's terms: an extension term, whose
+            // arguments precede it.
+            let term = match self.numbering.terms.term(t) {
+                FoTerm::App(f, args) => {
+                    let ln = self.numbering.list_number(args);
+                    let list = match self.list_at.get(&ln) {
+                        Some(&list) => list,
+                        None if !expanded => {
+                            walk.push((t, true));
+                            walk.extend(
+                                self.numbering.terms.list(args).iter().map(|&a| (a, false)),
+                            );
+                            continue;
+                        }
+                        None => {
+                            let items: Vec<FoTermId> = self
+                                .numbering
+                                .terms
+                                .list(args)
+                                .iter()
+                                .map(|&a| self.term_at[&self.numbering.number(a)])
+                                .collect();
+                            let start = self.out.args.len() as u32;
+                            self.out.args.extend_from_slice(&items);
+                            self.out.lists.push((start, items.len() as u32));
+                            let list =
+                                Args::new(self.out.base_lists + self.out.lists.len() as u32 - 1);
+                            self.list_at.insert(ln, list);
+                            list
+                        }
+                    };
+                    FoTerm::App(f, list)
+                }
+                other @ (FoTerm::Eigen(_) | FoTerm::Bound(_)) => other,
+            };
+            let at = self.out.push_term(term);
+            self.term_at.insert(n, at);
+        }
+        self.term_at[&self.numbering.number(id)]
     }
 
     /// Returns the id in the table made of the eigenvariable `a`'s term.

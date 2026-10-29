@@ -77,6 +77,9 @@ impl<Z: Zone> Run<'_, Z> {
             return self.free_split(theta, gamma, f, budget);
         };
         let mark = self.nodes.mark();
+        // A `!` factor's promotion may open binders even where no atom
+        // is open, which a failure takes back with its nodes.
+        let zone = Z::FIRST_ORDER.then(|| self.zone.mark());
         let mut rest = self.take_context_from(gamma);
         let mut links = self.take_links();
         let mut cursors = self.take_cursors();
@@ -103,6 +106,9 @@ impl<Z: Zone> Run<'_, Z> {
             }
             Ok(failed) => {
                 self.nodes.release(mark);
+                if let Some(zone) = zone {
+                    self.zone.undo(zone);
+                }
                 Ok(failed)
             }
             Err(reason) => Err(reason),

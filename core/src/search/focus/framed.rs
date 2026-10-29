@@ -62,11 +62,12 @@ use crate::Instances;
 use crate::hash::{HashMap, HashSet};
 use crate::occurrences::{Forest, FrameId, Member, OccId, OccSet};
 use crate::proofs::Node;
-use crate::search::memory::Charged;
+use crate::search::memory::{Charged, bytes_of};
 use crate::search::{Options, Reason};
 use crate::sequents::fo::FirstOrder;
 use crate::sequents::{Eigen, FoTerm, FoTermId, Symbol};
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// The frame of no binder: an occurrence outside every binder, or a
 /// closed term, which reads no frame.
@@ -263,6 +264,14 @@ pub(super) struct Framed {
     marks: Vec<u64>,
     /// The stamp of the last marking.
     stamp: u64,
+    /// The terms the walks visited since the engine last took them: the
+    /// work a unification, a pattern or a match does, which grows with the
+    /// terms' size and not with the search's steps. Atomic, so that the
+    /// walks that read the zone count too; one thread uses it.
+    steps: AtomicU64,
+    /// The bytes of the tables and the walks' buffers the engine was last
+    /// told the zone holds.
+    charged: usize,
     /// Scratch: pairs of terms to unify or compare.
     pairs: Vec<(TRef, TRef)>,
     /// Scratch: the pairs met in one walk.
@@ -274,6 +283,11 @@ pub(super) struct Framed {
 }
 
 impl Framed {
+    /// Counts a term visited by a walk.
+    fn step(&self) {
+        self.steps.fetch_add(1, Ordering::Relaxed);
+    }
+
     /// The occurrence and frame of a member.
     fn instance(&self, m: FMember) -> (OccId, u32) {
         if m.0 < self.occurrences {
@@ -394,6 +408,7 @@ impl Framed {
         self.walk.clear();
         self.walk.push((t, false));
         while let Some((u, expanded)) = self.walk.pop() {
+            self.step();
             let u = self.deref(fo, u);
             if !expanded && self.depths.contains_key(&u) {
                 continue;
@@ -471,6 +486,7 @@ impl Framed {
     fn unify_pairs(&mut self, fo: &FirstOrder) -> Unified {
         self.met.clear();
         while let Some((a, b)) = self.pairs.pop() {
+            self.step();
             let (a, b) = (self.deref(fo, a), self.deref(fo, b));
             if a == b || !self.met.insert((a, b)) {
                 continue;
@@ -532,6 +548,7 @@ impl Framed {
         let mut pairs = vec![(a, b)];
         let mut met = HashSet::default();
         while let Some((a, b)) = pairs.pop() {
+            self.step();
             let (a, b) = (self.deref(fo, a), self.deref(fo, b));
             if a == b || !met.insert((a, b)) {
                 continue;
@@ -566,6 +583,7 @@ impl Framed {
         let mut walk = vec![t];
         let mut met = HashSet::default();
         while let Some(u) = walk.pop() {
+            self.step();
             let u = self.deref(fo, u);
             if !met.insert(u) {
                 continue;
@@ -608,6 +626,7 @@ impl Framed {
             .collect();
         let mut met = HashSet::default();
         while let Some((node, t)) = walk.pop() {
+            self.step();
             let t = self.deref(fo, t);
             if !met.insert((node, t)) {
                 continue;
@@ -676,6 +695,7 @@ impl Framed {
             };
             let mut walk = vec![(root, false)];
             while let Some((u, expanded)) = walk.pop() {
+                self.step();
                 let u = self.deref(fo, u);
                 if !expanded && nodes.contains_key(&u) {
                     continue;
@@ -778,6 +798,8 @@ impl Zone for Framed {
             depth: depth.into_boxed_slice(),
             marks: Vec::new(),
             stamp: 0,
+            steps: AtomicU64::new(0),
+            charged: 0,
             pairs: Vec::new(),
             met: HashSet::default(),
             walk: Vec::new(),
@@ -1047,6 +1069,7 @@ impl Zone for Framed {
             }
         }
         while let Some(t) = walk.pop() {
+            self.step();
             let t = self.deref(fo, t);
             if !met.insert(t) {
                 continue;
@@ -1108,6 +1131,26 @@ impl Zone for Framed {
 
     fn close_answers(&mut self) {
         self.answers.pop();
+    }
+
+    fn take_steps(&mut self) -> u64 {
+        std::mem::take(self.steps.get_mut())
+    }
+
+    /// The tables and the walks' buffers by their capacities; a hash
+    /// table's entries as its slots and a control byte each.
+    fn held(&mut self) -> (usize, usize) {
+        let entries = |slots: usize, size: usize| slots * (size + 1);
+        let held = bytes_of(&self.spans)
+            + bytes_of(&self.frames)
+            + bytes_of(&self.vars)
+            + bytes_of(&self.trail)
+            + bytes_of(&self.introduced)
+            + bytes_of(&self.pairs)
+            + bytes_of(&self.walk)
+            + entries(self.met.capacity(), size_of::<(TRef, TRef)>())
+            + entries(self.depths.capacity(), size_of::<(TRef, u32)>());
+        (std::mem::replace(&mut self.charged, held), held)
     }
 
     fn close(&self, forest: &Forest, nodes: &mut [Node]) -> Result<Instances, Reason> {

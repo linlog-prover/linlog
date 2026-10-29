@@ -8,8 +8,14 @@
 
 use super::framed::Unified;
 use super::zone::{Linear as _, Unrestricted as _, Zone};
-use super::{Cuts, Found, Run, Step, Unrestricted};
+use super::{Cuts, FORCED_PER_POLL, Found, Run, Step, Unrestricted};
 use crate::proofs::{Node, NodeId};
+use crate::search::Reason;
+
+/// How many terms the zone's walks visit for a unit of work: a visit is a
+/// lookup in a table of the terms met and a few comparisons, some sixteenth
+/// of what a stable sequent's unit stands for.
+const TERMS_PER_WORK: u64 = 16;
 
 impl<Z: Zone> Run<'_, Z> {
     /// The initial rules of a first-order zone on a stable sequent, or on
@@ -43,7 +49,9 @@ impl<Z: Zone> Run<'_, Z> {
                         continue;
                     }
                     let mark = self.zone.mark();
-                    match self.zone.unify(f, p, q) {
+                    let unified = self.zone.unify(f, p, q);
+                    self.poll_terms()?;
+                    match unified {
                         Unified::Yes => {
                             let ax = self.push(Node::Ax(p.into(), q.into()));
                             return Ok(Found::proved(self.leftovers(gamma, &[p, q], ax)));
@@ -70,7 +78,9 @@ impl<Z: Zone> Run<'_, Z> {
                     continue;
                 }
                 let mark = self.zone.mark();
-                match self.zone.unify(f, p, d) {
+                let unified = self.zone.unify(f, p, d);
+                self.poll_terms()?;
+                match unified {
                     Unified::Yes => {
                         let ax = self.push(Node::Ax(p.into(), d.into()));
                         let copy = self.push(Node::Copy(d.into(), ax));
@@ -85,6 +95,30 @@ impl<Z: Zone> Run<'_, Z> {
             }
         }
         Ok(Found::failed(cuts))
+    }
+
+    /// Charges what the zone's tables and buffers grew or shrank by to the
+    /// account, which the next stable sequent asks, and counts the terms
+    /// the zone's walks visited as work, a unit per
+    /// [`TERMS_PER_WORK`], and polls the stop condition once every
+    /// [`FORCED_PER_POLL`] of them: a unification of deep terms is work
+    /// that no step of the search counts, and a split search polls only
+    /// every [`SPLITS_PER_POLL`](super::SPLITS_PER_POLL) of its steps.
+    fn poll_terms(&mut self) -> Result<(), Reason> {
+        let (before, after) = self.zone.held();
+        self.scratch.resize(before, after);
+        let steps = self.zone.take_steps();
+        self.work += steps / TERMS_PER_WORK;
+        self.forced = self.forced.saturating_add(steps);
+        if self.forced < FORCED_PER_POLL {
+            return Ok(());
+        }
+        self.forced = 0;
+        if self.stop.fired(std::mem::take(&mut self.work)) {
+            Err(Reason::Stopped)
+        } else {
+            Ok(())
+        }
     }
 
     /// The proof of a leaf that used the members `used` of `gamma`:
@@ -175,6 +209,12 @@ impl<Z: Zone> Run<'_, Z> {
         let mark = self.nodes.mark();
         let zone = self.zone.mark();
         let open = self.zone.open_answers(forest, shared);
+        if let Err(reason) = self.poll_terms() {
+            if open {
+                self.zone.close_answers();
+            }
+            return Err(reason);
+        }
         let mut cuts = Cuts::NONE;
         // The bytes of the answers recorded, charged while they are
         // excluded.
@@ -209,6 +249,9 @@ impl<Z: Zone> Run<'_, Z> {
             self.zone.undo(zone);
             if !open || self.zone.exhausted(forest) {
                 break Ok(Found::failed(cuts));
+            }
+            if let Err(reason) = self.poll_terms() {
+                break Err(reason);
             }
         };
         if open {
