@@ -1044,8 +1044,8 @@ relies on:
   with more than twenty copies and called `meets` at every comparison
   (58 % of the samples on the chain of 256 clauses). `meets` itself
   reads marks: `mark_literals` stamps, once per stable sequent, the
-  lists of the literals among its members (`Run::present`, one
-  stamp per list of the forest, `Run::stamp` the current one, a
+  lists of the literals among its members (`Ground::lists`, one
+  mark per list of the forest, `Ground::stamp` the current one, a
   `u64` that cannot wrap in any run), and a formula of `Θ` meets a
   member when a literal below it has its dual's list stamped. Comparing
   every literal below every formula with every member was their
@@ -1053,6 +1053,33 @@ relies on:
   `GPPP_G-PPP-1000-10_10_1` (a marking of thousands of tokens under
   clauses of thousands of literals), between two polls. The order of
   the copies and the work counted for a slice are what they were.
+- **The engine is generic over its zone** (`zone.rs`): `Run<'a, Z:
+  Zone>` and everything that holds members (`Alternative`, `Join`,
+  `Opened`, `Frame`, `Pools`, `Unrestricted`, `ByClass`, `Spawn`) take
+  `Z`, and `Ground` is the one instance, which the front door names
+  (`search_goal::<Ground>`). A member is `Z::Member`; everything keyed
+  by occurrences reads `Run::occ(m)` (the counts, the splits' counts,
+  the reading, the forest's kinds and sizes), a subformula's member is
+  `Zone::child`, a goal's `Zone::root`. The literal seam is the zone's:
+  `dual_in`, `dual_from` with the chains' `Cursors`, `mark_literals`
+  (charging its marks to the engine's `scratch` as before), and the
+  initial rules' handle `duals` with `marked` and `first_lookup`, the
+  old stamp tests in the same short-circuit order. The memo, the loop
+  check and the waiting failures key occurrences only (`Linear::ground`,
+  `Unrestricted::ground`), behind `Zone::memoizes`; a zone that does not
+  memoize a sequent decides it in `prove_unkeyed`, with no memo, stack
+  or waiting entry. There is no `Key<Z>`.
+- **`Ground` must stay the old code.** Every method is an `#[inline]`
+  forward of what the engine did itself; the key's words come from the
+  same pool as the member lists (`Zone::word_lists`) and are the members
+  where none repeats (`Zone::listed`), so the pools, the charges and
+  hence the points where the memo is emptied for memory are as they
+  were. A change there moves the memory account, which moves counters
+  on a run that relieves its memory, not only time. The lift left every
+  decided row's counters of both target sets equal (`42c` against `42b`)
+  and the search journeys' counts within −0.75 % to +0.34 % of the base
+  build's; a second instance strains the shared helpers' inlining
+  (`plan/notes/api.md` 11.5): measure it against `Ground` alone.
 - **The memo can change decisiveness within the bound, never a verdict.**
   An `Exhausted` entry is a fact about the sequent alone, the loop check
   about the branch, so a run with the memo may answer `Unknown` where a
@@ -1118,9 +1145,10 @@ the fixes implement and later rounds judge against. Where a bullet above
 still describes code that a decision changes, the decision holds, and
 the commit that lands it rewrites that bullet.
 
-- **The focused engine becomes generic over `Z: Zone`** once first-order
-  search needs a second zone, with `Ground` the propositional instance,
-  rather than a second copy of the hot loop. This rests on instruction
-  counts; pinned time on an idle machine at the lift of the shared types
-  confirms it, or a duplicated fast path is kept instead. Callgrind does
-  not see the instruction cache that a second instance strains.
+- **The focused engine is generic over `Z: Zone`**, with `Ground` the
+  propositional instance, rather than a second copy of the hot loop.
+  Its pinned CPU time confirmed it at the lift: both builds side by side
+  on cores 2 and 3 (`bench/pinned-time.py`, `bench/targets/pinned-42c.csv`),
+  the focused rows summed 0.9968 of the base's time, no row more than
+  1.5 % above. Callgrind does not see the instruction cache that a second
+  instance strains, so the first-order zone is measured the same way.

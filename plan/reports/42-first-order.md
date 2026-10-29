@@ -507,3 +507,273 @@ own scratch directory, under the machine's rules.
   `Eigen`, `Proof::{with_instances, instances}`, `Sequent::fo_size`,
   `Limits::{terms, DEFAULT_TERMS, with_terms}`; removed (unreleased):
   `CheckError::Quantifiers`.
+
+## Session 42c: the focused engine generic over its zone
+
+Opus 5.5 at `high`, unattended, 2026-10-29, in the jj workspace
+`../linlog-step42c` on `qlqzolyl` (linlog's `main`). The usage limit
+cut the session once, during the panel; the counterexamples reviewer
+died on it and ran again afresh.
+
+### Outcome
+
+The focused engine, one- and two-sided, is generic over its zone:
+`Run<'a, Z: Zone>`, with `Ground` the one instance, whose members are
+the forest's occurrences and whose methods are the engine's former code
+inlined. No first-order code. The search is the same search: both
+target sets equal their oracles on every decided row (145 focused and 64
+net rows, no counter and no verdict differs), the search journeys'
+instruction counts are within −0.75 % and +0.34 % of the base build's
+(summed −0.33 %), no ceiling raised. **The pinned time confirms the
+lift**: measured side by side with the base build, the focused engine's
+rows summed take 0.9968 of the base's CPU time, no row more than 1.5 %
+above; decision 20 stands, and D17's duplicated fast path is not taken.
+
+### What was built
+
+- **`core/src/search/focus/zone.rs`**: the trait `Zone` (members, the
+  two zone types, the literal seam, the classes, the memo's gate) and
+  the zone traits `Linear` and `Unrestricted`, implemented by `Context`
+  and `OccSet` as `#[inline]` forwards; `Cursors` (moved from
+  `split.rs`); `Ground` with the literal lists' marks (`Marks`,
+  `lists`, `stamp`, moved from the engine).
+- **The seam, as the plan names it**: a handle per dual list
+  (`Zone::duals`) with its mark (`marked`) and its `Θ` flag
+  (`first_lookup`); `dual_in`; `dual_from` with the chains' cursors;
+  `mark_literals` charging its marks' bytes to the engine's `scratch`;
+  `meets`; `class` and `same`; `fork` for a pool's worker (behind
+  `parallel`); `root` for a goal's occurrence; `child` for a
+  subformula's member; the forest passed to every call (the trait has
+  no lifetime); `#[inline]` on every forward. The memo, the loop check
+  and the waiting failures key occurrences only (`Linear::ground`,
+  `Unrestricted::ground`) behind `Zone::memoizes`; a sequent a zone does
+  not memoize is decided in `prove_unkeyed`, which `Ground` never
+  reaches. There is no `Key<Z>`.
+- **Generic over `Z`**: `Run`, `Alternative`, `Unrestricted` (the
+  interned `Θ`), `ByClass`, `Pools`, `Join`, `Forcing`, `Opened`,
+  `Frame`, `Spawn`, `search_goal`, `Plan::search`, `Plan::search_on`,
+  `turns`, `alternate`; the front door and the pool name
+  `search_goal::<Ground>`. Everything keyed by occurrences (the counts,
+  the splits' counts, the reading, kinds and sizes) reads `Run::occ`.
+- **The pinned-time script** `bench/pinned-time.py` (below) and its
+  results; the rules files (`core-focus.md`: the seam, `Ground` as the
+  old code, the decision; `bench.md`: the script), CLAUDE.md's commands.
+- Nothing public changed (`search_goal` became private to the module,
+  where its only callers are); no enum gained a variant, so 0.2.0's
+  list gains nothing from this session. README, the guide and the
+  changelog describe nothing that changed.
+
+### The pinned time
+
+Run on 2026-10-29 from 05:39 to 05:42 as the user unit
+`linlog-step42c-pinned` under the machine lock: the base build
+(`0f807b61`, `qlqzolyl`) and the lifted build (`af09b399`, `wtozsvrq`),
+each a release `linlog-bench` copied to `target/pinned/`, every row
+taken by both at once, base on core 2 and lift on core 3 for the first
+half of the runs and the cores swapped for the second, five runs per
+row; per run the `cpu_ms` of `linlog-bench run` or the measured part of
+a journey. The rule, set before the run: the lift stands when the
+focused rows summed are within 3 % of the base and no focused row's
+median is more than 5 % above.
+
+| row | base ms | lift ms | ratio | range of the runs' ratios |
+|---|--:|--:|--:|---|
+| search-qbf-20-2 | 26.42 | 26.60 | 1.0067 | 0.986–1.018 |
+| search-chain-128 | 34.97 | 33.72 | 0.9642 | 0.945–0.991 |
+| search-partition-no-5 | 0.410 | 0.407 | 0.9927 | 0.946–1.020 |
+| search-chain-64-intuitionistic | 4.50 | 4.34 | 0.9631 | 0.947–0.971 |
+| chain/256 | 280 | 270 | 0.9643 | 0.964–1.000 |
+| growing/1024 | 110 | 110 | 1.0000 | 1.000–1.000 |
+| qbf/24#1 | 110 | 110 | 1.0000 | 1.000–1.000 |
+| mix/8, the focused engine forced | 680 | 690 | 1.0147 | 0.986–1.029 |
+| mix/9, the focused engine forced | 5850 | 5900 | 1.0085 | 0.988–1.019 |
+| chain/256 two-sided, forced | 280 | 270 | 0.9643 | 0.929–1.000 |
+| chain/512 two-sided, forced | 2330 | 2260 | 0.9700 | 0.962–0.996 |
+| **the focused rows summed** | 9706 | 9675 | **0.9968** | 0.981–1.003 |
+| the other rows summed (the other engines' journeys, the batch, ordinary logic, the target set's two rows over a second) | 8786 | 8766 | 0.9977 | 0.997–1.007 |
+
+`bench/targets/pinned-42c.csv` holds every row with its spreads (the
+largest minus the smallest run over the median, at most 8 % on the
+sub-millisecond journeys and 3.7 % on the rows of a tenth of a second
+and more, where `cpu_ms`'s 10 ms ticks are most of it), its header
+naming both commits and the load (1.74 to 1.99);
+`bench/targets/pinned-42c.runs.csv` every run. Every pair agreed on
+verdict and nodes but `Peterson-4_50_1`'s, which ends at its time limit.
+How to run it again or resume it: `bench.md`, "Pinned time of two
+builds"; a stopped unit (`systemctl --user stop linlog-step42c-pinned`)
+resumes from its runs file when started again with the same command.
+
+### The propositional case (D17)
+
+- `bench/targets/42c.csv` against `bench/targets/42b.csv` and
+  `bench/targets/net-42c.csv` against `bench/targets/net-42b.csv`
+  (`linlog-bench summary --against … --counters`): no verdict differs;
+  of the 145 focused and 64 net rows both decide alike, none differs in
+  `nodes`, `splits`, `memo_hits`, `memo_entries`, `links` or `tests`.
+- The ratchet at the lift (the gate): within every ceiling, none raised.
+  Against the base build counted the same way: `search-qbf-20-2`
+  −0.05 %, `search-chain-128` −0.75 %, `search-partition-no-5`
+  +0.34 %, `search-chain-64-intuitionistic` −0.73 %, `batch-families`
+  −0.01 %, `ordinary-pigeons` −0.07 %, the net, Horn and additive
+  journeys and every checker, derivation and render journey equal or
+  within 0.04 %; the search journeys summed −0.33 % (api.md 11's bounds:
+  +1.0 % each, +0.5 % summed). `derivation-chain-64` is unchanged.
+
+### Departures from the design
+
+- **The rows of the pinned time** (departs from api.md 10.9's list, on
+  the supervisor's note of 2026-10-29): the target set's rows over a
+  second are now the Horn engine's two (`Peterson-4_50_1` at its time
+  limit, `JoinFreeModules_joinFree-10_50_1` at its memory limit), since
+  Mix went to the inverse method; they cannot show what the lift costs.
+  They are kept as controls, and the focused engine is measured on
+  rows it decides of a tenth of a second or more: `chain/256`,
+  `growing/1024`, `qbf/24#1` one-sided, `mix/8` and `mix/9` with the
+  focused engine forced (classical with Mix), `chain/256` and
+  `chain/512` intuitionistic with the two-sided engine forced, beside
+  the search journeys.
+- **Not on an idle machine** (the brief's method, which replaces the
+  plan's `baseline.sh` on the author's night): another session's nix
+  builds ran on the other cores, which it could not pin (its message of
+  05:40); both builds ran at the same minute on two performance cores,
+  so the load weighed on both alike, and the spreads are as above.
+- **`zone.rs` lives in `search/focus/`**, not in `search/zone/` (api.md
+  10.9): the shared types never moved there at step 37 (the inverse
+  method has its own), so the trait sits beside the engine that is its
+  one user.
+- **No trail in the trait**: the plan's 42c names the seam without the
+  trail's `mark` and `undo`, which the spike's M2 placed; they are 42d's,
+  with the `Bindings` and the `Trail` they would act on, at the places
+  api.md 10.10 (e) lists.
+- **`mark_literals` charges through the engine's `Charged`** rather than
+  returning its bytes for the caller to charge: the same charge at the
+  same point, one call less.
+- **Two hooks the spike did not have**, so that `Ground` keeps its pools
+  and charges exactly: `Zone::word_lists` (the pool the memo's key words
+  come from, the member lists' own for `Ground`) and `Zone::listed` (the
+  words as members where none repeats).
+
+### The panel's findings and answers
+
+On the frozen tree `af09b399` (the workspace `../linlog-step42c-panel`),
+each reviewer in a fresh context with its own scratch directory, on
+cores 4 and 5, 6 to 9, 10 and 11, after the pinned measurement.
+
+- **The argument (Fable 5.1, `high`)**: no break. It stated the
+  invariant from the code first (every trait call the identity lift of
+  the code it replaced, at the same point, with no side effect more:
+  identities for `root`, `occurrence`, `child`; the inherent methods
+  behind every forward; `new` and `fork` the old fresh marks; the
+  initial rules' `first_lookup` written only where the old code wrote
+  `tried`; the words from the member lists' pool), checked every hunk
+  against the base, and ran both builds: 72 problems under 13
+  configurations (biases, forced engines, memory limits of 200 KiB to
+  1 MiB, a copy bound, no memo), the problem files' 164 records and
+  `run --all-families` in four configurations, every decided record
+  equal field by field, the proofs included, and 72 of 72 verdicts
+  equal on two threads. The only differences were runs the clock
+  stopped in both builds. Nothing to answer.
+- **The integers and limits (Sonnet 5.5, `high`)**: no break, no wrap.
+  Its table covers the marks' stamp, the lists' index and count, the
+  marks' and the cursors' charges, the cursors' `u32` casts, the pools'
+  charged bytes, `budget - 1`, the `REPEATED` bit of the key words, the
+  members' order and the pool's patterns; it ran both builds with
+  overflow checks and debug assertions on and the account's every
+  charge and release hashed, on 11 000 random sequents, under memory
+  limits that empty the memo, on chains of forced splits of 10 000
+  atoms, 100 000 copies of one atom, and 4 million atoms under `?` (192
+  MB of marks), and found the memory-limit threshold of a proof at the
+  same byte in both builds. Nothing to answer.
+- **The counterexamples (Opus 5.5, `high`)**: no break. Its first run
+  died on the usage limit unreported; a fresh one ran on the same frozen
+  tree with a new scratch directory. Both builds through the command,
+  deterministic, under work limits: 0 differences in 99 232 run pairs
+  (byte-equal output, the proof and every counter included) over its
+  own random sequents (classical forced onto the focused engine in every
+  mode with and without Mix, intuitionistic onto the two-sided one) and
+  the repository's generator (11 516 classical and 12 220 intuitionistic
+  sequents, provable ones and mutants), each also under memory limits
+  of 40 to 64 KiB that empty the memo, a memo of three entries, both
+  biases and another copy bound; `run --all-families` with the focused
+  engines forced, with and without a memory limit, every decided row's
+  counters equal, the memory-limit rows too (the only differing rows
+  were `mix` runs stopped by the clock and then refuted by the classical
+  refutation; `mix/9` decided by the search has equal counters); 3 000
+  sequents and the families on four threads with no contradiction. On
+  the lift, the committed tests that compare the engines with the
+  reference pass, widened fivefold in a scratch copy for the classical
+  one (the intuitionistic one did not finish within its cap, so no
+  result); 35 488 classical and 28 072 intuitionistic judgements of the
+  engines against the committed reference, and 18 500 sequents against
+  a reference of its own (a dyadic, unfocused, exhaustive prover with
+  a copy bound, sharing no code), no contradiction. Nothing to answer.
+
+### What is not verified
+
+- The pinned time was measured with another session's builds on the
+  other cores, not on an idle machine; both builds shared every minute
+  of it, so the ratios hold, the absolute times less.
+- `cpu_ms` counts in 10 ms ticks, so the rows of a tenth of a second
+  resolve 1 in 11 to 28; the journeys and the rows of seconds carry the
+  comparison.
+- The flake's ratchet notes the cache model's misses on
+  `check-qbf-20-2` moved by more than 5 %: a checker journey whose
+  instruction count is exactly the base's (the lift does not touch the
+  checker); not a failure, and not pursued.
+- No second instance exists, so what a second instance costs `Ground`
+  through the shared helpers (api.md 11.5, M3) is 42d's to measure.
+
+### Checklist
+
+- [x] The focused engine generic over `Z: Zone`, `Ground` its one
+  instance, the seam of the plan's 42c, no first-order code
+  (`wtozsvrq`).
+- [x] Both target sets equal their oracles on every decided row
+  (`42c` against `42b`, `net-42c` against `net-42b`).
+- [x] The ratchet within its ceilings, none raised; the search journeys
+  within api.md 11's bounds against the base build.
+- [x] The pinned time, side by side on cores 2 and 3, the cores swapped
+  halfway, five runs per row, in a resumable user unit; committed as
+  `bench/targets/pinned-42c.csv` with its runs; the decision: the lift
+  stands.
+- [x] The panel's round on a frozen tree, each finding answered above
+  (none held).
+- [x] Every code commit gated (the lift's commit; the measurement's
+  commit adds a script and data only); `nix flake check` at the last
+  commit: see the last message to the supervisor for its exit status.
+- [x] The rules files (`core-focus.md`, `bench.md`) and CLAUDE.md
+  amended; README, the guide and the changelog need nothing.
+- [x] `jj st` clean, the session's commits in `jj log`.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **42d adds `Framed` as a second `impl Zone`** in `focus/zone.rs`
+  beside `Ground`, and the dispatch's choice of it by the quantifier
+  bit at `search_goal::<Z>`'s callers (`Focused::decide` and the
+  pool's `search_goal`). The trait has what `Ground` needed and what the
+  spike found; the trail (`mark`, `undo` at api.md 10.10 (e)'s places),
+  the enumeration of a premise's answers and the bindings are 42d's to
+  add, with `Ground`'s versions empty and `#[inline]`.
+- **`Ground` is the old code and must stay so**: its pools, charges and
+  orders are those of the base engine (`core-focus.md`, "`Ground` must
+  stay the old code"), which is why `Zone::word_lists` hands `Ground`
+  the member lists' own pool and `Zone::listed` gives the words as its
+  members. A second instance takes its own word pool (a `Pools` field
+  that `Ground` never reads would be dead today, so it is not there).
+- **`prove_unkeyed` is the path of a sequent the zone does not
+  memoize**: no memo, no loop check, no waiting failure. It is the
+  plan's "the memo and the loop check key ground stable sequents only";
+  whether the loop check must see a framed sequent (copies under
+  exponentials) is 42d's question, with its panel.
+- **Measure the second instance against `Ground` alone**, by the
+  journeys' counts against the lift (`af09b399` is the base to count)
+  and by pinned time (`bench/pinned-time.py`, the focused rows it
+  lists); the spike's M3 found the cost in shared helpers outlined
+  (`Context::iter`, `Key::assign`, `OccSet::clone`, `Split::clone_from`),
+  and its remedy `#[inline]` on them.
+- **The target set no longer has focused rows over a second**: Mix goes
+  to the inverse method, `chain/256` is the longest focused row at
+  0.28 s. A pinned comparison forces the focused engines onto `mix` and
+  the two-sided one onto `chain` (`bench.md`).

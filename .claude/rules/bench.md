@@ -624,6 +624,26 @@ serde_json, which the CLI and the core's tests already have.
   claimed to save a few percent is shown by pinned time beside the
   count.
 
+- **Pinned time of two builds** (`bench/pinned-time.py`): `run BASE LIFT
+  RUNS.csv` takes every row of its list five times with both binaries
+  at once, BASE on core 2 and LIFT on core 3 for the first half of the
+  runs and swapped for the second, each run a process of its own (a
+  journey's measured part, or a `run` row's `cpu_ms`), appending each
+  run to RUNS.csv so that a second start resumes; `summary` writes the
+  medians, spreads and ratios by row and summed by group, with `#` lines
+  naming the builds and the load. It runs as a user unit under the
+  machine's lock (`systemd-run --user --unit=NAME --collect --same-dir
+  -p MemoryMax=8G -p MemorySwapMax=0 --setenv=PATH="$PATH" flock
+  /tmp/linlog-machine.lock python3 bench/pinned-time.py run …`), on
+  copies of the two binaries. Its rows are the focused engine's: the
+  target set's rows over a second are the Horn engine's since Mix went
+  to the inverse method, so the list forces the focused engines onto
+  families of a tenth of a second or more (`mix`, `chain` two-sided),
+  beside the search journeys and those two rows. A `cpu_ms` of 10 ms
+  ticks is coarse below a second: the journeys' nanoseconds and the
+  longer rows carry the comparison. The first run, the zone lift's, is
+  `bench/targets/pinned-42c.csv`.
+
 ## Extension points
 
 - **A family**: an entry of `linlog::families::FAMILIES` (name, summary,
