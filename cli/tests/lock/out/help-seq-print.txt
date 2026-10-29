@@ -42,6 +42,13 @@ Options:
           
           [default: 50000000]
 
+      --term-limit <N>
+          The most first-order terms the atoms' arguments may unfold to, or `none` (limits.terms)
+          
+          A first-order sequent in JSON can share its terms, so a small file may name an atom of any length; one beyond the limit is refused before it is unfolded, and so is a proof whose instance table has more entries.
+          
+          [default: 50000000]
+
       --ill-syntax <SYNTAX>
           How the text of an intuitionistic sequent is read: in its own syntax alone, or in the classical one (input.intuitionistic)
           

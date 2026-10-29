@@ -38,6 +38,11 @@ Options:
           
           [default: 50000000]
 
+      --term-limit <N>
+          The most first-order terms the proof's sequent may unfold to and entries its instance table may hold, or `none` (limits.terms); see `prove --term-limit`
+          
+          [default: 50000000]
+
   -i, --intuitionistic
           Intuitionistic linear logic: hypotheses left of ⊢ and one goal right of it, written in its own syntax (--ill-syntax), and two-sided derivations
 
