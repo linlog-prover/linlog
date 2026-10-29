@@ -3813,3 +3813,44 @@ client follows it (step 32).
   in the trait yet (42d's); `mark_literals` charging through the passed
   account; two hooks the spike lacked (`Zone::word_lists`,
   `Zone::listed`). Next: 42d, the first-order focused engine.
+- 2026-10-29: the author ran a graceful stop at 11:05 (42d paused at
+  11:03 with its work uncommitted in `@`, its goal cleared) and the
+  resume at 13:46 (signing and SSH unlocked again by the author).
+- 2026-10-29: review of session 42d, the first-order focused engine
+  (Opus 5.5 at high, 10:35 to 16:50, paused 11:03 to 13:46,
+  unattended): `Framed` beside `Ground` (`search/focus/framed.rs`,
+  `first_order.rs`): unification with the occurs check on terms read
+  through frames, the eigenvariable condition kept by levels, a trail
+  undone where the arena releases nodes, the axioms found by
+  unification at the literal seam, a premise asked for another answer
+  when the other fails; proofs closed (an unbound metavariable a fresh
+  constant), every one through the checker; MLL1 and MALL1 decided, the
+  copy bound's three verdicts with exponentials; the two classical rows
+  take LL1, every other engine still refusing quantifiers; the bounds
+  `witness_depth` (64) and `instances` (65 536) with flags, keys and
+  reasons; the refutations `unbalanced_symbol` and `one_sided_symbol`;
+  the first-order reference prover (`search/reference_fo.rs`, its
+  reviewer finding nothing). The panel (the argument on Fable 5.1): no
+  break; three findings of the integers (a stack overflow in 42b's
+  `Canonical::term` on a witness 180 000 deep, the time limit overshot
+  48-fold on deep terms, the zone's memory uncharged) fixed with tests.
+  D17: the target sets equal on every decided row (145 and 64), the
+  ratchet within its ceilings (three journeys over at the first gate,
+  fixed at their cause), the pinned time of the focused rows 1.0103 of
+  the base summed (the highest row `chain/256`, 1.037, one 10 ms tick)
+  against a rule of 3 % summed and 5 % a row set before the run
+  (`bench/targets/pinned-42d.csv`). Checked here: ten first-order
+  sequents through the command (`∃y∀x ⊢ ∀x∃y` proved and its converse
+  refused, `∀x(p⊗q) ⊢ ∀p ⊗ ∀q` refused, a `!∀` chain proved, `p(b)` from
+  the same chain unknown at the time limit), every returned proof
+  accepted by `linlog check`; the target sets and the pinned table.
+  Departures, for the author: the memo and loop check off for
+  first-order goals (an unprovable MELL1 sequent the counts do not
+  refute runs to the clock; a heads-up box in the session's pane), a
+  second answer by excluding failed answers and searching again, no
+  thread pool for a first-order goal, the `instances` bound global, the
+  witness depth measured per binding, one eigenvariable counter, a `!`
+  factor forcing no split where an atom is open. No closed enum gained
+  a variant. Next: 42e. At the author's word (16:40) the run stops here,
+  and an orchestrator on the first account takes over
+  (`plan/handoff.md`).
