@@ -1,0 +1,25 @@
+# pinned CPU time, base build 6683dfdd2d85 (mksrqnul, main at the start) against the first-order engine's build 30b7cc8e60a1 (vwqxttrt; its descendants change no binary), 2026-10-29 15:13 to 15:15, host wired
+# each row five runs, both builds at once, base on core 2 and the change on core 3 for the first half of the runs and swapped for the second; the author's browser ran on the other cores
+# load, the 1-minute average at each run's start: 2.25 to 2.92, median 2.58
+row,group,runs,base_median_ms,base_spread,lift_median_ms,lift_spread,ratio,ratio_min,ratio_max
+search-qbf-20-2,focused,5,27.612,0.0779,27.284,0.0696,0.9881,0.9799,1.0202
+search-chain-128,focused,5,33.861,0.0671,34.311,0.0495,1.0133,0.9609,1.0195
+search-partition-no-5,focused,5,0.425,0.0706,0.421,0.0309,0.9906,0.9399,1.0024
+search-chain-64-intuitionistic,focused,5,4.395,0.0298,4.413,0.0455,1.0041,0.9850,1.0278
+chain/256,focused,5,270.000,0.0741,280.000,0.0357,1.0370,1.0000,1.0385
+growing/1024,focused,5,110.000,0.0909,110.000,0.0000,1.0000,1.0000,1.1000
+qbf/24#1,focused,5,110.000,0.0000,110.000,0.0909,1.0000,1.0000,1.0909
+mix/8,focused,5,690.000,0.0580,700.000,0.0429,1.0145,1.0143,1.0303
+mix/9,focused,5,5870.000,0.0392,5950.000,0.0252,1.0136,0.9966,1.0239
+chain/256-intuitionistic,focused,5,270.000,0.0370,280.000,0.0357,1.0370,0.9643,1.0370
+chain/512-intuitionistic,focused,5,2300.000,0.0304,2290.000,0.0131,0.9957,0.9871,1.0176
+search-wide-m2-256,other,5,8.065,0.0459,8.223,0.0471,1.0196,0.9847,1.0414
+search-spec-chain,other,5,0.848,0.0366,0.829,0.0169,0.9776,0.9522,0.9905
+search-additive-14,other,5,63.748,0.0274,63.744,0.0241,0.9999,0.9965,1.0050
+batch-families,other,5,2.548,0.0228,2.537,0.0213,0.9957,0.9769,1.0147
+ordinary-pigeons,other,5,1.758,0.0495,1.796,0.0501,1.0216,0.9603,1.0337
+Peterson-4_50_1,other,5,5080.000,0.0020,5090.000,0.0000,1.0020,1.0000,1.0020
+JoinFreeModules_joinFree-10_50_1,other,5,3710.000,0.0189,3680.000,0.0082,0.9919,0.9892,1.0054
+sum:focused,focused,5,9686.293,,9786.429,,1.0103,0.9968,1.0219
+sum:other,other,5,8866.967,,8847.129,,0.9978,0.9955,1.0034
+sum:all,all,5,18553.260,,18633.558,,1.0043,0.9967,1.0121
