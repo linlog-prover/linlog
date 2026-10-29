@@ -162,7 +162,7 @@ pub enum Node {
     Cut(Member, NodeId, NodeId),
     /// `⊢ Θ ; Γ, ∀x.A` from `⊢ Θ ; Γ, A[a/x]`, on the occurrence of
     /// `∀x.A`, with the eigenvariable `a`, which the proof's instance
-    /// table ([`Instances`](crate::Instances)) names: `a` must occur
+    /// table ([`Instances`]) names: `a` must occur
     /// nowhere in the conclusion, which the checker sees to by a
     /// condition on the whole proof (every eigenvariable introduced by
     /// one such node, and found in witnesses above it alone). The premise
