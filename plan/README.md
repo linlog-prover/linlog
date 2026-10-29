@@ -3752,7 +3752,7 @@ client follows it (step 32).
   benchmarks may start directly (two cores or so left free, coordinated
   with any other session that loads the machine, resumable).
 - 2026-10-29: review of session 42b, the first-order proof term and the
-  checker (Opus 5.5 at high, 23:40 to 05:20 with a usage-limit pause
+  checker (Opus 5.5 at high, 23:40 to 05:00 with a usage-limit pause
   from 01:08 to 03:52, unattended): `Node::Forall` and `Node::Exists`
   with the proof's instance table (`Instances`, `FrameId`, `Eigen`), the
   checker's frame pass and bottom-up pass with the eigenvariable set
