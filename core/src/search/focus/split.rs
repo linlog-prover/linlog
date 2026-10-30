@@ -946,7 +946,17 @@ impl<Z: Zone> Run<'_, Z> {
         for i in 0..left_out.len() {
             let mut part = self.take_context_from(gamma);
             part.remove(left_out[i]);
+            // A part is only asked whether it is provable: in a first-order
+            // zone a proof's bindings are taken back, which the search of
+            // the partitions must not see.
+            let marks = Z::FIRST_ORDER.then(|| (self.nodes.mark(), self.zone.mark()));
             let found = self.prove_part(theta, &part, budget);
+            if let Some((nodes, zone)) = marks
+                && let Ok((Found::Proved(_), _)) = found
+            {
+                self.nodes.release(nodes);
+                self.zone.undo(zone);
+            }
             self.give_context(part);
             match found {
                 Ok((Found::Failed(cuts), true)) if cuts == Cuts::NONE => {}
