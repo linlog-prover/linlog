@@ -4020,3 +4020,45 @@ client follows it (step 32).
   after each step; `Proof::formula` writing instances; the record's
   `formula` a member of the proof the step was taken on. Next: 42g, the
   Rocq development.
+- 2026-10-30: review of session 42g, the Rocq library's first-order
+  development (Opus 5.5 at high, 11:50 to 15:30, unattended; its nix
+  builds waited about half an hour behind another project's dev servers
+  that held the machine lock, found by a heads-up box in its pane and
+  released at our request): `rocq/theories` gains the trusted
+  `Terms.v`, `FirstOrderFormulas.v`, `FirstOrderCalculus.v` and
+  `FirstOrderIntuitionistic.v` (definitions only: de Bruijn bound
+  variables, eigenvariables as constants named by naturals, `∀R` and
+  `∃L` with the eigenvariable absent from the whole conclusion, `∃R` and
+  `∀L` with any closed term, Mix, weakening and cut through the
+  propositional rule records), the proof terms, the checkers in two
+  passes and `soundness` (any rules), `soundness_classical`,
+  `soundness_mix`, `soundness_affine` and `soundness_ill`, every
+  assumption closed under the global context; the exporter's `--kernel
+  linlog` the default for a quantified sequent in every mode, cuts too;
+  certificates of the fifteen committed first-order proofs pinned and
+  compiled, the command's (with a constant no `∀` introduces, affine,
+  a closed session's open witnesses), and five planted faults refused
+  by `check = false` lemmas. Its statement reviewer: no finding; one
+  note (substitution shifts no loose index, so open sequents derive
+  oddly), answered: a witness is closed and only closed formulas are
+  opened, so the closed sequents derivable are the textbook's. Checked
+  here: the four trusted files read whole against the textbook rules;
+  the theorems' statements; three certificates of sequents no test
+  uses (intuitionistic with nested `∀` and a function symbol, classical
+  with `⊕`-free `⅋` and `⊗`, affine with an unused hypothesis) exported
+  with `--standalone` and compiled against the library built from the
+  session's tree, and one with its `∃R` witness changed refused by Rocq
+  (`true` against `false`); `⊢ ∃x.∀y.(p(x)⊥ ⅋ p(y))` unprovable, as it
+  needs contraction; both target sets against `42f.csv` and
+  `net-42f.csv` (0 of 145 and 0 of 64 decided rows differ); the chain
+  rebased on `main` with only a plan commit between, the text checks;
+  pushed. No closed enum gained a variant; no Rocq statement a 0.1.0
+  certificate uses changed; the library's version stays 0.1.0 for
+  step 45 to raise. Departures, for the author: the Rocq checker works
+  on explicit formulas, the exporter substituting the frames; a second
+  introduction refused only above its own step (more permissive than
+  linlog's checker, still sound); a `⊤`'s absorbed context not in the
+  term, held fresh by an invariant of the proof; witnesses closed terms;
+  a signature a type of symbols with arities implicit; certificates
+  naming the optional rules by module. Next: 42h, the first-order
+  families and LinearOne.
