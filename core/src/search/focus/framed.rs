@@ -172,6 +172,40 @@ enum Head {
     Applied(u32),
 }
 
+/// The table of ground terms: a zone's own, or the one every engine of a
+/// search on a pool shares, so that a ground term has one id in all their
+/// keys and their memo is one.
+#[derive(Clone, Debug)]
+enum Grounds {
+    /// The zone's own.
+    Own(HashMap<(Head, u32), u32>),
+    /// The pool's.
+    #[cfg(feature = "parallel")]
+    Shared(std::sync::Arc<std::sync::Mutex<HashMap<(Head, u32), u32>>>),
+}
+
+impl Grounds {
+    /// The name of the application of `symbol` to terms of the names
+    /// `args`, as [`Framed::apply`] gives it.
+    fn apply(&mut self, symbol: Symbol, args: &[Name]) -> Name {
+        match self {
+            Self::Own(table) => Framed::apply(table, symbol, args),
+            #[cfg(feature = "parallel")]
+            Self::Shared(table) => Framed::apply(&mut crate::search::lock(table), symbol, args),
+        }
+    }
+
+    /// The slots of the table. A shared one is counted by every engine
+    /// that reads it, more than it holds, which the memory bound errs on.
+    fn capacity(&self) -> usize {
+        match self {
+            Self::Own(table) => table.capacity(),
+            #[cfg(feature = "parallel")]
+            Self::Shared(table) => crate::search::lock(table).capacity(),
+        }
+    }
+}
+
 /// A step of the walk that names a metavariable's term.
 #[derive(Clone, Copy, Debug)]
 enum Naming {
@@ -344,7 +378,7 @@ pub(super) struct Framed {
     /// The ground terms the keys name, by their heads and last arguments:
     /// each term met gets one id for the whole search, so equal ids are
     /// equal terms however they were reached.
-    ground: HashMap<(Head, u32), u32>,
+    ground: Grounds,
     /// Per term of the sequent's arena, its id in `ground` if it is
     /// closed and its id below a key word's value, else [`NONE`].
     arena: Box<[u32]>,
@@ -1124,7 +1158,7 @@ impl Framed {
                 },
                 Naming::Apply(symbol, arity) => {
                     let at = names.len() - arity as usize;
-                    let name = Self::apply(&mut self.ground, symbol, &names[at..]);
+                    let name = self.ground.apply(symbol, &names[at..]);
                     names.truncate(at);
                     names.push(name);
                 }
@@ -1344,7 +1378,7 @@ impl Zone for Framed {
             walk: Vec::new(),
             depths: HashMap::default(),
             key: KeyScratch::default(),
-            ground: HashMap::default(),
+            ground: Grounds::Own(HashMap::default()),
             arena: vec![NONE; fo.terms.len()].into_boxed_slice(),
             named: Vec::new(),
             naming: Vec::new(),
@@ -1361,7 +1395,7 @@ impl Zone for Framed {
                     NONE => Name::Past,
                     id => Name::Ground(id),
                 }));
-                if let Name::Ground(id) = Self::apply(&mut framed.ground, symbol, &names) {
+                if let Name::Ground(id) = framed.ground.apply(symbol, &names) {
                     framed.arena[i] = id;
                 }
             }
@@ -1369,10 +1403,83 @@ impl Zone for Framed {
         framed
     }
 
-    /// A first-order search runs on one thread.
+    /// A copy of the spans, frames, variables, bindings and trail, with
+    /// the table of ground terms the pool shares ([`Zone::share`]), so
+    /// that the worker's keys name what every engine's do; the counters
+    /// at zero and the scratch empty. No rule
+    /// is open that asks for another answer ([`Zone::divides`]), so there
+    /// is no answer and no choice to log.
     #[cfg(feature = "parallel")]
     fn fork(&self) -> Self {
-        unreachable!("a first-order search runs on one thread")
+        Self {
+            occurrences: self.occurrences,
+            base: self.base,
+            spans: self.spans.clone(),
+            frames: self.frames.clone(),
+            vars: self.vars.clone(),
+            eigens: self.eigens,
+            trail: self.trail.clone(),
+            introduced: self.introduced.clone(),
+            answers: Vec::new(),
+            choices: Choices::default(),
+            witness_depth: self.witness_depth,
+            instances: self.instances,
+            cut: None,
+            closed: self.closed.clone(),
+            depth: self.depth.clone(),
+            marks: Vec::new(),
+            stamp: 0,
+            steps: AtomicU64::new(0),
+            unifications: 0,
+            bindings: 0,
+            charged: 0,
+            pairs: Vec::new(),
+            met: HashSet::default(),
+            walk: Vec::new(),
+            depths: HashMap::default(),
+            key: KeyScratch::default(),
+            ground: self.ground.clone(),
+            arena: self.arena.clone(),
+            named: self.named.clone(),
+            naming: Vec::new(),
+            names: Vec::new(),
+        }
+    }
+
+    #[cfg(feature = "parallel")]
+    fn share(&mut self) {
+        if let Grounds::Own(table) = &mut self.ground {
+            let table = std::mem::take(table);
+            self.ground = Grounds::Shared(std::sync::Arc::new(std::sync::Mutex::new(table)));
+        }
+    }
+
+    /// While a rule may ask a premise for another answer, its choices are
+    /// logged and replayed in order, and a failure may rest on an answer
+    /// excluded: only a choice outside every such rule is divided.
+    #[cfg(feature = "parallel")]
+    fn divides(&self) -> bool {
+        self.answers.is_empty()
+    }
+
+    #[cfg(feature = "parallel")]
+    fn adopt(&mut self, worker: Self) {
+        let (unifications, bindings, cut, charged) =
+            (self.unifications, self.bindings, self.cut, self.charged);
+        let steps = *self.steps.get_mut();
+        *self = Self {
+            unifications,
+            bindings,
+            cut,
+            charged,
+            steps: AtomicU64::new(steps),
+            ..worker
+        };
+    }
+
+    #[cfg(feature = "parallel")]
+    fn cut_by(&mut self, reason: Reason) {
+        self.cut.get_or_insert(reason);
     }
 
     fn root(&self, o: OccId) -> FMember {

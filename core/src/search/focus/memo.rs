@@ -777,8 +777,10 @@ pub(super) struct Shared {
 
 impl Shared {
     #[cfg(feature = "parallel")]
-    /// Returns an empty shared memo holding at most `limit` entries in all.
-    pub(super) fn new(limit: usize) -> Self {
+    /// Returns an empty shared memo holding at most `limit` entries in all,
+    /// with a table of at most `zones` unrestricted zones (zero keeps
+    /// none and gives each zone a new id).
+    pub(super) fn new(limit: usize, zones: usize) -> Self {
         let per_shard = limit.div_ceil(SHARDS);
         Self {
             shards: (0..SHARDS)
@@ -789,7 +791,7 @@ impl Shared {
                     ))
                 })
                 .collect(),
-            zones: Mutex::new(Interner::new(limit)),
+            zones: Mutex::new(Interner::new(zones)),
         }
     }
 
@@ -1263,7 +1265,7 @@ mod tests {
     #[test]
     fn a_shared_memo_gives_everything_back() {
         let account = Account::new(None);
-        let shared = Shared::new(100);
+        let shared = Shared::new(100, 100);
         for o in 0..50 {
             let key = key(0, &[o]);
             let complete = Entry::Failed(Failure::Complete);

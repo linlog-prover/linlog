@@ -22,17 +22,17 @@
 //! choice, and every task of a level has ended when the level's answer is
 //! read.
 
-use super::arena::{Arena, Kept};
+use super::arena::{Arena, Kept, PENDING};
 use super::counts::{Counts, Split};
 use super::memo::{Key, Shared, Table};
-use super::schedule::{Plan, merged};
+use super::schedule::{Plan, closed, merged};
 use super::split::Join;
 use super::zone::Zone;
 use super::{Alternative, Cuts, Found, Problem, Run, SetUp, Step, Unrestricted};
 use crate::Error;
 use crate::limits::Limits;
 use crate::proofs::{Node, NodeId};
-use crate::search::memory::Account;
+use crate::search::memory::{Account, bytes_of};
 use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime, record};
 use crate::search::{Finished, Options, Reason, Statistics, Stop, Task, Work};
 use crate::search::{lock, taken};
@@ -131,24 +131,42 @@ impl Plan {
                 Ok(counts) => counts,
                 Err(reason) => return Finished::gave_up(reason),
             };
-        let memo = Shared::new(set_up.options.memo_entries());
-        let arena = Mutex::new(Vec::new());
-        let (result, statistics) = {
-            let mut engine = Run::new(
-                Problem::new(set_up, &counts, self.copies, account),
-                Stop::flags(flags),
-                Table::Shared(&memo),
-                Arena::new(Kept::Shared(&arena), account),
-                Z::new(forest, set_up.options),
-            );
-            engine.runtime = (runtime.threads() > 1).then_some(runtime);
-            (engine.run_kept(set_up.task.goal), engine.statistics())
+        let entries = set_up.options.memo_entries();
+        // A first-order search keeps no unrestricted zone in its table and
+        // gives each a new id, which the copies' order by class needs.
+        let memo = Shared::new(entries, if Z::FIRST_ORDER { 0 } else { entries });
+        // A first-order proof rests on the zone of the engine that found
+        // it, so every engine keeps its own arena, the root's for the
+        // proof of the goal.
+        let shared = (!Z::FIRST_ORDER).then(|| Mutex::new(Vec::new()));
+        let kept = shared.as_ref().map_or(Kept::Own(Vec::new()), Kept::Shared);
+        let mut zone = Z::new(forest, set_up.options);
+        zone.share();
+        let mut engine = Run::new(
+            Problem::new(set_up, &counts, self.copies, account),
+            Stop::flags(flags),
+            Table::Shared(&memo),
+            Arena::new(kept, account),
+            zone,
+        );
+        engine.runtime = (runtime.threads() > 1).then_some(runtime);
+        let mut result = engine.run_kept(set_up.task.goal);
+        let statistics = engine.statistics();
+        let (nodes, instances) = match engine.nodes.kept {
+            Kept::Own(mut nodes) => {
+                let instances = closed(&engine.zone, forest, &mut result, &mut nodes);
+                (nodes, instances)
+            }
+            Kept::Shared(_) => {
+                drop(engine);
+                (taken(shared.expect("a shared arena")), None)
+            }
         };
         Finished {
             result,
-            nodes: taken(arena),
+            nodes,
             statistics,
-            instances: None,
+            instances,
         }
     }
 }
@@ -163,8 +181,9 @@ struct Spawn<'s, Z: Zone> {
     zone: &'s Z,
     /// The shared memo.
     memo: &'s Shared,
-    /// The shared arena.
-    arena: &'s Mutex<Vec<Node>>,
+    /// The shared arena; none where every engine keeps its own, as a
+    /// first-order search's do.
+    arena: Option<&'s Mutex<Vec<Node>>>,
     /// The runtime.
     runtime: &'s Runtime,
     /// The spawning engine's stop flags, which the worker's chain to.
@@ -182,11 +201,12 @@ impl<'s, Z: Zone> Spawn<'s, Z> {
     /// Starts a worker: a fresh engine on the spawn's problem that
     /// continues its branch, stopped by the spawn's flags or by `cancel`.
     fn worker<'w>(&'w self, cancel: &'w AtomicBool) -> Run<'w, Z> {
+        let kept = self.arena.map_or(Kept::Own(Vec::new()), Kept::Shared);
         let mut worker = Run::new(
             self.problem,
             Stop::flags(self.flags.child(cancel)),
             Table::Shared(self.memo),
-            Arena::new(Kept::Shared(self.arena), self.problem.account),
+            Arena::new(kept, self.problem.account),
             self.zone.fork(),
         );
         worker.runtime = Some(self.runtime);
@@ -200,9 +220,14 @@ impl<'s, Z: Zone> Spawn<'s, Z> {
 }
 
 /// What the workers of a choice among alternatives report.
-struct Collected {
+struct Collected<Z: Zone> {
     /// The first proof found.
     proof: Option<NodeId>,
+    /// Where every engine keeps its own arena: the zone of the worker
+    /// that found the proof, and the arena the proof lies in.
+    won: Option<(Z, Vec<Node>)>,
+    /// The first bound that cut a worker's branch.
+    cut: Option<Reason>,
     /// The first error, a stop that a cancellation caused excepted, a
     /// stop giving way to any other reason.
     error: Option<Reason>,
@@ -212,11 +237,13 @@ struct Collected {
     statistics: Statistics,
 }
 
-impl Collected {
+impl<Z: Zone> Collected<Z> {
     /// Nothing reported yet.
     fn new() -> Self {
         Self {
             proof: None,
+            won: None,
+            cut: None,
             error: None,
             cuts: Cuts::NONE,
             statistics: Statistics::default(),
@@ -224,12 +251,22 @@ impl Collected {
     }
 
     /// Takes a worker's result: a proof or an error settles the choice
-    /// and raises its flag, a failure adds its cuts.
-    fn take<Z: Zone>(&mut self, result: Step, worker: &Run<'_, Z>, cancel: &AtomicBool) {
-        self.statistics.add_run(&worker.statistics);
+    /// and raises its flag, a failure adds its cuts. The first proof's
+    /// worker gives up its zone and arena where they are its own.
+    fn take(&mut self, result: Step, worker: Run<'_, Z>, cancel: &AtomicBool) {
+        self.statistics.add_run(&worker.report());
+        if self.cut.is_none() {
+            self.cut = worker.zone.cut();
+        }
         match result {
             Ok(Found::Proved(node)) => {
-                self.proof.get_or_insert(node);
+                if self.proof.is_none() {
+                    self.proof = Some(node);
+                    let Run { zone, nodes, .. } = worker;
+                    if let Kept::Own(kept) = nodes.kept {
+                        self.won = Some((zone, kept));
+                    }
+                }
                 cancel.store(true, Ordering::Relaxed);
             }
             Ok(Found::Failed(failed)) => self.cuts = self.cuts.and(failed),
@@ -278,7 +315,7 @@ impl Premise {
 impl<'a, Z: Zone> Run<'a, Z> {
     /// Whether the next choice of the branch runs on several threads.
     pub(super) fn cubes(&self) -> bool {
-        self.runtime.is_some() && self.or_depth < LEVELS
+        self.runtime.is_some() && self.or_depth < LEVELS && self.zone.divides()
     }
 
     /// The state a worker starts from, with `or_depth` levels of
@@ -288,10 +325,14 @@ impl<'a, Z: Zone> Run<'a, Z> {
     where
         'a: 's,
     {
-        let (Table::Shared(memo), Kept::Shared(arena), Stop::Flags(flags, _), Some(runtime)) =
-            (&self.memo, &self.nodes.kept, &self.stop, self.runtime)
+        let (Table::Shared(memo), Stop::Flags(flags, _), Some(runtime)) =
+            (&self.memo, &self.stop, self.runtime)
         else {
             unreachable!("a parallel choice is met on a worker of the pool")
+        };
+        let arena = match &self.nodes.kept {
+            Kept::Shared(arena) => Some(*arena),
+            Kept::Own(_) => None,
         };
         Spawn {
             problem: self.problem,
@@ -354,6 +395,7 @@ impl<'a, Z: Zone> Run<'a, Z> {
         alternatives: &[Alternative<'_, Z>],
         budget: u32,
     ) -> Step {
+        self.divided = true;
         let cancel = AtomicBool::new(false);
         let spawn = self.spawn(self.or_depth + 1);
         let collected = Mutex::new(Collected::new());
@@ -379,7 +421,7 @@ impl<'a, Z: Zone> Run<'a, Z> {
                     let _cancel = RaiseOnPanic(cancel);
                     let mut worker = spawn.worker(cancel);
                     let result = worker.run_alternative(theta, gamma, alternative, budget);
-                    lock(collected).take(result, &worker, cancel);
+                    lock(collected).take(result, worker, cancel);
                 });
             }
             // The first alternative on this thread, on a worker of its
@@ -388,16 +430,42 @@ impl<'a, Z: Zone> Run<'a, Z> {
             let _cancel = RaiseOnPanic(&cancel);
             let mut worker = spawn.worker(&cancel);
             let result = worker.run_alternative(theta, gamma, first, budget);
-            lock(&collected).take(result, &worker, &cancel);
+            lock(&collected).take(result, worker, &cancel);
         });
         drop(waiting);
         let collected = taken(collected);
         self.statistics.add_run(&collected.statistics);
+        if let Some(reason) = collected.cut {
+            self.zone.cut_by(reason);
+        }
         match (collected.proof, collected.error) {
-            (Some(node), _) => Ok(Found::proved(node)),
+            (Some(node), _) => match collected.won {
+                Some((zone, kept)) => self.adopted(zone, kept, node),
+                None => Ok(Found::proved(node)),
+            },
             (None, Some(reason)) => Err(reason),
             (None, None) => Ok(Found::failed(collected.cuts)),
         }
+    }
+
+    /// A worker's proof of an alternative with the zone it rests on: the
+    /// zone takes the place of this engine's, which has not moved since
+    /// the worker forked it, and the worker's arena goes onto this
+    /// engine's pending nodes, which the proof's id is renamed into.
+    fn adopted(&mut self, zone: Z, kept: Vec<Node>, node: NodeId) -> Step {
+        self.zone.adopt(zone);
+        let base = self.nodes.mark();
+        if base + kept.len() > PENDING as usize {
+            return Err(Reason::IndexLimit);
+        }
+        // Below the flag: checked above.
+        let renamed = |id: NodeId| NodeId::new(PENDING | (base + id.index()) as u32);
+        for n in &kept {
+            self.nodes.push(n.map_premises(renamed));
+        }
+        // Charged to the account as kept nodes, and pending now.
+        self.problem.account.resize(bytes_of(&kept), 0);
+        Ok(Found::proved(renamed(node)))
     }
 
     /// The free splits of `F = A ⊗ B` on the pool: the assignments of the
@@ -818,7 +886,7 @@ mod tests {
     fn a_skipped_alternative_is_no_failure() {
         use std::sync::atomic::{AtomicBool, Ordering};
         let cancel = AtomicBool::new(false);
-        let mut collected = super::Collected::new();
+        let mut collected = super::Collected::<super::super::zone::Ground>::new();
         collected.skip(&cancel);
         assert_eq!(collected.error, Some(Reason::Stopped));
         assert!(cancel.load(Ordering::Relaxed));

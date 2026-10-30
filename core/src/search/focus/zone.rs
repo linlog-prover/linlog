@@ -50,6 +50,31 @@ pub(super) trait Zone: Sized + Send + Sync {
     #[cfg(feature = "parallel")]
     fn fork(&self) -> Self;
 
+    /// Makes the tables that the keys of this zone and its forks read
+    /// shared, for a search on a pool whose engines share one memo.
+    #[cfg(feature = "parallel")]
+    fn share(&mut self) {}
+
+    /// Whether the alternatives of a choice may run on workers of a pool,
+    /// each on a fork of this zone: where no rule around the choice may
+    /// ask it for another answer.
+    #[cfg(feature = "parallel")]
+    fn divides(&self) -> bool {
+        true
+    }
+
+    /// Takes the zone of the worker whose alternative proved a choice,
+    /// forked from this one, which has not moved since: the instances,
+    /// variables and bindings its proof rests on. This zone's counters
+    /// and cut stay.
+    #[cfg(feature = "parallel")]
+    fn adopt(&mut self, _worker: Self) {}
+
+    /// Records that a worker's branch was cut by `reason`, where no
+    /// branch of the level was before.
+    #[cfg(feature = "parallel")]
+    fn cut_by(&mut self, _reason: Reason) {}
+
     /// The member a goal's occurrence stands for.
     fn root(&self, o: OccId) -> Self::Member;
 

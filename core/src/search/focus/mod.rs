@@ -171,7 +171,7 @@ impl Decide for Focused {
     }
 
     /// Searches the goal on one thread, or with the feature `parallel` on
-    /// [`Options::jobs`] threads; a first-order goal on one thread.
+    /// [`Options::jobs`] threads.
     fn decide(
         &self,
         task: &Task<'_>,
@@ -181,17 +181,21 @@ impl Decide for Focused {
         work: &Work,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
-        if task.fragment.has_quantifiers() {
-            let found = search_goal::<Framed>(task, options, limits, account, work, stop);
-            return Ok(Answer::of_arena(task.forest, found, stop));
-        }
+        let first_order = task.fragment.has_quantifiers();
         #[cfg(feature = "parallel")]
         if options.threads() > 1 {
-            let found =
-                parallel::search_goal::<Ground>(task, options, limits, account, work, stop)?;
+            let found = if first_order {
+                parallel::search_goal::<Framed>(task, options, limits, account, work, stop)?
+            } else {
+                parallel::search_goal::<Ground>(task, options, limits, account, work, stop)?
+            };
             return Ok(Answer::of_arena(task.forest, found, stop));
         }
-        let found = search_goal::<Ground>(task, options, limits, account, work, stop);
+        let found = if first_order {
+            search_goal::<Framed>(task, options, limits, account, work, stop)
+        } else {
+            search_goal::<Ground>(task, options, limits, account, work, stop)
+        };
         Ok(Answer::of_arena(task.forest, found, stop))
     }
 }
@@ -599,6 +603,10 @@ struct Run<'a, Z: Zone> {
     /// The runtime, when the search runs on several threads.
     #[cfg(feature = "parallel")]
     runtime: Option<&'a super::parallel::Runtime>,
+    /// Whether this engine ran a choice's alternatives on several threads
+    /// in the level being searched.
+    #[cfg(feature = "parallel")]
+    divided: bool,
     /// How many choices among alternatives on this branch ran on several
     /// threads: the levels of cube-and-conquer above the current sequent.
     #[cfg_attr(
@@ -658,6 +666,8 @@ impl<'a, Z: Zone> Run<'a, Z> {
             stop,
             #[cfg(feature = "parallel")]
             runtime: None,
+            #[cfg(feature = "parallel")]
+            divided: false,
             or_depth: 0,
             stack: Vec::new(),
             hashes: Vec::new(),
@@ -723,7 +733,23 @@ impl<'a, Z: Zone> Run<'a, Z> {
             ..self.statistics
         };
         if Z::FIRST_ORDER {
-            (statistics.unifications, statistics.bindings) = self.zone.counts();
+            let (unifications, bindings) = self.zone.counts();
+            statistics.unifications += unifications;
+            statistics.bindings += bindings;
+        }
+        statistics
+    }
+
+    /// The counters a worker hands the engine that spawned it: its own
+    /// and its zone's, the memo's left out, which a pool's engines share
+    /// or each read off its own.
+    #[cfg(feature = "parallel")]
+    fn report(&self) -> Statistics {
+        let mut statistics = self.statistics;
+        if Z::FIRST_ORDER {
+            let (unifications, bindings) = self.zone.counts();
+            statistics.unifications += unifications;
+            statistics.bindings += bindings;
         }
         statistics
     }
@@ -762,6 +788,10 @@ impl<'a, Z: Zone> Run<'a, Z> {
                     return Err(reason);
                 }
                 self.zone.begin_level();
+                #[cfg(feature = "parallel")]
+                {
+                    self.divided = false;
+                }
             }
             let (added, emptied) = (self.memo.added(), self.memo.emptied());
             let mut gamma = self.take_context();
@@ -769,6 +799,12 @@ impl<'a, Z: Zone> Run<'a, Z> {
             // A stack: the first formula is decomposed first.
             list.extend(goal.iter().rev().map(|&o| self.zone.root(o)));
             let result = self.asynchronous(&theta, &mut gamma, &mut list, budget);
+            #[cfg(feature = "parallel")]
+            let result = if Z::FIRST_ORDER && budget == levels {
+                self.again_alone(&theta, goal, budget, result, &mut generation)
+            } else {
+                result
+            };
             self.give_context(gamma);
             self.give_list(list);
             match result {
@@ -798,6 +834,40 @@ impl<'a, Z: Zone> Run<'a, Z> {
             return Err(reason);
         }
         Err(Reason::CopyBound { copies: levels })
+    }
+
+    /// The last level of a first-order search on a pool, once more on
+    /// this thread where it divided a choice and ended cut: a worker may
+    /// have searched a sequent cut by its budget while a sibling was still
+    /// finding it unprovable, where one thread reads the sibling's failure
+    /// and decides. The level searched again reads every failure the
+    /// workers recorded in the memo and none of their cuts (a new
+    /// generation), so the pool answers "unknown" only where one thread
+    /// with those facts does. Returns the level's result.
+    #[cfg(feature = "parallel")]
+    fn again_alone(
+        &mut self,
+        theta: &Unrestricted<Z>,
+        goal: &[OccId],
+        budget: u32,
+        result: Step,
+        generation: &mut u64,
+    ) -> Step {
+        let cut = matches!(result, Ok(Found::Failed(cuts)) if cuts.exhausted);
+        if !(cut && std::mem::take(&mut self.divided)) {
+            return result;
+        }
+        *generation += 1;
+        self.memo.begin(*generation);
+        let mut gamma = self.take_context();
+        let mut list = self.take_list();
+        list.extend(goal.iter().rev().map(|&o| self.zone.root(o)));
+        let runtime = self.runtime.take();
+        let again = self.asynchronous(theta, &mut gamma, &mut list, budget);
+        self.runtime = runtime;
+        self.give_context(gamma);
+        self.give_list(list);
+        again
     }
 
     // The phases.

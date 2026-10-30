@@ -12,10 +12,12 @@ use super::counts::Counts;
 use super::memo::{Interner, Memo, Table};
 use super::zone::Zone;
 use super::{Problem, Run, SetUp};
+use crate::Instances;
 use crate::fragment::{Fragment, Mode};
 #[cfg(feature = "parallel")]
 use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId};
+use crate::proofs::{Node, NodeId};
 use crate::search::Bias;
 use crate::search::memory::Account;
 use crate::search::{Finished, Options, Reason, Statistics, Stop};
@@ -174,13 +176,7 @@ impl Plan {
             Kept::Own(nodes) => nodes,
             Kept::Shared(_) => unreachable!("a sequential search owns its arena"),
         };
-        let mut instances = None;
-        if Z::FIRST_ORDER && matches!(result, Ok(Some(_))) {
-            match engine.zone.close(set_up.task.forest, &mut nodes) {
-                Ok(table) => instances = Some(Box::new(table)),
-                Err(reason) => result = Err(reason),
-            }
-        }
+        let instances = closed(&engine.zone, set_up.task.forest, &mut result, &mut nodes);
         (
             Finished {
                 result,
@@ -190,6 +186,28 @@ impl Plan {
             },
             over,
         )
+    }
+}
+
+/// The instance table of a first-order search's proof, written by its
+/// zone over the arena the proof lies in; where it cannot be written, the
+/// reason is the search's result. `None` for a propositional search or
+/// where there is no proof.
+pub(super) fn closed<Z: Zone>(
+    zone: &Z,
+    forest: &Forest,
+    result: &mut Result<Option<NodeId>, Reason>,
+    nodes: &mut [Node],
+) -> Option<Box<Instances>> {
+    if !Z::FIRST_ORDER || !matches!(result, Ok(Some(_))) {
+        return None;
+    }
+    match zone.close(forest, nodes) {
+        Ok(table) => Some(Box::new(table)),
+        Err(reason) => {
+            *result = Err(reason);
+            None
+        }
     }
 }
 
