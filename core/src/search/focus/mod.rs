@@ -45,6 +45,8 @@
 mod arena;
 /// The atom bias.
 pub(crate) mod bias;
+/// The choices a first-order search logs to resume a premise.
+mod choices;
 /// Interchangeable occurrences.
 mod classes;
 /// The linear zone as a multiset.
@@ -61,6 +63,8 @@ mod keyed;
 mod memo;
 #[cfg(feature = "parallel")]
 pub(crate) mod parallel;
+/// The choice points of a first-order search that log their choices.
+mod resumed;
 /// The two searches of the default bias and how they share the cores.
 mod schedule;
 /// The pools of scratch buffers.
@@ -1724,6 +1728,9 @@ impl<'a, Z: Zone> Run<'a, Z> {
         alternatives: impl Iterator<Item = Alternative<'m, Z>>,
         budget: u32,
     ) -> Step {
+        if Z::FIRST_ORDER {
+            return self.choose_framed(theta, gamma, alternatives, budget);
+        }
         let mut cuts = Cuts::NONE;
         let mut rest = None;
         for alternative in alternatives {

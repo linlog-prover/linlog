@@ -54,6 +54,7 @@
 //! answer. It ends when the bindings before the first premise are an
 //! instance themselves, or when the first premise has no proof left.
 
+use super::choices::Choices;
 use super::classes::Classes;
 use super::context::Context;
 use super::scratch::{Pooled, Pools};
@@ -248,6 +249,9 @@ pub(super) struct Framed {
     introduced: Vec<Eigen>,
     /// The answers of the rules open on the branch, the innermost last.
     answers: Vec<Answers>,
+    /// The choices made while a rule may ask for another answer, and the
+    /// replay that resumes its first premise.
+    choices: Choices,
     /// The deepest term a metavariable may be bound to.
     witness_depth: u32,
     /// The most instances of binders the search may hold at once.
@@ -1074,6 +1078,7 @@ impl Zone for Framed {
             trail: Vec::new(),
             introduced: Vec::new(),
             answers: Vec::new(),
+            choices: Choices::default(),
             witness_depth: options.witness_depth,
             instances: options.instances,
             cut: None,
@@ -1332,7 +1337,9 @@ impl Zone for Framed {
         } else if a != b {
             return Unified::No;
         }
-        if self.passes(fo) {
+        // A replay takes the alternatives the first search took, which
+        // passed the answers excluded then.
+        if self.choices.replaying() || self.passes(fo) {
             Unified::Yes
         } else {
             Unified::No
@@ -1460,7 +1467,8 @@ impl Zone for Framed {
             + bytes_of(&self.pairs)
             + bytes_of(&self.walk)
             + entries(self.met.capacity(), size_of::<(TRef, TRef)>())
-            + entries(self.depths.capacity(), size_of::<(TRef, u32)>());
+            + entries(self.depths.capacity(), size_of::<(TRef, u32)>())
+            + self.choices.bytes();
         (std::mem::replace(&mut self.charged, held), held)
     }
 
@@ -1491,6 +1499,10 @@ impl Zone for Framed {
             };
         }
         Ok(closing.into_inner().table)
+    }
+
+    fn choices(&mut self) -> &mut Choices {
+        &mut self.choices
     }
 }
 

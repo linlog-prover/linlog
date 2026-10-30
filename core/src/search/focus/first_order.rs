@@ -6,6 +6,7 @@
 //! ask the first for another answer where the second fails under the
 //! one it gave (`framed.rs` has the argument).
 
+use super::choices::Site;
 use super::framed::Unified;
 use super::zone::{Linear as _, Unrestricted as _, Zone};
 use super::{Cuts, FORCED_PER_POLL, Found, Run, Step, Unrestricted};
@@ -38,7 +39,30 @@ impl<Z: Zone> Run<'_, Z> {
             return Ok(Found::NOTHING);
         }
         let f = self.problem.forest;
-        let mut cuts = Cuts::NONE;
+        // Every pair tried is an alternative of a choice point that logs
+        // which one it tries (`choices.rs`).
+        let choice = self.zone.choices().enter(Site::Initial);
+        if choice.start == u32::MAX {
+            self.zone.choices().fail(&choice, choice.cuts);
+            return Ok(Found::failed(choice.cuts));
+        }
+        let mut cuts = choice.cuts;
+        let mut tried = 0u32;
+        // The next pair's number, `None` past the log's numbers, where the
+        // rest are cut, never refuted.
+        let mut next = |cuts: &mut Cuts| {
+            let i = tried;
+            match tried.checked_add(1).filter(|&n| n < u32::MAX) {
+                Some(n) => {
+                    tried = n;
+                    Some(i)
+                }
+                None => {
+                    *cuts = cuts.and(Cuts::BUDGET);
+                    None
+                }
+            }
+        };
         for (i, &p) in members.iter().enumerate() {
             if !f.is_literal(self.occ(p)) {
                 continue;
@@ -48,6 +72,13 @@ impl<Z: Zone> Run<'_, Z> {
                     if !self.zone.opposite(f, p, q) {
                         continue;
                     }
+                    let Some(n) = next(&mut cuts) else {
+                        break;
+                    };
+                    if n < choice.start {
+                        continue;
+                    }
+                    self.zone.choices().take(&choice, n, cuts);
                     let mark = self.zone.mark();
                     let unified = self.zone.unify(f, p, q);
                     self.poll_terms()?;
@@ -71,12 +102,19 @@ impl<Z: Zone> Run<'_, Z> {
                 if !self.zone.opposite(f, p, d) {
                     continue;
                 }
+                let Some(n) = next(&mut cuts) else {
+                    break;
+                };
+                if n < choice.start {
+                    continue;
+                }
                 if budget == 0 {
                     // Another pair may still close the sequent without a
                     // copy.
                     cuts = cuts.and(Cuts::BUDGET);
                     continue;
                 }
+                self.zone.choices().take(&choice, n, cuts);
                 let mark = self.zone.mark();
                 let unified = self.zone.unify(f, p, d);
                 self.poll_terms()?;
@@ -94,6 +132,7 @@ impl<Z: Zone> Run<'_, Z> {
                 }
             }
         }
+        self.zone.choices().fail(&choice, cuts);
         Ok(Found::failed(cuts))
     }
 
@@ -194,10 +233,14 @@ impl<Z: Zone> Run<'_, Z> {
     /// first, `second` the second once the first is proved, `join` makes
     /// the rule's node. Where the second premise, whose members `shared`
     /// lists, has an unbound metavariable, a failure of the second asks
-    /// the first for another answer: the one it gave is excluded from its
-    /// search, which runs again from the bindings it started from, until
-    /// the second is proved, the first fails, or every answer left is
-    /// excluded. The failure rests on the cuts of every search run.
+    /// the first for another answer: the one it gave is excluded, and the
+    /// first premise's search is resumed at its last choice point
+    /// (`choices.rs`), or searched again from the bindings it started
+    /// from where the replay diverged, until the second is proved, the
+    /// first fails, or every answer left is excluded. The rule's rounds
+    /// are a choice point of their own, so that a replay of a search
+    /// around it restores what its rounds before cut. The failure rests
+    /// on the cuts of every search run and every one given up.
     pub(super) fn answers(
         &mut self,
         shared: &mut dyn Iterator<Item = Z::Member>,
@@ -206,6 +249,13 @@ impl<Z: Zone> Run<'_, Z> {
         join: impl FnOnce(NodeId, NodeId) -> Node,
     ) -> Step {
         let forest = self.problem.forest;
+        let choice = self.zone.choices().enter(Site::Answers);
+        if choice.start == u32::MAX || choice.resumed {
+            // Failed before, or resumed here: its premises took no
+            // alternative after its last round, so no answer is left.
+            self.zone.choices().fail(&choice, choice.cuts);
+            return Ok(Found::failed(choice.cuts));
+        }
         let mark = self.nodes.mark();
         let zone = self.zone.mark();
         let open = self.zone.open_answers(forest, shared);
@@ -215,23 +265,33 @@ impl<Z: Zone> Run<'_, Z> {
             }
             return Err(reason);
         }
-        let mut cuts = Cuts::NONE;
+        if open {
+            self.zone.choices().open();
+        }
+        let mut cuts = choice.cuts;
         // The bytes of the answers recorded, charged while they are
         // excluded.
         let mut recorded = 0;
+        // Which round this is, and whether it resumes the first premise.
+        let (mut round, mut resuming) = (choice.start, false);
+        self.zone.choices().take(&choice, round, cuts);
         let found = loop {
-            if open {
-                self.zone.searching_first(true);
-            }
-            let l = first(self);
-            if open {
-                self.zone.searching_first(false);
+            let start = self.zone.choices().len();
+            let mut l = self.first_premise(open, &mut first);
+            if resuming && self.zone.choices().end_replay() {
+                // The replay diverged: the first premise is searched again
+                // with every failed answer excluded.
+                self.nodes.release(mark);
+                self.zone.undo(zone);
+                self.zone.choices().truncate(start);
+                l = self.first_premise(open, &mut first);
             }
             let l_node = match l {
                 Ok(Found::Proved(node)) => node,
                 Ok(Found::Failed(failed)) => break Ok(Found::failed(cuts.and(failed))),
                 Err(reason) => break Err(reason),
             };
+            let end = self.zone.choices().len();
             let (l_node, r) = self.holding(l_node, &mut second);
             match r {
                 Ok(Found::Proved(r_node)) => {
@@ -253,11 +313,41 @@ impl<Z: Zone> Run<'_, Z> {
             if let Err(reason) = self.poll_terms() {
                 break Err(reason);
             }
+            // The rounds are fewer than the answers recorded, each held
+            // in memory; past the log's numbers the rule is cut.
+            let Some(next) = round.checked_add(1).filter(|&n| n < u32::MAX) else {
+                break Ok(Found::failed(cuts.and(Cuts::BUDGET)));
+            };
+            round = next;
+            self.zone.choices().next_round(&choice, round, cuts);
+            if let Err(given_up) = self.zone.choices().resume(start, end) {
+                // The first premise took no alternative: its answer was
+                // its only one.
+                break Ok(Found::failed(cuts.and(given_up)));
+            }
+            resuming = true;
         };
         if open {
+            self.zone.choices().close();
             self.zone.close_answers();
             self.scratch.resize(recorded, 0);
         }
+        if let Ok(Found::Failed(cuts)) = found {
+            self.zone.choices().fail(&choice, cuts);
+        }
         found
+    }
+
+    /// Searches a rule's first premise, with its excluded answers read
+    /// while it runs where the rule has any.
+    fn first_premise(&mut self, open: bool, first: &mut impl FnMut(&mut Self) -> Step) -> Step {
+        if open {
+            self.zone.searching_first(true);
+        }
+        let l = first(self);
+        if open {
+            self.zone.searching_first(false);
+        }
+        l
     }
 }

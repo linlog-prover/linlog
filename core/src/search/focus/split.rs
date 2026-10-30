@@ -5,6 +5,7 @@
 //! chain of them, and the search for the free splits whose two sides
 //! pass the counts.
 
+use super::choices::Site;
 use super::counts::{Split, Tally};
 use super::scratch::Pooled;
 use super::zone::{Cursors, Linear as _, Unrestricted as _, Zone};
@@ -577,6 +578,17 @@ impl<Z: Zone> Run<'_, Z> {
         join: Join<Z::Member>,
         budget: u32,
     ) -> Step {
+        if Z::FIRST_ORDER {
+            return self.search_splits_framed(
+                theta,
+                members,
+                (start, prefix),
+                (left, right),
+                split,
+                join,
+                budget,
+            );
+        }
         let mut walk = self.walk(members.len(), (start, prefix));
         // What the premises of the splits tried cut.
         let mut cuts = Cuts::NONE;
@@ -604,6 +616,89 @@ impl<Z: Zone> Run<'_, Z> {
             Some(node) => Found::proved(node),
             None => Found::failed(cuts),
         })
+    }
+
+    /// [`Self::search_splits`] in a first-order zone: the splits are the
+    /// alternatives of a choice point that logs which one it tries, so
+    /// that a premise's search can be resumed at it (`choices.rs`).
+    #[allow(clippy::too_many_arguments)]
+    fn search_splits_framed(
+        &mut self,
+        theta: &Unrestricted<Z>,
+        members: &[Z::Member],
+        (start, prefix): (usize, u64),
+        (left, right): (&mut Z::Linear, &mut Z::Linear),
+        split: &mut Split,
+        join: Join<Z::Member>,
+        budget: u32,
+    ) -> Step {
+        let choice = self.zone.choices().enter(Site::Splits);
+        if choice.start == u32::MAX {
+            self.zone.choices().fail(&choice, choice.cuts);
+            return Ok(Found::failed(choice.cuts));
+        }
+        let mut walk = self.walk(members.len(), (start, prefix));
+        let mut cuts = choice.cuts;
+        let mut leaf = 0u32;
+        let found = loop {
+            match self.next_split(&mut walk, members, (left, right), split) {
+                Ok(true) => {}
+                Ok(false) => break Ok(None),
+                Err(reason) => break Err(reason),
+            }
+            let i = leaf;
+            // A split past the log's numbers is cut, never refuted.
+            let Some(next) = leaf.checked_add(1) else {
+                cuts = cuts.and(Cuts::BUDGET);
+                break Ok(None);
+            };
+            leaf = next;
+            if i < choice.start {
+                continue;
+            }
+            self.zone.choices().take(&choice, i, cuts);
+            self.work += (self.problem.forest.len() / OCCURRENCES_PER_LEAF) as u64;
+            let joined = match join {
+                Join::Tensor(f, a, b) => self.premises(theta, left, right, f, a, b, budget),
+                Join::Mix if right.is_empty() => Ok(Found::NOTHING),
+                Join::Mix => self.parts(theta, left, right, budget),
+            };
+            match joined {
+                Ok(Found::Proved(node)) => break Ok(Some(node)),
+                Ok(Found::Failed(failed)) => cuts = cuts.and(failed),
+                Err(reason) => break Err(reason),
+            }
+        };
+        self.give_trail(walk.trail);
+        Ok(match found? {
+            Some(node) => Found::proved(node),
+            None => {
+                self.zone.choices().fail(&choice, cuts);
+                Found::failed(cuts)
+            }
+        })
+    }
+
+    /// [`Self::parts_fail`] in a first-order zone, as a choice point that
+    /// logs its answer: a replay reads it rather than searching the parts
+    /// again (`choices.rs`).
+    fn parts_fail_logged(
+        &mut self,
+        theta: &Unrestricted<Z>,
+        gamma: &Z::Linear,
+        members: &[Z::Member],
+        budget: u32,
+    ) -> Result<bool, Reason> {
+        let choice = self.zone.choices().enter(Site::Parts);
+        if let Some(fail) = choice.settled {
+            return Ok(fail == 1);
+        }
+        if choice.start == u32::MAX {
+            return Ok(false);
+        }
+        let fail = self.parts_fail(theta, gamma, members, budget)?;
+        self.zone.choices().settle(&choice, u32::from(fail));
+        Ok(fail)
     }
 
     /// The walk of a split search over `len` members before its first
@@ -792,7 +887,13 @@ impl<Z: Zone> Run<'_, Z> {
         if members.len() < 2 || (self.problem.rules.equation && !tally.admits_mix()) {
             return Ok((Found::NOTHING, false));
         }
-        if self.problem.memoizes && self.parts_fail(theta, gamma, members, budget)? {
+        let fail = self.problem.memoizes
+            && if Z::FIRST_ORDER {
+                self.parts_fail_logged(theta, gamma, members, budget)?
+            } else {
+                self.parts_fail(theta, gamma, members, budget)?
+            };
+        if fail {
             return Ok((Found::NOTHING, true));
         }
         let mut left = self.take_context();

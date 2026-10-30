@@ -7,6 +7,7 @@
 //! occurrences, the propositional search; its methods are the engine's
 //! own code, inlined into it.
 
+use super::choices::Choices;
 use super::classes::Classes;
 use super::context::Context;
 use super::framed::{Mark, Unified};
@@ -276,6 +277,12 @@ pub(super) trait Zone: Sized + Send + Sync {
     /// [`Reason::IndexLimit`] where the table outgrows its ids.
     fn close(&self, _forest: &Forest, _nodes: &mut [Node]) -> Result<Instances, Reason> {
         unreachable!("a zone without binders keeps its proofs as they are")
+    }
+
+    /// The choices made while a rule may ask its first premise for
+    /// another answer, by which that premise's search is resumed.
+    fn choices(&mut self) -> &mut Choices {
+        unreachable!("a zone without binders has one answer")
     }
 }
 
