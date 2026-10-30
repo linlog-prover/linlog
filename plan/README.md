@@ -4104,3 +4104,47 @@ client follows it (step 32).
   without it). Next: 42i, the memo, the loop check and resumed answers
   at first order, each measured against 42d's form for the author's keep
   or revert.
+- 2026-10-30: review of session 42i, the first-order search reusing its
+  work (Opus 5.5 at high, 17:05 to 19:40, unattended; terminated by a
+  SIGTERM of unknown cause at about 18:30 with the planning session, both
+  resumed in their conversations): the memo and the loop check for
+  first-order goals (failures only, never proofs; complete failures by a
+  canonical variant key, the loop check by the instance's own key, a
+  repeated member written once with its count) and a premise's next
+  answer by replaying its logged search to the last open choice point,
+  each in commits of its own, each reverted by one `jj revert` that
+  applies to the top without conflict (memo: nine commits; resumption:
+  three). The author's keep-or-revert tables, in the report: the memo
+  changes nothing on 42h's three families, gains 2 generated verdicts and
+  real first-order ones (a looping `!` clause refuted in 29 stable
+  sequents where 42d's form stops at the copy bound; graph reachability
+  past a cycle of 8 in 0.95 s where 42d's form times out), 8 of its 10
+  gained verdicts lifted rows (propositional under a vacuous `∀`, which
+  dropping such a quantifier before the search would also capture, in
+  100 to 200 lines), none lost, about 560 lines: KEEP; the resumption
+  gains no verdict anywhere, cuts unifications by a third where many
+  answers are asked (`chain-fo/512` 1.66 to 1.21 s unpinned), about 610
+  lines and an invariant at every choice point where a dropped cut is a
+  wrong "unprovable": REVERT. Heads-up boxes in the session's pane: the
+  replay is not a suspended search (a true one an estimated 2 000 to
+  3 000 lines); the memo's gains mostly lifted rows (the tables now show
+  the groups apart). The panel (the argument on Fable 5.1): a wrong
+  "unprovable" under Mix opened by the memo (a probed part kept its
+  bindings; 15 of 2 200 generated Mix sequents wrong on the frozen tree),
+  fixed and pinned, the fixed build equal to the base on all 4 400 pairs;
+  the keys uncharged and their writing uncounted, fixed and pinned; the
+  counterexamples no break in about 187 000 reference runs; and the
+  session's own find, the memo costing a lifted row 5.8-fold, fixed.
+  Checked here: the panel's Mix case and a variant proved with the memo
+  on and off, every proof checked; a looping `!` clause and an
+  unreachable goal on a 2-cycle refuted with the memo where 42d's form
+  times out, both unprovable by hand; reachability past a 3-cycle proved
+  and checked; no disagreement where both decide; both target sets
+  against `42h.csv` and `net-42h.csv` (0 of 145 and 0 of 64 decided rows
+  differ); pushed with both mechanisms in, the revert the author's to
+  decide. The timed runs (D17's and both mechanisms') wait for the
+  author's yes, their commands in the report. No closed enum gained a
+  variant. Departures, for the author: resumption by replay; the
+  exclusion kept as a prune beside it and the re-search as a diverged
+  replay's fallback; the loop check by the instance's own key; no
+  waiting failures at first order; the resumption's switch a build.
