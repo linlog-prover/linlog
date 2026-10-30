@@ -687,6 +687,95 @@ mod tests {
         }
     }
 
+    /// The verdict of a first-order goal on `jobs` threads as a three-way
+    /// value: provable, unprovable, or undecided at a bound; every proof
+    /// checked.
+    fn first_order(sequent: &Sequent, mode: Mode, options: &Options, jobs: usize) -> Option<bool> {
+        let options = options.clone().with_jobs(jobs);
+        let limits = crate::Limits::default().with_work(Some(1 << 22));
+        let outcome = prove_within(sequent, mode, &options, &limits, |_| false).unwrap();
+        match outcome.verdict {
+            Verdict::Proved(proof) => {
+                assert_eq!(proof.check(mode), Ok(()), "{sequent} on {jobs} threads");
+                Some(true)
+            }
+            Verdict::Unprovable(_) => Some(false),
+            Verdict::Unknown(
+                Reason::CopyBound { .. }
+                | Reason::WitnessDepth { .. }
+                | Reason::Instances { .. }
+                | Reason::WorkLimit { .. },
+            ) => None,
+            Verdict::Unknown(reason) => panic!("{sequent} on {jobs} threads: {reason}"),
+        }
+    }
+
+    /// First-order goals on two and four threads: the families' verdicts
+    /// equal one thread's, and on generated sequents, one- and two-sided,
+    /// with Mix and weakening, no verdict contradicts one thread's.
+    #[test]
+    fn first_order_verdicts_agree() {
+        use crate::families::FAMILIES;
+        use crate::search::reference_fo::tests::{random_ill_text, random_sequent};
+        for (name, sizes, indices) in [
+            ("witness-fo", [4, 6], 4),
+            ("lambek-fo", [8, 16], 5),
+            ("chain-fo", [8, 16], 2),
+        ] {
+            let family = FAMILIES.iter().find(|f| f.name == name).unwrap();
+            for (size, index) in sizes
+                .into_iter()
+                .flat_map(|s| (0..indices).map(move |i| (s, i)))
+            {
+                let instance = family.instance(size, index).unwrap();
+                let mut options = Options::default().with_copies(instance.copies);
+                if let Some(depth) = instance.witness_depth {
+                    options = options.with_witness_depth(depth);
+                }
+                let one = first_order(&instance.sequent, instance.mode, &options, 1);
+                for jobs in [2, 4] {
+                    let pool = first_order(&instance.sequent, instance.mode, &options, jobs);
+                    assert_eq!(pool, one, "{} on {jobs} threads", instance.name);
+                }
+            }
+        }
+        let modes = [
+            Mode::CLASSICAL,
+            Mode::CLASSICAL.with_mix(),
+            Mode::CLASSICAL.with_affine(),
+        ];
+        let options = Options::default().with_copies(Some(1));
+        let mut rng = Rng::new(4700);
+        for i in 0..240 {
+            let rules = [i % 2 == 1, i % 4 >= 2, i % 8 >= 4];
+            let text = random_sequent(&mut rng, rules);
+            let sequent: Sequent = text.parse().unwrap();
+            let mode = modes[i % 3];
+            let one = first_order(&sequent, mode, &options, 1);
+            for jobs in [2, 4] {
+                let pool = first_order(&sequent, mode, &options, jobs);
+                assert!(
+                    one.is_none() || pool.is_none() || one == pool,
+                    "{text:?} in {mode} mode: {one:?} on one thread, {pool:?} on {jobs}"
+                );
+            }
+        }
+        let modes = [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine()];
+        for i in 0..160 {
+            let text = random_ill_text(&mut rng, [i % 2 == 1, i % 4 >= 2]);
+            let sequent: Sequent = text.parse().unwrap();
+            let mode = modes[i % 2];
+            let one = first_order(&sequent, mode, &options, 1);
+            for jobs in [2, 4] {
+                let pool = first_order(&sequent, mode, &options, jobs);
+                assert!(
+                    one.is_none() || pool.is_none() || one == pool,
+                    "{text:?} in {mode} mode: {one:?} on one thread, {pool:?} on {jobs}"
+                );
+            }
+        }
+    }
+
     /// Eleven tensor pairs under Mix, whose refutation takes minutes: the
     /// caller's stop condition, polled on the calling thread, stops every
     /// worker, inside a search for splits too.

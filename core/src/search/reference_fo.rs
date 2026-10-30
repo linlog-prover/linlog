@@ -1415,6 +1415,13 @@ pub(crate) mod tests {
     /// itself with one site changed, `A, A ⊸ B ⊢ B` with one site of the
     /// goal changed (both keep many of them provable), or one to three
     /// random hypotheses and a random goal.
+    /// A random two-sided sequent as [`random_ill_sequent`] makes one, in
+    /// the text syntax.
+    pub(crate) fn random_ill_text(rng: &mut Rng, rules: [bool; 2]) -> String {
+        let (hypotheses, goal) = random_ill_sequent(rng, rules);
+        ill_text(&hypotheses, &goal)
+    }
+
     fn random_ill_sequent(rng: &mut Rng, rules: [bool; 2]) -> (Vec<F>, F) {
         match rng.below(3) {
             0 => {
