@@ -1063,6 +1063,20 @@ impl Framed {
     /// back after it, and an open name is asked again once its variable
     /// is bound.
     fn name(&mut self, fo: &FirstOrder, t: TRef) -> Name {
+        // A frame's term is a variable: an unbound one, an eigenvariable
+        // or a kept name needs no walk.
+        if let Some(v) = self.var(t) {
+            match self.vars[v as usize] {
+                Var::Meta {
+                    binding: Some(_), ..
+                } => {
+                    if let Some(name) = self.kept(v) {
+                        return name;
+                    }
+                }
+                _ => return Name::Open(v),
+            }
+        }
         let mut steps = std::mem::take(&mut self.naming);
         let mut names = std::mem::take(&mut self.names);
         steps.clear();
