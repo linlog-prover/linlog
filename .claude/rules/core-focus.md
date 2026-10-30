@@ -1222,6 +1222,17 @@ code it was. What a later session must keep:
   for a first-order search (`Interner::new(0)`): `Set::ground` is empty,
   and `ByClass` must see a new id for every `Θ`. A key past `KEY_WORDS`
   words or a value past 2³⁰ is no key: the sequent is decided unkeyed.
+  The keys of the stable sequents on the branch are charged when written
+  and their writing counted as work (a tower of binders over many
+  literals held 24 times its memory bound before). With the memo on, Mix
+  asks every part with a member less whether it is provable
+  (`parts_fail`): a part proved there is only an answer to that
+  question, so its bindings and nodes are taken back at once, or the
+  partitions run under its witness (`a_part_asked_about_leaves_no_binding`,
+  a wrong `Unprovable` before). A failure cut by `--instances` (a count
+  of the instances held on the whole branch) is recorded under the own
+  key at its budget like a budget cut: a later visit holding fewer reads
+  "cut" without a search, a lost decision, never a wrong one.
 - **Switched off for a first-order goal** (the table of `api.md` 10.10
   (f)): the chains of free splits (`chains_on`); a `!` factor's forced
   split (a promotion may bind a metavariable the other factor holds); a
