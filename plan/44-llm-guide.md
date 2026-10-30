@@ -105,6 +105,23 @@ say search engines do not index wikis, pointing to Pages instead.
   architecture, development. README's sections move there whole, not
   rewritten; links inside the repository and to the page are kept and
   checked.
+- **The benchmark results shown, with their figures** (the author,
+  2026-10-30: "this time, include the benchmark results including the
+  figures"): the manual's chapter on the benchmarks and the comparison
+  holds the results themselves, not only a pointer to `bench/`: the
+  third baseline's tables in brief (`bench/RESULTS.md`), the comparison
+  with the other provers (`bench/COMPARISON.md`, step 29's run of
+  2026-10-15) with its cactus and scatter plots
+  (`bench/comparison/2026-10-15/figures/`, drawn and never shown until
+  now), and graphs of time against size for the families already
+  generated, drawn from the third baseline's rows
+  (`bench/results/2026-10-17/families.csv`) by `bench/plots.py`, a line
+  per engine, log scales, both colour themes (the `dataviz` skill's
+  rules). Each figure says what it measures, on which machine, commit
+  and date, and what it shows in a sentence. The chapter is laid out so
+  that 45b's growing families and the fourth baseline's figures join it
+  in 45d without a rewrite, and so that a figure is never redrawn by
+  hand: the plot script makes every one from the CSV rows.
 - **Every example still run**: `cli/tests/readme.rs` reads every
   chapter's console blocks as it reads README's and the guide's today,
   and fails on a name that does not exist, so the guarantee that every

@@ -107,8 +107,11 @@ ones.)
   - **What runs when**: this session runs only each family's smallest
     sizes, for the verdicts (no `MISMATCH`); the curves come from the
     baseline's night (45c) and the second night (45c); 45d puts the
-    graphs into `bench/COMPARISON.md` and the manual's benchmark
-    chapter (44b's).
+    graphs and the fourth baseline's results into `bench/COMPARISON.md`
+    and the manual's benchmark chapter, beside the older results and
+    figures 44b put there (the author, 2026-10-30: the results with
+    their figures, the old problems' and the new ones', in the manual),
+    every figure drawn by `bench/plots.py` from the rows.
   Opus 5.5 at `high`; a fresh-context reviewer on Opus 5.5 at `high` of
   each family's verdicts by construction and of its claim against the
   engines' documented behaviour.

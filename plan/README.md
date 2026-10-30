@@ -3917,3 +3917,12 @@ client follows it (step 32).
   claim, and the graphs), the later sessions' letters moving by one
   (the baseline 45c, the release prepared 45d, the package archives
   45e).
+- 2026-10-30: the author, on the benchmark figures: "this time,
+  include the benchmark results including the figures (both from the
+  old problems and the new ones)" in the manual's benchmark and
+  comparison chapter, best when the mdBook manual is written. So 44b
+  puts the third baseline's results, step 29's comparison with its
+  cactus and scatter plots and graphs of time against size for the
+  existing families into that chapter, every figure drawn by
+  `bench/plots.py` from the CSV rows; 45d adds 45b's growing families
+  and the fourth baseline's beside them.
