@@ -2,8 +2,9 @@
 // Licensed under the EUPL
 
 //! What takes a sequent with a quantifier and what refuses it: the
-//! focused engine in the classical modes proves and refutes it, every
-//! other engine refuses it by its fragment, as interactive proving, the
+//! focused engine in the classical modes and the two-sided one in the
+//! intuitionistic modes prove and refute it, every other engine refuses
+//! it by its fragment, as interactive proving, the
 //! proof structures and the propositional refutations' checks do by name.
 //! A ground first-order sequent is propositional and refused by none.
 #![cfg(all(feature = "parse", feature = "serialize", feature = "interactive"))]
@@ -16,8 +17,8 @@ use linlog::{
 };
 
 /// The focused engine decides a quantified goal in the classical modes,
-/// Mix included, by the dispatch and forced; every other engine refuses
-/// it, and in intuitionistic mode the dispatch finds none; the ordered
+/// Mix included, and the two-sided engine in the intuitionistic modes, by
+/// the dispatch and forced; every other engine refuses it; the ordered
 /// modes refuse it by the fragment.
 #[test]
 fn the_focused_engine_takes_a_quantified_goal_and_no_other() {
@@ -27,20 +28,20 @@ fn the_focused_engine_takes_a_quantified_goal_and_no_other() {
         Mode::CLASSICAL,
         Mode::INTUITIONISTIC,
         Mode::CLASSICAL.with_mix(),
+        Mode::INTUITIONISTIC.with_affine(),
     ] {
-        let classical = !mode.is_intuitionistic();
-        match linlog::prove(&sequent, mode, &Options::default()) {
-            Ok(outcome) if classical => {
-                assert!(matches!(outcome.verdict, Verdict::Proved(_)), "{mode}");
-                assert_eq!(outcome.engine, Engine::Focus);
-            }
-            Err(Error::NoEngine { .. }) if !classical => {}
-            other => panic!("{mode}: {other:?}"),
-        }
+        let focused = if mode.is_intuitionistic() {
+            Engine::TwoSided
+        } else {
+            Engine::Focus
+        };
+        let outcome = linlog::prove(&sequent, mode, &Options::default()).unwrap();
+        assert!(matches!(outcome.verdict, Verdict::Proved(_)), "{mode}");
+        assert_eq!(outcome.engine, focused);
         for &engine in Engine::ALL {
             let options = Options::default().with_engine(Some(engine));
             match linlog::prove(&sequent, mode, &options) {
-                Ok(outcome) if classical && engine == Engine::Focus => {
+                Ok(outcome) if engine == focused => {
                     assert!(matches!(outcome.verdict, Verdict::Proved(_)), "{mode}");
                 }
                 Err(Error::EngineRefused { .. }) => {}
@@ -272,7 +273,12 @@ fn a_cut_formula_with_a_loose_variable_is_refused() {
 fn decided(text: &str, mode: Mode, options: &Options) -> Option<bool> {
     let sequent: Sequent = text.parse().unwrap();
     let outcome = linlog::prove(&sequent, mode, options).unwrap();
-    assert_eq!(outcome.engine, Engine::Focus, "{text}");
+    let engine = if mode.is_intuitionistic() {
+        Engine::TwoSided
+    } else {
+        Engine::Focus
+    };
+    assert_eq!(outcome.engine, engine, "{text}");
     match outcome.verdict {
         Verdict::Proved(proof) => {
             assert_eq!(proof.check(mode), Ok(()), "{text}");
@@ -344,6 +350,70 @@ fn the_focused_engine_decides_first_order_sequents() {
             false,
         ),
         ("|- exists x. (p(x) * q(x)), ~p(a), ~q(a), r, ~r", mix, true),
+        ("forall x. p(x), q(b) |- p(a)", affine, true),
+        ("forall x. p(x) |- q(a)", affine, false),
+    ] {
+        assert_eq!(
+            decided(text, mode, &options),
+            Some(expected),
+            "{text} in {mode}"
+        );
+    }
+}
+
+/// The two-sided engine decides first-order sequents in the
+/// intuitionistic modes: the order of the quantifiers, a `∃` on the left
+/// opened by an eigenvariable, a quantified implication split by `⊸L`
+/// with the goal on its consequent's side, a witness that the second
+/// factor of a `⊗` on the right rejects (another answer asked for),
+/// copies of a quantified hypothesis under `!`, a quantifier shifted
+/// across `⊸` one way and refuted the other, and weakening; every proof
+/// checked.
+#[test]
+fn the_two_sided_engine_decides_first_order_sequents() {
+    let (linear, affine) = (Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine());
+    let options = Options::default();
+    for (text, mode, expected) in [
+        ("forall x. p(x) |- exists y. p(y)", linear, true),
+        ("exists x. p(x) |- p(a)", linear, false),
+        (
+            "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)",
+            linear,
+            true,
+        ),
+        (
+            "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)",
+            linear,
+            false,
+        ),
+        (
+            "exists x. (p(x) * q(x)) |- exists y. (q(y) * p(y))",
+            linear,
+            true,
+        ),
+        ("forall x. (p(x) -o q(x)), p(a) |- q(a)", linear, true),
+        ("forall x. (p(x) -o q(x)), p(a) |- q(b)", linear, false),
+        ("p(a) & p(b), q(b) |- exists x. (p(x) * q(x))", linear, true),
+        (
+            "p(a) & p(b), q(c) |- exists x. (p(x) * q(x))",
+            linear,
+            false,
+        ),
+        (
+            "p(z), !forall x. (p(x) -o p(s(x))) |- p(s(s(z)))",
+            linear,
+            true,
+        ),
+        (
+            "exists x. (p(x) -o q) |- (forall x. p(x)) -o q",
+            linear,
+            true,
+        ),
+        (
+            "(forall x. p(x)) -o q |- exists x. (p(x) -o q)",
+            linear,
+            false,
+        ),
         ("forall x. p(x), q(b) |- p(a)", affine, true),
         ("forall x. p(x) |- q(a)", affine, false),
     ] {

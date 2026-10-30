@@ -351,14 +351,17 @@ copies they had are gone (F103, F104).
   with an exponential in the goal (`Feature::Exponentials`) before the
   general intuitionistic row, and classical Mix without weakening
   (`Modes::Mix`) before the general classical row.
-- **`LL1` rows**: the two classical rows (Mix and classical) take
-  `Fragment::LL1`, so a first-order goal in a classical mode goes to the
-  focused engine, whose `admits` takes `LL1` one-sided and `LL`
-  two-sided; every other row and engine refuses the quantifier bit by
-  its fragment (`NoEngine` in the intuitionistic modes until the
-  two-sided engine gains it). The Mix row's turn of the inverse method
-  is asked of the inverse method's `admits`, which refuses `LL1`, so a
-  first-order goal takes no turn. The documented table names the rows'
+- **`LL1` rows**: the two classical rows (Mix and classical) and the
+  two intuitionistic ones take `Fragment::LL1`, so a first-order goal
+  goes to the focused engine one-sided or two-sided, whose `admits`
+  takes `LL1` both ways; every other row and engine refuses the
+  quantifier bit by its fragment. The turns of the inverse method (the
+  Mix row's, the intuitionistic exponential row's) are asked of the
+  inverse method's `admits`, which refuses `LL1`, so a first-order goal
+  takes none. The two-sided search needs nothing of its own: the
+  reading is per occurrence, a span member's side is its occurrence's,
+  and `⊸L`'s goal placement (`open_split`) compares occurrences, so the
+  `Framed` zone runs under a reading as it does without one. The documented table names the rows'
   fragment `any, quantifiers too` (`the_documented_dispatch_is_the_dispatch`).
 - **The first-order bounds** are `Options` fields (`witness_depth`,
   `DEFAULT_WITNESS_DEPTH` 64; `instances`, `DEFAULT_INSTANCES` 2¹⁶),

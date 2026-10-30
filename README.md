@@ -1612,7 +1612,8 @@ MELL
 A sequent whose atoms have arguments but whose formulas have no
 quantifier is propositional, with structured atoms, and every engine
 decides it. A sequent with a quantifier is decided by the focused
-engine in the classical modes, with Mix and in affine mode too: it
+engine in the classical modes, with Mix and in affine mode too, and by
+the two-sided engine in the intuitionistic modes, affine included: it
 leaves the witness of each `∃` open as a variable, fills it in where an
 axiom matches two atoms (never with a term that holds the variable
 itself), keeps the eigenvariable of each `∀` out of every witness
@@ -1641,6 +1642,18 @@ provable (MALL1, classical, focus engine)
 $ linlog prove "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)"; echo "exit $?"
 unprovable (MLL1, classical, focus engine): the search was exhaustive
 exit 1
+$ linlog prove -i "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)"
+provable (IMLL1, intuitionistic, two-sided engine)
+          ───────────────── ax
+          r(b, a) ⊢ r(b, a)
+        ───────────────────── ∃R
+        r(b, a) ⊢ ∃y. r(b, y)
+      ───────────────────────── ∀L
+      ∀x. r(x, a) ⊢ ∃y. r(b, y)
+   ─────────────────────────────── ∀R
+   ∀x. r(x, a) ⊢ ∀x. (∃y. r(x, y))
+───────────────────────────────────── ∃L
+∃y. (∀x. r(x, y)) ⊢ ∀x. (∃y. r(x, y))
 ```
 
 Without exponentials the search decides every sequent, as MLL1 and
@@ -1655,8 +1668,8 @@ branch where the search would go further, and a search that cut one is
 unknown rather than unprovable: `--witness-depth N` (64), the deepest
 term a witness is filled in with, and `--instances N` (65536), the most
 instances of quantified formulas the search holds at once. Interactive
-proving, the two-sided engine of the intuitionistic modes, the proof
-nets and the exports to Rocq refuse a quantifier yet, each saying so;
+proving, the proof nets and the exports to Rocq refuse a quantifier
+yet, each saying so;
 the exit status is 2, the error's:
 
 <!-- readme-check: machine -->
@@ -1669,9 +1682,6 @@ provable (MELL1, classical, focus engine)
 $ linlog prove --witness-depth 2 "|- exists x. p(x), ~p(f(f(f(a))))" | sed 's/after .*;/after …;/'; echo "exit $?"
 unknown (MLL1, classical, focus engine): the witness depth of 2 was reached after …; raise it with --witness-depth N
 exit 3
-$ linlog prove -i "forall x. p(x) |- p(a)"; echo "exit $?"
-error: no engine for MLL1 in intuitionistic mode yet
-exit 2
 $ linlog interact "forall x. p(x) |- p(a)" < /dev/null; echo "exit $?"
 error: interactive proving takes no quantifiers yet: a sequent with ∀ or ∃ is read, printed and written as JSON, and nothing else
 exit 2
@@ -2150,7 +2160,8 @@ Built:
   their derivations printed one- and two-sided (`∀R`, `∀L`, `∃R`, `∃L`)
   and drawn in LaTeX, Typst and SVG with every instance written out.
 - First-order proof search: the focused engine decides first-order
-  sequents in the classical modes, Mix and affine mode included, by
+  sequents in the classical modes, Mix and affine mode included, and
+  the two-sided engine in the intuitionistic modes, affine included, by
   unification with the occurs check, the eigenvariable condition kept
   by levels, and another witness asked of a premise where the first
   fails; MLL1 and MALL1 decided, with exponentials within the copy
@@ -2425,8 +2436,7 @@ Planned, in roughly this order:
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
 - First-order linear logic beyond its syntax, its proofs and the
-  one-sided search: the two-sided search of the intuitionistic modes,
-  the quantifier rules in interactive proving, cut elimination at first
+  search: the quantifier rules in interactive proving, cut elimination at first
   order, certificates in the Rocq library, first-order problem families
   and the comparison with LinearOne.
 

@@ -95,11 +95,12 @@ throughout, a name is a predicate or a function symbol, not both, and no
 variable is free. A sequent with a quantifier is read, printed and
 written as JSON (wire level 7), `check` checks its proofs (section 9),
 and `prove` decides it in the classical modes (with `--mix` and
-`--affine`), by the focused engine: a witness of `∃` is left open and
+`--affine`), by the focused engine, and with `-i` (and `--affine`) by
+the two-sided engine: a witness of `∃` is left open and
 filled in by unification where an axiom matches two atoms, the proof
 names every witness, and MLL1 and MALL1 are decided, with `!` and `?`
-within the copy bound. `prove -i`, `interact` and the net and Rocq
-outputs refuse it with an error (exit status 2), while a sequent with
+within the copy bound. `interact` and the net and Rocq outputs refuse
+it with an error (exit status 2), while a sequent with
 arguments and no quantifier is propositional and decided by every
 engine.
 
@@ -118,9 +119,12 @@ exit 0
 $ linlog prove -q "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)"; echo "exit $?"
 unprovable (MLL1, classical, focus engine): the search was exhaustive
 exit 1
-$ linlog prove -i "forall x. p(x) |- p(a)"; echo "exit $?"
-error: no engine for MLL1 in intuitionistic mode yet
-exit 2
+$ linlog prove -i "forall x. p(x) |- p(a)"
+provable (IMLL1, intuitionistic, two-sided engine)
+  ─────────── ax
+  p(a) ⊢ p(a)
+─────────────── ∀L
+∀x. p(x) ⊢ p(a)
 ```
 
 The search works on the one-sided sequent: `Γ ⊢ Δ` is `⊢ ~Γ, Δ` in

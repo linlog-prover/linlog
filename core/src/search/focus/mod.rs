@@ -142,15 +142,10 @@ pub(crate) const ONE_SIDED: Focused = Focused { two_sided: false };
 pub(crate) const TWO_SIDED: Focused = Focused { two_sided: true };
 
 impl Decide for Focused {
-    /// Refuses a goal beyond `LL1` for the one-sided engine and beyond
-    /// `LL` for the two-sided one, the one-sided engine in intuitionistic
-    /// mode and the two-sided one in classical mode.
+    /// Refuses a goal beyond `LL1`, the one-sided engine in
+    /// intuitionistic mode and the two-sided one in classical mode.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        let decides = if self.two_sided {
-            Fragment::LL
-        } else {
-            Fragment::LL1
-        };
+        let decides = Fragment::LL1;
         let because = if !decides.contains(task.fragment) {
             super::NotTaken::Fragment {
                 decides,

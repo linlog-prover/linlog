@@ -73,9 +73,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   every command that reads a sequent and on `check`.
 
 - First-order proof search: the focused engine decides a sequent with
-  quantifiers in the classical modes, Mix and affine mode included (the
-  dispatch's classical rows take `LL1`; the two-sided engine and every
-  other engine still refuse quantifiers by their fragment). A witness of
+  quantifiers in the classical modes, Mix and affine mode included, and
+  the two-sided engine in the intuitionistic modes, affine included (the
+  dispatch's classical and intuitionistic rows take `LL1`; every other
+  engine still refuses quantifiers by its fragment). A witness of
   `∃` is a metavariable that unification binds at the axioms, with the
   occurs check; the eigenvariable condition is kept by levels; a rule of
   two premises asks its first premise for another answer where the
