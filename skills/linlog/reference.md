@@ -100,8 +100,9 @@ the two-sided engine: a witness of `∃` is left open and
 filled in by unification where an axiom matches two atoms, the proof
 names every witness, and MLL1 and MALL1 are decided, with `!` and `?`
 within the copy bound. `interact` proves it step by step with the
-quantifier rules (section 10). The net and Rocq outputs refuse it with
-an error (exit status 2), while a sequent with
+quantifier rules (section 10). The net outputs refuse it with an error
+(exit status 2), `--format rocq` certifies its proofs in the Rocq
+library's first-order development (section 18), while a sequent with
 arguments and no quantifier is propositional and decided by every
 engine.
 
@@ -878,8 +879,15 @@ A Rocq certificate (`--format rocq`) is written for the kernel
 linear logic: NanoYalla, the kernel of Click & coLLecT at the version
 `prove --help` names, a proof script checked rule by rule, which
 refuses Mix and affine weakening. The kernel `linlog` is the default for
-Mix, affine and intuitionistic logic: the Rocq library in `rocq/` of the
-repository, a proof term its checker accepts. An unprovable sequent whose refutation is `unbalanced`,
+Mix, affine and intuitionistic logic and for a sequent with a
+quantifier: the Rocq library in `rocq/` of the repository, a proof term
+its checker accepts. A first-order proof is stated in the library's
+first-order development (`ll (symbol := string) Calculus.classical`,
+`ill (symbol := string) Intuitionistic.intuitionistic`, …): predicates
+applied to terms, `bound 0` the innermost quantifier's variable,
+`eigen 0` an eigenvariable, a `∀` step naming its body and its
+eigenvariable, a `∃` step its witness; a refutation of a sequent with a
+quantifier has no certificate. An unprovable sequent whose refutation is `unbalanced`,
 `equation` or `classical` gets a certificate that the calculus does not
 derive it; one that rests on the search has none. `--standalone` adds
 the imports; `--lemma NAME` names the lemma.
@@ -898,6 +906,14 @@ apply (tens_r_ext [dual B]); cbn_sequent.
 {
   ax_expansion.
 }
+Qed.
+$ linlog prove --format rocq "forall x. p(x) |- exists y. p(y)"
+(* provable (MLL1, classical, focus engine) *)
+Lemma certificate : ll (symbol := string) Calculus.classical [fex (covar "p" [bound 0]); fex (var "p" [bound 0])].
+Proof.
+  apply (soundness_classical String.eqb String.eqb_spec
+    (Exists (covar "p" [bound 0]) (eigen 0) (Exists (var "p" [bound 0]) (eigen 0) (Ax "p" [eigen 0])))).
+  vm_compute. reflexivity.
 Qed.
 $ linlog prove --format rocq "A & B |- A * B"
 no certificate: a refutation of kind `exhausted` rests on the search and has no check

@@ -960,6 +960,18 @@ impl<'a> Framing<'a> {
         self.table.instance(m).map_or(m.occ(), |(o, _)| o)
     }
 
+    /// Returns the terms of both arenas.
+    #[cfg(feature = "rocq")]
+    pub(crate) const fn terms(&self) -> Terms<'a> {
+        self.terms
+    }
+
+    /// Returns the terms of the argument list `args` of either arena.
+    #[cfg(feature = "rocq")]
+    pub(crate) fn list(&self, args: Args) -> &[FoTermId] {
+        self.terms.list(args)
+    }
+
     /// Returns the eigenvariables' names.
     pub(crate) fn names(&self) -> impl Iterator<Item = &str> {
         self.names.values().map(String::as_str)

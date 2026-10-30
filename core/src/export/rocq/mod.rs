@@ -7,7 +7,9 @@
 //! linlog's own Rocq library checks ([`LINLOG`]). Where the options name
 //! no kernel, the derivation's mode chooses: classical linear logic goes
 //! to NanoYalla, Mix, affine and intuitionistic logic to linlog's
-//! library, which states each in its own calculus.
+//! library, which states each in its own calculus; so does a sequent with
+//! a quantifier, which the library's first-order development states and
+//! NanoYalla's formulas cannot.
 //!
 //! For NanoYalla the script is a
 //! `Lemma` whose statement is the sequent as a list of the kernel's
@@ -113,13 +115,16 @@ pub struct Options {
     /// `None` for the target's own: the import of NanoYalla's `macroll`
     /// for a linear certificate ([`NANOYALLA_PRELUDE`]), of linlog's
     /// library for one of its kernel ([`LINLOG_PRELUDE`],
-    /// [`LINLOG_TWO_SIDED_PRELUDE`]), of the standard library's excluded
+    /// [`LINLOG_TWO_SIDED_PRELUDE`], and for a sequent with a quantifier
+    /// [`LINLOG_FIRST_ORDER_PRELUDE`] and
+    /// [`LINLOG_FIRST_ORDER_TWO_SIDED_PRELUDE`]), of the standard library's excluded
     /// middle for a classical one over `Prop` ([`CLASSICAL_PRELUDE`]),
     /// nothing for one of LJ.
     pub prelude: Option<String>,
     /// The kernel a linear certificate is written for, or `None` for the
     /// one the derivation's mode chooses: NanoYalla for classical linear
-    /// logic, linlog's library for Mix, affine and intuitionistic logic.
+    /// logic, linlog's library for Mix, affine and intuitionistic logic
+    /// and for a sequent with a quantifier.
     /// A certificate of ordinary logic needs no kernel and ignores it.
     pub kernel: Option<Kernel>,
 }
@@ -200,6 +205,25 @@ Open Scope string_scope.";
 /// [`LINLOG_PRELUDE`], with the two-sided calculus and its theorem.
 pub const LINLOG_TWO_SIDED_PRELUDE: &str = "From Stdlib Require Import List String.
 From Linlog Require Import IntuitionisticCheck.
+Import ListNotations.
+Open Scope string_scope.";
+
+/// The prelude of a certificate of a first-order derivation for linlog's
+/// library: as [`LINLOG_PRELUDE`], with the first-order calculus and its
+/// theorems, and the propositional calculus's module, whose optional
+/// rules the statement names.
+pub const LINLOG_FIRST_ORDER_PRELUDE: &str = "From Stdlib Require Import List String.
+From Linlog Require Calculus.
+From Linlog Require Import FirstOrderSoundness.
+Import ListNotations.
+Open Scope string_scope.";
+
+/// The prelude of a two-sided certificate of a first-order derivation for
+/// linlog's library: as [`LINLOG_FIRST_ORDER_PRELUDE`], with the two-sided
+/// calculus and its theorem.
+pub const LINLOG_FIRST_ORDER_TWO_SIDED_PRELUDE: &str = "From Stdlib Require Import List String.
+From Linlog Require Intuitionistic.
+From Linlog Require Import FirstOrderIntuitionisticCheck.
 Import ListNotations.
 Open Scope string_scope.";
 
@@ -349,10 +373,10 @@ pub enum Unsupported {
         "linlog's library has no theorem for a saturated set, so a refutation by one has no certificate in Rocq"
     )]
     Saturated,
-    /// The derivation's sequent has a quantifier, which neither library
-    /// has yet.
+    /// The sequent has a quantifier, which NanoYalla's kernel and the
+    /// library's refutation theorems lack.
     #[error(
-        "neither library has quantifiers yet, so a derivation of a sequent with ∀ or ∃ has no certificate"
+        "NanoYalla's kernel and linlog's refutation theorems have no quantifiers, so a sequent with ∀ or ∃ has a certificate for linlog's library only, and of a derivation only"
     )]
     Quantifiers,
 }
@@ -540,7 +564,7 @@ fn term(out: &mut String, sequent: &Sequent, names: &[String], id: TermId, argum
                     Bang(_) => out.push_str("oc "),
                     Quest(_) => out.push_str("wn "),
                     Forall(_) | Exists(_) => {
-                        unreachable!("the Rocq export refuses a sequent with a binder")
+                        unreachable!("NanoYalla's certificate refuses a sequent with a binder")
                     }
                 }
             }
@@ -646,7 +670,7 @@ impl Script<'_> {
         };
         match rule {
             // The export refuses a sequent with binders.
-            Rule::Forall | Rule::Exists => unreachable!("no binder in a certificate"),
+            Rule::Forall | Rule::Exists => unreachable!("NanoYalla's certificate refuses a binder"),
             Rule::One => self.line("apply one_r_ext."),
             Rule::Top => self.apply("top_r_ext", &[prefix], true),
             Rule::Bot => {
@@ -901,9 +925,6 @@ fn linear(
     if derivation.is_of_goal() {
         return Err(Error::GoalProof);
     }
-    if derivation.forest().has_binders() {
-        return Err(Unsupported::Quantifiers.into());
-    }
     if derivation.mode().is_some_and(Mode::is_ordered) {
         return Err(Unsupported::Ordered.into());
     }
@@ -914,18 +935,26 @@ fn linear(
         uses(Rule::Cut),
     );
     let mode = derivation.mode();
+    let binders = derivation.forest().has_binders();
     let kernel = options.kernel.unwrap_or(match mode {
         Some(mode) if mode.is_intuitionistic() || mode.is_affine() || mode.has_mix() => {
             Kernel::Linlog
         }
         // Classical linear logic, or a proof that records no mode and
         // shows its own: NanoYalla, unless it needs what the kernel lacks.
-        _ if mix || weakening || cut || (mode.is_none() && derivation.reading().is_some()) => {
+        _ if mix
+            || weakening
+            || cut
+            || binders
+            || (mode.is_none() && derivation.reading().is_some()) =>
+        {
             Kernel::Linlog
         }
         _ => Kernel::NanoYalla,
     });
     match kernel {
+        // NanoYalla's formulas have no quantifier.
+        Kernel::NanoYalla if binders => Err(Unsupported::Quantifiers.into()),
         Kernel::NanoYalla => nanoyalla(derivation, options, out, stop),
         Kernel::Linlog => {
             // The calculus states what the mode allows and what the proof

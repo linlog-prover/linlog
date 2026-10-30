@@ -487,6 +487,66 @@ fn a_font_of_the_callers_sets_the_widths() {
     assert!(wide > width(Font::monospace()));
 }
 
+/// The committed first-order proofs that their check accepts are pinned
+/// as certificates for linlog's library, one-sided and two-sided, with
+/// their cuts, which the flake's `rocq-linlog` check compiles; with no
+/// kernel named a first-order derivation goes to the library, and
+/// NanoYalla, whose formulas have no quantifier, refuses it.
+#[test]
+fn first_order_certificates() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/first-order");
+    for name in [
+        "apart",
+        "cut",
+        "cut_deep",
+        "cut_deep_ill",
+        "cut_ill",
+        "cut_instance",
+        "cut_shared",
+        "cut_shared_ill",
+        "cut_tensor",
+        "cut_tensor_ill",
+        "swap",
+        "swap_ill",
+        "unintroduced",
+        "witness",
+        "witness_ill",
+    ] {
+        let json = std::fs::read_to_string(dir.join(format!("{name}.json"))).unwrap();
+        let proof: Proof = serde_json::from_str(&json).unwrap();
+        let mode = proof.mode().unwrap_or(Mode::CLASSICAL);
+        // `apart` weakens, which its tests check in affine mode.
+        let mode = if name == "apart" {
+            mode.with_affine()
+        } else {
+            mode
+        };
+        let view = ViewOptions::default().with_sides(if mode.is_intuitionistic() {
+            Sides::Two
+        } else {
+            Sides::One
+        });
+        let derivation = proof
+            .derivation_within(&view, &Limits::default(), |_| false)
+            .unwrap();
+        pin_linlog(&format!("first_order_{name}"), &derivation);
+    }
+    let proof = proof("forall x. p(x) |- exists y. p(y)", Mode::CLASSICAL);
+    let derivation = proof.derivation().unwrap();
+    let chosen =
+        certificate(|out| rocq::write(&derivation, &rocq::Options::default(), out, |_| false));
+    assert!(
+        chosen
+            .unwrap()
+            .starts_with("Lemma certificate : ll (symbol := string) Calculus.classical [")
+    );
+    let options = rocq::Options::default().with_kernel(Some(Kernel::NanoYalla));
+    assert_eq!(
+        certificate(|out| rocq::write(&derivation, &options, out, |_| false)),
+        Err(Unsupported::Quantifiers)
+    );
+}
+
 /// A proof of full linear logic with a contraction is pinned as a
 /// certificate; the lemma's name and the prelude are options; a proof
 /// with Mix or with the weakening of affine mode has no certificate for

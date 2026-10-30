@@ -7,7 +7,9 @@
 # manual's wrapper of `rocq makefile' on _RocqProject), and the check
 # `rocq-linlog', which compiles every certificate under rocq/tests, every
 # one the core tests pin for this kernel in core/tests/snapshots/linlog
-# and some the CLI writes against the installed library, and requires
+# and some the CLI writes against the installed library, first-order ones
+# among them, requires a certificate with a planted fault to be refused,
+# and requires
 # `Print Assumptions' of the soundness theorems to answer `Closed under
 # the global context'. Rocq prints
 # nothing for a file it accepts, so any other output fails the check, as
@@ -120,10 +122,36 @@
             linlog prove -i --format rocq --standalone --output cli_refuted_ill.v 'A + B |- A & B' || [ $? -eq 1 ]
             linlog prove --copies 1 --format rocq --standalone --output cli_refuted_unknown.v \
               '!(A -o A * A), A |- ?B' || [ $? -eq 1 ]
+            # First-order proofs: classical with a witness no ∀ step
+            # introduces, two-sided, affine, and a session's open witness
+            # closed into such a constant.
+            linlog prove --kernel linlog --format rocq --standalone --output cli_fo.v \
+              'forall x. p(x) |- exists y. p(y)'
+            linlog prove -i --format rocq --standalone --output cli_fo_ill.v \
+              'exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)'
+            linlog prove --affine --format rocq --standalone --output cli_fo_affine.v \
+              'forall x. p(x), q |- exists y. p(y)'
+            linlog prove -i --affine --format rocq --standalone --output cli_fo_ill_affine.v \
+              'forall x. p(x), q |- exists y. p(y)'
+            printf '%s\n' 'apply 0 0 ∀L' 'apply 1 0 ∃R' 'close 2' 'proof --rocq cli_fo_session.v' |
+              linlog interact -i --style rocq.form=standalone 'forall x. p(x) |- exists y. p(y)' >/dev/null
             for file in *.v; do
               rocq compile "$file" 2>&1 | tee log
               if [ -s log ]; then exit 1; fi
             done
+            # A planted fault: the first certificate with a wrong witness is
+            # refused.
+            mkdir ../fault
+            sed 's/(Exists (var "p" \[bound 0\]) (eigen 0)/(Exists (var "p" [bound 0]) (eigen 1)/' \
+              cli_fo.v >../fault/fault.v
+            if cmp -s cli_fo.v ../fault/fault.v; then
+              echo "no fault was planted"
+              exit 1
+            fi
+            if rocq compile ../fault/fault.v >/dev/null 2>&1; then
+              echo "a certificate with a wrong witness was accepted"
+              exit 1
+            fi
             cd ..
             rocq compile Assumptions.v >assumptions 2>&1 || { cat assumptions; exit 1; }
             cat assumptions

@@ -34,7 +34,8 @@ second number (0.1.x to 0.2.0), anything else the third.
   (`Error::NoEngine`, or `EngineRefused` for a forced one) and by
   interactive proving, cut elimination (`Error::Quantifiers`), the
   classical two-sided view, the proof structures (by the fragment) and
-  the Rocq export (`Unsupported::Quantifiers`);
+  the Rocq export (`Unsupported::Quantifiers`, which later stays
+  NanoYalla's and the refutations');
   `Forest::has_binders` says whether one has a binder. A sequent whose
   atoms have arguments but whose formulas have no quantifier is
   propositional and decided by every engine. `Error::Symbol`,
@@ -140,6 +141,29 @@ second number (0.1.x to 0.2.0), anything else the third.
   its frame's terms, and `linlog eliminate` writes each step's instance.
   The proof structures still refuse a quantifier, and so does
   `eliminate --net`.
+- Rocq certificates of first-order proofs. The Rocq library gains a
+  first-order development beside the propositional one: `Terms.v`
+  (terms with de Bruijn indices for bound variables and eigenvariables
+  named by naturals), `FirstOrderFormulas.v`, `FirstOrderCalculus.v`
+  (the one-sided calculus `ll` with `fall_r`, whose eigenvariable occurs
+  nowhere in its conclusion, and `fex_r`, whose witness is any closed
+  term, Mix, weakening and cut as `Calculus.rules` sets them) and
+  `FirstOrderIntuitionistic.v` (the two-sided `ill` with `∀R`, `∀L`,
+  `∃R`, `∃L`), which join the trusted base; the proof terms
+  (`FirstOrderProofs.v`, the two-sided `iproof` with `IAllR`, `IExL`,
+  `IExR`, `IAllL`), their checkers in two passes, the eigenvariables
+  introduced and then the set carried to the root
+  (`FirstOrderCheck.v`, `FirstOrderIntuitionisticCheck.v`), and the
+  theorems `soundness`, `soundness_classical`, `soundness_mix`,
+  `soundness_affine` and `soundness_ill` for them, closed under the
+  global context. The exporter's linlog kernel writes a derivation of a
+  sequent with a quantifier for it, in every mode and with cuts, every
+  instance with its frame's terms substituted, with the preludes
+  `rocq::LINLOG_FIRST_ORDER_PRELUDE` and
+  `rocq::LINLOG_FIRST_ORDER_TWO_SIDED_PRELUDE`; with no kernel named
+  such a derivation goes to the library, and NanoYalla still refuses it
+  (`Unsupported::Quantifiers`), as do the certificates of
+  non-derivability.
 - `IllSequent`, a sequent of intuitionistic linear logic as written: its
   hypotheses in the order written and exactly one goal, every formula
   built from `⊗`, `⊸`, `&`, `⊕`, `!`, `1`, `⊤`, `0` and atoms. It is

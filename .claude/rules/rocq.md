@@ -29,8 +29,13 @@ was.
   nixpkgs#rocqPackages.stdlib`, then `ROCQPATH` to the standard library's
   `user-contrib`).
 - **The trusted base is `Formulas.v` and `Calculus.v`** for the one-sided
-  statements and **`Intuitionistic.v`** for the two-sided ones, nothing
-  else: a certificate's lemma states `ll R Γ` or `ill R Γ C` over them,
+  statements and **`Intuitionistic.v`** for the two-sided ones, and for
+  the first-order statements **`Terms.v`, `FirstOrderFormulas.v` and
+  `FirstOrderCalculus.v`** (one-sided, with `Calculus.v` for its
+  `rules`) and **`Terms.v` and `FirstOrderIntuitionistic.v`** (two-sided,
+  with `Intuitionistic.v` for its `irules`), nothing else; the
+  first-order trusted files hold definitions alone (the equalities,
+  `teigens`, `feigens`, `is_wn` are in `TermsCheck.v` and the checkers): a certificate's lemma states `ll R Γ` or `ill R Γ C` over them,
   and the checkers (`Check.v`, `IntuitionisticCheck.v`) and their proofs
   appear in the proof only. `Intuitionistic.v` holds `iformula`, `irules`
   (`intuitionistic`, `affine`) and `ill` alone: the two-sided formulas'
@@ -113,9 +118,83 @@ was.
   on an input subformula. `icut_conclusion` tries the first premise as
   the one that proves `A`, then the second; where both apply, both
   goals are `A` and the two conclusions are the same multiset.
-- **Quantifiers in the two-sided calculus** plug in as cut did: a
-  constructor of `ill`, one of `iproof`, an arm of `iderive` and a case
-  of `iderive_sound`.
+- **The first-order development** stands beside the propositional one
+  and changes none of its files. `Terms.v` (`term`: `bound n` a de
+  Bruijn index, `eigen a` an eigenvariable named by a natural, `tapp f
+  ts`; `tsubst`, `toccurs`, `tclosed`), `FirstOrderFormulas.v` (`var p
+  ts`, `covar p ts`, the connectives under the propositional names,
+  `fall`, `fex`; `dual`, `subst k u`, `occurs`), `FirstOrderCalculus.v`
+  (`fresh a l`; `ll R` over `Calculus.rules`, `fall_r` with `fresh a
+  (fall A :: l)` and `fex_r` with `tclosed t`), `FirstOrderProofs.v`
+  (`proof`, `Ax p ts`, … `Cut`, `Forall A a`, `Exists A t`, the body
+  `A` with its bound variable `0`), `TermsCheck.v` (`term_eqb`,
+  `terms_eqb`, `term_ind'`, `teigens` and their lemmas),
+  `FirstOrderCheck.v` (`formula_eqb`, `feigens`, the multiset functions
+  again over first-order formulas, `state` with `eigens`, `introduced`,
+  `derive`, `check`), `FirstOrderSoundness.v` (`fresh_*` lemmas, `sat`
+  with a context fresh for the subterm's eigenvariables, `good`,
+  `derive_sound`, the four theorems), `FirstOrderIntuitionistic.v`
+  (`iformula` with `iall`, `iex`; `isubst`, `ioccurs`, `ifresh`; `ill R`
+  over `Intuitionistic.irules` with `all_irr`, `all_ilr`, `ex_irr`,
+  `ex_ilr`) and `FirstOrderIntuitionisticCheck.v` (`iproof` with
+  `IAllR`, `IExL`, `IExR`, `IAllL` after `ICut`, `iintroduced`, `iderive`
+  returning `(Γ, C, eigens)`, `icheck`, `igood`, `soundness_ill`).
+- **The first-order files share names with the propositional ones**
+  (`formula`, `ll`, `proof`, `check`, `soundness_classical`, …) and
+  `Require` `Calculus` and `Intuitionistic` without importing them, so a
+  certificate imports one development (`FirstOrderSoundness` or
+  `FirstOrderIntuitionisticCheck`) and writes the optional rules by
+  module: `Calculus.classical`, `{| Calculus.mix := …; Calculus.weakening
+  := …; Calculus.cut := … |}`, `Intuitionistic.affine`, `{|
+  Intuitionistic.iweakening := …; Intuitionistic.icut := true |}`, with
+  `(symbol := string)` where the propositional ones write `(atom :=
+  string)`. File names must stay distinct from the propositional ones:
+  `From Linlog Require Formulas` would be ambiguous with a
+  `Linlog.FirstOrder.Formulas`. The proof constructor `Forall` shadows
+  `List.Forall` in these files: write `List.Forall`.
+- **The first-order checker mirrors linlog's two passes over explicit
+  formulas.** Every formula a node names is an instance with its frame's
+  terms substituted (the exporter substitutes them), so no frame is
+  computed: pass 1 (`introduced`) collects the eigenvariables the `∀`
+  steps introduce and fails where one is introduced again *above its own
+  step*, which is linlog's `Reintroduced` as the unfolded tree can see it
+  (copies of a shared node are never on one path; two steps with one
+  eigenvariable in disjoint branches are accepted, sound by the
+  calculus); pass 2 (`derive`) carries `eigens` to the root: an `∃`
+  step adds its witness's (`teigens`), a cut its formula's (`feigens`,
+  linlog's "a cut on an instance adds its frame's"), a `∀` step removes
+  its own; at the root no introduced eigenvariable may be in the set or
+  in the sequent, and one no step introduces is a constant (the
+  author's decision of 2026-10-30: `∀x.p(x) ⊢ ∃y.p(y)` is provable). The
+  two-sided checker does the same, `∀R` and `∃L` introducing.
+- **Why it is sound** (`good i s`, handed from the root to the
+  leaves inside the bottom-up induction): no eigenvariable `i` holds
+  (those the subterm introduces) is in the subterm's `eigens` or occurs
+  in its conclusion `gamma ++ map wn theta`; `sat` quantifies only over
+  absorbed contexts `Δ` fresh for `i`. The root's check gives `good`;
+  each rule passes it to its premises because a premise's formula is a
+  conclusion's, a subformula of one, an instance at a witness whose
+  eigenvariables `eigens` holds, or the body at the step's own
+  eigenvariable, which pass 1 keeps out of the premise's `i`; and a `&`
+  hands its premises only formulas of its conclusion as absorbed context.
+  At a `∀` step `good` is the rule's side condition, the absorbed `⊤`
+  context included. `take_sat` needs the taken formula fresh where a `⊤`
+  absorbs it.
+- **Witnesses are closed terms** (`tclosed`, in the calculus and checked
+  by `derive`), so `subst` never shifts and nothing is captured; it
+  raises `k` under a binder and leaves other indices alone, right for
+  locally closed formulas. On a formula with loose indices `ll` derives
+  some open sequents the de Bruijn reading would not (the review's note:
+  `⊢ ∃x.p(#1)⊥, p(#1)`); replacing every loose index by an unused
+  eigenvariable maps any derivation to a locally closed one, so the
+  closed sequents derivable are the textbook's, and linlog never writes
+  a loose index.
+- **Proof-writing pitfalls met here**: `apply iff` in a hypothesis may
+  take the iff backwards when both sides match (`fresh_wn_iff` looped in
+  `repeat`), so the tactics use `proj1`/`proj2`; `cbn` on a goal
+  `sat … (A :: g)` unfolds `++` into a raw `fix`, so the `∀` case
+  `change`s its goal before applying `fall_r`; after `eapply ex_r` the
+  premise's list is an evar, so give `sat` its `Δ` explicitly.
 - **`sat θ Γ any`** is the invariant of the proof: `forall Δ, (any = false
   -> Δ = []) -> ll R (Γ ++ map wn θ ++ Δ)`, with `Γ` first so that a
   premise is `A :: rest` after `cbn` and a rule applies without exchange;
@@ -130,8 +209,16 @@ was.
   only output it accepts, once per `Print Assumptions` line (the check
   counts them).
 - **Certificates** (`tests/Certificates.v`, `tests/Modes.v`,
-  `tests/TwoSided.v` and `tests/Cuts.v` by hand, `tests/FromLinlog.v` from the command's
-  proofs; the exporter's own in `core/tests/snapshots/linlog/`): `apply
+  `tests/TwoSided.v`, `tests/Cuts.v`, `tests/FirstOrder.v` and
+  `tests/FirstOrderTwoSided.v` by hand, the last two with lemmas
+  `check … = false` for a wrong witness, an eigenvariable escaping its
+  step, one introduced again above its step, one the sequent names and
+  an open witness, `tests/FromLinlog.v` from the command's
+  proofs; the exporter's own in `core/tests/snapshots/linlog/`, the
+  first-order ones `first_order_*.v`; the flake's check also writes
+  first-order certificates with the command, one from a session's open
+  witness, and requires a certificate with a wrong witness planted by
+  `sed` to be refused): `apply
   (soundness_classical String.eqb String.eqb_spec term). vm_compute.
   reflexivity.`, `soundness_mix`/`soundness_affine` with the calculus
   as a record literal in the lemma, `soundness_ill … intuitionistic
@@ -247,9 +334,10 @@ was.
   (every record literal under `rocq/` and the exporter's gains it) and a
   case of every induction on `ll` (`Mix.v`, `Refutations.v`, the
   bridges). A new calculus is a `rules` value and an instance of
-  `soundness`. A first-order extension is a second development beside
-  this one, as the plan wants: its own formula type (atoms become
-  predicates applied to terms, with quantifiers), its own `ll` with the
-  quantifier rules and their side conditions, and a checker with two more
-  cases, reusing the multiset functions and the shape of `sat`; nothing
-  here changes.
+  `soundness`. The first-order development (above) takes a new rule
+  the same way, in its own files: a constructor of its `ll` and `proof`,
+  an arm of `introduced` (binary rules concatenate) and `derive` (the
+  premises' `eigens` concatenated), and a case of `derive_sound` with
+  its `good` obligation for each premise; the two-sided files alike. A
+  new first-order calculus is a `Calculus.rules` value and an instance of
+  its `soundness`.

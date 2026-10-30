@@ -1377,7 +1377,8 @@ unprovable (MELL, classical, focus engine): the search was exhaustive
 `--format rocq` writes the derivation as a Rocq certificate for one of
 two kernels, which `--kernel` names: `nanoyalla`, the default for
 classical linear logic, or `linlog`, linlog's own Rocq library, the
-default for Mix, affine and intuitionistic logic. The verdict becomes a
+default for Mix, affine and intuitionistic logic and for a sequent with
+a quantifier. The verdict becomes a
 comment, and `--standalone` adds the import lines.
 
 For `nanoyalla` it is a proof script that the Rocq kernel
@@ -1446,6 +1447,28 @@ Lemma certificate : ll (atom := string) classical [parr (covar "A") (covar "B");
 Proof.
   apply (soundness_classical String.eqb String.eqb_spec
     (Par (covar "A") (covar "B") (Tensor (var "B") (var "A") (Ax "B") (Ax "A")))).
+  vm_compute. reflexivity.
+Qed.
+```
+
+A first-order proof gets a certificate of the library's first-order
+development, in every mode: the predicates applied to terms
+(`tapp "f" [...]`), a bound variable as a de Bruijn index (`bound 0`,
+the innermost quantifier's), an eigenvariable by its number
+(`eigen 0`), every instance with its quantifiers' terms substituted,
+and the calculus's optional rules named by their module
+(`Calculus.classical`, `Intuitionistic.affine`). A `∀` step names the
+body it opens and its eigenvariable, which occurs nowhere in its
+conclusion, an `∃` step its witness, here a constant that no `∀` step
+introduces, as a domain is never empty:
+
+```console
+$ linlog prove --format rocq "forall x. p(x) |- exists y. p(y)"
+(* provable (MLL1, classical, focus engine) *)
+Lemma certificate : ll (symbol := string) Calculus.classical [fex (covar "p" [bound 0]); fex (var "p" [bound 0])].
+Proof.
+  apply (soundness_classical String.eqb String.eqb_spec
+    (Exists (covar "p" [bound 0]) (eigen 0) (Exists (var "p" [bound 0]) (eigen 0) (Ax "p" [eigen 0])))).
   vm_compute. reflexivity.
 Qed.
 ```
@@ -1682,8 +1705,9 @@ branch where the search would go further, and a search that cut one is
 unknown rather than unprovable: `--witness-depth N` (64), the deepest
 term a witness is filled in with, and `--instances N` (65536), the most
 instances of quantified formulas the search holds at once. The proof
-nets and the exports to Rocq refuse a quantifier yet, each saying so;
-the exit status is 2, the error's:
+nets refuse a quantifier yet, saying so with the exit status 2, the
+error's, and a first-order proof's Rocq certificate is written for
+linlog's library (`--format rocq` above). The verdicts and the bounds:
 
 <!-- readme-check: machine -->
 ```console
@@ -2260,6 +2284,9 @@ Built:
   fails; MLL1 and MALL1 decided, with exponentials within the copy
   bound; the counts' refutations per predicate; the bounds
   `--witness-depth` and `--instances`.
+- First-order certificates: every first-order proof, classical,
+  intuitionistic, affine, with Mix or with cuts, written for the Rocq
+  library's first-order development and checked by Rocq.
 - Detection of the fragment a sequent lives in (MLL, MLL with units, ALL,
   MALL, MELL, LL, and their intuitionistic counterparts IMLL to ILL) and
   the modes classical, affine, intuitionistic and Mix as user choices.
@@ -2435,9 +2462,13 @@ Built:
   datatypes, one-sided and two-sided, checkers as functions, and for
   every mode the theorem that a term the checker accepts proves its
   sequent, closed under the global context; a certificate is the
-  sequent, the term and one computation. `--format rocq` writes them as
-  its second kernel (`--kernel linlog`, the default for Mix, affine and
-  intuitionistic proofs). The flake builds the library and compiles the
+  sequent, the term and one computation. Beside it a first-order
+  development: terms with de Bruijn indices and eigenvariables, both
+  calculi with the quantifier rules and the eigenvariable condition,
+  the first-order proof terms, their checkers in the two passes of
+  linlog's own, and the same theorems in every mode. `--format rocq`
+  writes them as its second kernel (`--kernel linlog`, the default for
+  Mix, affine, intuitionistic and first-order proofs). The flake builds the library and compiles the
   certificates under `rocq/tests/` and those the command writes against
   it. The library proves that a derivation with Mix gives one of
   `?(⊥⊗⊥), Γ` without Mix and without cut, and, in modules under
@@ -2531,9 +2562,9 @@ Planned, in roughly this order:
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
 - First-order linear logic beyond its syntax, its proofs, the
-  search, interactive proving and cut elimination on proof terms:
-  certificates in the Rocq library, first-order problem families
-  and the comparison with LinearOne.
+  search, interactive proving, cut elimination on proof terms and the
+  Rocq certificates: first-order problem families and the comparison
+  with LinearOne.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.

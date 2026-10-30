@@ -12,10 +12,16 @@ mode the theorem that a term the checker accepts proves its sequent. A
 certificate that linlog writes (`linlog prove --format rocq --kernel
 linlog`) is the sequent, the term and one computation. The invariants
 every derivation keeps (the classical reading, an atom's balance, the
-count equation) give certificates that a sequent is not derivable.
+count equation) give certificates that a sequent is not derivable. A
+first-order development stands beside the propositional one: terms with
+de Bruijn indices and eigenvariables, both calculi with the quantifier
+rules and the eigenvariable condition, the first-order proof terms,
+their checkers and the same theorems in every mode.
 
 - `theories/`: the library. `Formulas.v` and `Calculus.v` (the one-sided
-  calculus) and `Intuitionistic.v` (the two-sided one) are what a
+  calculus) and `Intuitionistic.v` (the two-sided one), and for
+  first-order statements `Terms.v` with `FirstOrderFormulas.v` and
+  `FirstOrderCalculus.v` or with `FirstOrderIntuitionistic.v`, are what a
   certificate's statement rests on; the checkers and their proofs
   appear in the proofs alone.
 - `tests/`: certificates compiled against the installed library.

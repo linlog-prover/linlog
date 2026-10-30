@@ -818,6 +818,34 @@ for NanoYalla. What the code relies on:
   tables (`ClassicalRule`, core-derivations.md); `every_label` pins them
   in the snapshots `first_order_classical.*` (`pin` takes anything that
   is a `Drawable`).
-- The Rocq export still refuses a sequent with binders; its arms for the
-  quantifier rules are unreachable behind that guard.
+- **The Rocq export of first-order proofs** (`export/rocq/linlog.rs`,
+  `Fo`): a forest with a binder goes to linlog's library (the default
+  kernel; an explicit NanoYalla answers `Unsupported::Quantifiers`, as
+  the disproof writer does for any sequent with a binder), stated over
+  the first-order development (`rocq.md`) with
+  `LINLOG_FIRST_ORDER_PRELUDE` or `LINLOG_FIRST_ORDER_TWO_SIDED_PRELUDE`,
+  `(symbol := string)` and the optional rules by module
+  (`Calculus.classical`, `qualified`'s record, `Intuitionistic.affine`).
+  A forest without a binder, a ground first-order one included, keeps
+  the propositional writer byte for byte (atoms by their canonical
+  text).
+- **Every formula written is an instance**: `Writer::parts` turns a
+  member into its occurrence and frame, and `Fo::write_formula` writes
+  the occurrence with a bound variable below the binders it entered as
+  `bound i` and the others as its frame's terms (innermost first, as the
+  de Bruijn index counts); a frame holds closed terms, so a substituted
+  term needs no shift. `Fo::write_term` walks a term on its own stack
+  (a search's witness nests as deep as its bindings). Children of a
+  principal instance share its frame; a `∀`/`∃` step names the body of
+  its principal formula written at depth 1 (its bound variable `0`) and
+  the term its body is opened with, the innermost of the body member's
+  frame, which `body` finds as the one member of the premise the
+  conclusion lacks (both sorted). An eigenvariable is written by its
+  number (`Eigen::get`), the same in every node, so a renamed copy of
+  cut elimination keeps its own. Members are compared as members, not
+  occurrences, where instances of one occurrence differ (the contexts of
+  `⊤R` and `0L`, the quests).
+- `first_order_certificates` (`core/tests/export.rs`) pins a certificate
+  of every committed first-order proof the checker accepts as
+  `linlog/first_order_*.v`, which the `rocq-linlog` check compiles.
 
