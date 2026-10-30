@@ -159,23 +159,45 @@ the loop check for first-order goals, keyed by canonical instance ids
 when kept (a kept proof's members name metavariables that a later undo
 unbinds: 42d's report); and a premise's next answer found by resuming
 its search where it stopped, not by searching again with the failed
-answers excluded. Measured against 42d's mechanisms on 42h's families
-and the generated sequents (work counters, then pinned time): each new
-form kept where it decides at least as much for no more work, otherwise
-the report says why not. Checks: D17, both references against the
-engine, the families' verdicts. Panel: the memo's keys and what a hit
-may reuse; the resumption's completeness (every answer reached, none
-skipped, none twice where that costs).
+answers excluded. Checks: D17, both references against the engine, the families' verdicts.
+Panel: the memo's keys and what a hit may reuse; the resumption's
+completeness (every answer reached, none skipped, none twice where that
+costs). Measured and put to the author as "The keep-or-revert
+measurement" below says.
+
+**The keep-or-revert measurement** (42i and 42j; the author,
+2026-10-30: "If the improvements are marginal but the code is
+disproportionately more complicated, advise me on whether to revert to
+the simpler version"). Each mechanism (the memo with the loop check,
+the resumed answers, the pool) is committed apart from the others and
+from its tests' and fixes' commits, so that reverting it is one `jj
+backout` that leaves 42d's simpler form working. Each is measured
+against 42d's form on the same build (an option or a forced setting
+switching the mechanism off, or the base build beside it), on 42h's
+families, on the generated sequents, and on sequents chosen where the
+mechanism should pay (repeated subgoals under `&` and `!` for the memo,
+many failing witnesses for the resumption, wide independent premises for
+the pool) as well as where it should not; for each: verdicts gained
+within the default time limit, work counters, pinned time on rows of a
+second or more (the timed run asked of the author first, as every timed
+run is), and peak memory. Beside the gains, the cost in code: lines
+added outside tests, new invariants in the rules files, the panel's
+findings against it, what it adds to every later change of the engine.
+The report gives both in one table per mechanism and a recommendation,
+keep or revert, with its reason; the planning session puts it to the
+author, who decides; a revert is a commit of its own, gated, the
+references and the panel's tests still passing.
 
 **42j, parallel first-order search** (Opus 5.5 at `high`; panel; the
 author, 2026-10-30, before 0.2.0). A first-order goal on the pool as a
 propositional one is (`--jobs`, the race, the cubes), dividing only work
 that shares no unbound metavariable (decision 4) or by another division
 the session argues for; 42d runs it on one thread whatever `--jobs`
-says. Measured on 42h's families at one, two and four threads, the
-verdicts equal to one thread's, `--deterministic` repeatable. Checks:
-D17, `cargo test --workspace` (the CLI enables `parallel`), the
-families. Panel: the division's soundness and completeness, the stops.
+says. The verdicts at one, two and four threads equal to one thread's,
+`--deterministic` repeatable. Checks: D17, `cargo test --workspace` (the
+CLI enables `parallel`), the families. Panel: the division's soundness
+and completeness, the stops. Measured at one, two and four threads and
+put to the author as "The keep-or-revert measurement" above says.
 
 **42k, the web page** (Opus 5.5 at `high`; the last session, the
 author's instruction of 2026-10-23). Input with quantifiers and terms,

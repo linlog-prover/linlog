@@ -99,7 +99,10 @@ its zone, the first-order focused engine). Left, in order:
   the statements); **42h** the first-order families and LinearOne (none);
   **42i** the memo, the loop check and resumable answers at first
   order (the panel; the author, 2026-10-30, before 0.2.0); **42j**
-  parallel first-order search (the panel; the same); **42k** first
+  parallel first-order search (the panel; the same; for both, each
+  mechanism measured against 42d's simpler form and its cost in code,
+  the author deciding keep or revert from the report's recommendation:
+  "The keep-or-revert measurement"); **42k** first
   order on the web page, in the client too (a reviewer;
   linlog's part pushed first, "linlog ready"). Every session: D17's
   oracles (the target sets against the latest labels, now

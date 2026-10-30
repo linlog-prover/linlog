@@ -3892,3 +3892,14 @@ client follows it (step 32).
   moved 3.7 to 9 % by one tick, beyond the rule of 5 % a row (42d's
   "worst row" was one tick; the sums stand, carried by `mix/9` and
   `chain/512`); from 42e on each pinned row runs about a second or more.
+- 2026-10-30: the author, on 42i and 42j: benchmarks before 0.2.0 to
+  show whether each mechanism improves things, and if the gain is
+  marginal and the code disproportionately more complicated, advice on
+  reverting to 42d's simpler form. So each mechanism (the memo with the
+  loop check, the resumed answers, the pool) is committed apart and
+  measured against 42d's form on the families, generated sequents and
+  sequents chosen for and against it (verdicts within the time limit,
+  counters, pinned time, peak memory) beside its cost in code; the
+  report recommends keep or revert per mechanism, the author decides,
+  a revert is one backout (`plan/first-order/README.md`, "The
+  keep-or-revert measurement").
