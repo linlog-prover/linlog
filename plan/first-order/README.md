@@ -189,7 +189,12 @@ author, who decides; a revert is a commit of its own, gated, the
 references and the panel's tests still passing.
 
 **42j, parallel first-order search** (Opus 5.5 at `high`; panel; the
-author, 2026-10-30, before 0.2.0). A first-order goal on the pool as a
+author, 2026-10-30, before 0.2.0). First, the author's decision on 42i's
+tables (2026-10-30): the memo is kept; both ways to a premise's next
+answer are kept, 42d's re-search the default and 42i's resumption an
+option (a named default, a flag, a JSON key and a settings key with its
+line of documentation, D16), the option's off position exactly the
+re-search's search, shown by the counters. A first-order goal on the pool as a
 propositional one is (`--jobs`, the race, the cubes), dividing only work
 that shares no unbound metavariable (decision 4) or by another division
 the session argues for; 42d runs it on one thread whatever `--jobs`
@@ -200,7 +205,11 @@ and completeness, the stops. Measured at one, two and four threads and
 put to the author as "The keep-or-revert measurement" above says.
 
 **42k, the web page** (Opus 5.5 at `high`; the last session, the
-author's instruction of 2026-10-23). **First, in linlog, before the page:** `undo`
+author's instruction of 2026-10-23). **Also in linlog, before the page** (the author, 2026-10-30): cut
+in a first-order interactive session, which 42e refused (`Interactive::cut`
+with a first-order formula typed as written, plan decision 7), the
+members past the forest renumbered across the rebuilt forest and every
+finished proof through the checker. **First, in linlog, before the page:** `undo`
 after a session is read back from its JSON must truncate as it does in a
 live session (found 2026-10-30 by a side agent's note, confirmed on the
 command: with a save and a load between steps, as the page makes on every

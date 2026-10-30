@@ -4148,3 +4148,12 @@ client follows it (step 32).
   exclusion kept as a prune beside it and the re-search as a diverged
   replay's fallback; the loop check by the instance's own key; no
   waiting failures at first order; the resumption's switch a build.
+- 2026-10-30: the author's decisions on 42i's tables: the first-order
+  memo is kept; both ways to a premise's next answer are kept, the
+  re-search the default and the resumption an option (42j builds the
+  option first); the timed runs waiting since 42e run now; cut in a
+  first-order interactive session comes in 42k's linlog part, before
+  the page. The planning session runs the timed runs itself (the
+  sessions are closed): the propositional engine's pinned time once,
+  from 42e's base (`wqqxusyk`) to the top, which covers 42e to 42i;
+  42i's two mechanisms' runs; 42h's LinearOne timing.
