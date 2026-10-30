@@ -364,6 +364,12 @@ its zone, the first-order focused engine). Left, in order:
   runs (6 to 11) and fuzzing (12 to 15) only where a review needs them.
   A bare test run once froze the machine. Kill by unit name or PID,
   never by pattern (`pkill -f` once matched its own shell).
+- **Another project shares the machine** (2026-10-30): the session
+  `learning-website-orchestrator` (the author's site `website-learn`,
+  linlog having priority) pins its heavy jobs to cores 8 to 15 and
+  wraps its `nix flake check` and `nix build` in `flock
+  /tmp/linlog-machine.lock`; before each timed run of linlog's, send
+  it "pause heavy work" with the run's length, and "go ahead" after.
 - Night jobs (the baseline) start detached when ready (`bench/baseline.sh
   --detach --fresh`), on the night the author gives.
 - "Stop" or "Pause" from the author: the `graceful-stop` skill (`HH:MM`
