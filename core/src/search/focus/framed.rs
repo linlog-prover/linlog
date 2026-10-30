@@ -182,7 +182,19 @@ enum Grounds {
     Own(HashMap<(Head, u32), u32>),
     /// The pool's.
     #[cfg(feature = "parallel")]
-    Shared(Arc<std::sync::Mutex<HashMap<(Head, u32), u32>>>),
+    Shared(Arc<SharedGrounds>),
+}
+
+/// The table of ground terms a pool's engines share, and its slots,
+/// which every engine's account reads at each poll: an atomic, so that
+/// the poll takes no lock.
+#[cfg(feature = "parallel")]
+#[derive(Debug)]
+struct SharedGrounds {
+    /// The table.
+    table: std::sync::Mutex<HashMap<(Head, u32), u32>>,
+    /// Its capacity after the last insertion.
+    slots: std::sync::atomic::AtomicUsize,
 }
 
 impl Grounds {
@@ -192,7 +204,12 @@ impl Grounds {
         match self {
             Self::Own(table) => Framed::apply(table, symbol, args),
             #[cfg(feature = "parallel")]
-            Self::Shared(table) => Framed::apply(&mut crate::search::lock(table), symbol, args),
+            Self::Shared(shared) => {
+                let mut table = crate::search::lock(&shared.table);
+                let name = Framed::apply(&mut table, symbol, args);
+                shared.slots.store(table.capacity(), Ordering::Relaxed);
+                name
+            }
         }
     }
 
@@ -202,7 +219,7 @@ impl Grounds {
         match self {
             Self::Own(table) => table.capacity(),
             #[cfg(feature = "parallel")]
-            Self::Shared(table) => crate::search::lock(table).capacity(),
+            Self::Shared(shared) => shared.slots.load(Ordering::Relaxed),
         }
     }
 }
@@ -1454,7 +1471,10 @@ impl Zone for Framed {
     fn share(&mut self) {
         if let Grounds::Own(table) = &mut self.ground {
             let table = std::mem::take(table);
-            self.ground = Grounds::Shared(Arc::new(std::sync::Mutex::new(table)));
+            self.ground = Grounds::Shared(Arc::new(SharedGrounds {
+                slots: std::sync::atomic::AtomicUsize::new(table.capacity()),
+                table: std::sync::Mutex::new(table),
+            }));
         }
     }
 
