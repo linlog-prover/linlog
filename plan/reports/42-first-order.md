@@ -2166,8 +2166,11 @@ refuse one), and `rocq.md` records the point.
   in `nodes`, `splits`, `memo_hits`, `memo_entries`, `links` or `tests`;
   of the 64 net problems, 0. The files are `bench/targets/42g.csv` and
   `bench/targets/net-42g.csv`. No search changed: the exporter is the
-  only Rust code touched.
-- **The ratchet** (the gate at `lnqszlyr` and at `tkyvysxk`): every
+  only Rust code touched, and the session's later code commit, "Write the
+  bound variable of a doc comment as code, not a link", changes one doc
+  comment.
+- **The ratchet** (the gate at `lnqszlyr`, at `tkyvysxk` and at the doc
+  fix): every
   journey within its ceiling, `bench/ceilings.csv` unchanged, the
   figures the base's (`derivation-chain-64` +1.97 %, `check-qbf-20-2`
   +0.61 %, `search-chain-128` −0.21 %); no journey exports Rocq.
@@ -2194,8 +2197,11 @@ refuse one), and `rocq.md` records the point.
   Rocq (`Unable to unify "true" with "false"`).
 - `cargo clippy --workspace --all-targets -- --deny warnings`, `cargo
   test --workspace` (README's and the guide's examples among them),
-  `cargo hack check --each-feature -p linlog`, and the gate at both code
-  commits.
+  `cargo hack check --each-feature -p linlog`, and the gate at every code
+  commit (the Rocq library's own commit included). The first `nix flake
+  check` at the report's commit failed in `doc-private` on a doc
+  comment's `[0]`, which rustdoc read as a link; the fix is a commit of
+  its own, gated, and the flake check ran again at the last commit.
 - `nix build .#checks.x86_64-linux.rocq-linlog
   .#checks.x86_64-linux.rocq-bridges` under the machine lock at
   `tnrzrpwo`'s tree: exit 0, the library, every certificate under
