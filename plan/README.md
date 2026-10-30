@@ -3930,3 +3930,9 @@ client follows it (step 32).
   session 42e, the two-sided first-order engine, interactive proving
   with the quantifiers and the two-sided views (Opus 5.5 at high, with
   the panel); timed runs still wait for the author's word.
+- 2026-10-30: the author, standing: when another session or unit uses
+  the machine in a way that would disturb a benchmark (the baseline's
+  night, a pinned-time run, a session's own timing as it iterates),
+  the planning session coordinates with it (cores moved, heavy work
+  held, or the run paused and resumed); `plan/handoff.md` and every
+  brief say so.

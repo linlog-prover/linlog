@@ -391,6 +391,18 @@ its zone, the first-order focused engine). Left, in order:
   repository) need the author's yes for that task (the yes for
   `rocq-linlog`'s creation and setup is given); deleting and
   transferring are theirs alone.
+- **Benchmarks are protected from other load** (the author,
+  2026-10-30): whenever a timed run is going (the baseline's night, a
+  pinned-time comparison, a session's own timing while it iterates),
+  look for any other session or unit using the machine in a way that
+  would disturb it (its cores, the shared caches, memory bandwidth, a
+  `nix` build in the daemon on any core) and coordinate with it: ask
+  that session to move off the timed run's cores, hold its heavy work
+  (builds, test runs, panels' scratch runs) until the run ends, or
+  pause the run and resume it, whichever loses less; a timed run's
+  report says what else ran beside it. The supervision check looks for
+  this every time, and every brief tells its session to do the same
+  before and during its own timed runs.
 - **Nothing that asks for permission while unattended**: no `gh`, no
   raw `jj git push`, nothing the settings mark `ask`.
 - **Idiomatic and current** (2026-10-25): everything written the way its
