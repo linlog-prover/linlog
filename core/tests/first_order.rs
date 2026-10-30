@@ -382,6 +382,21 @@ fn the_memo_and_the_loop_check_key_first_order_sequents() {
     assert_eq!(decided(proved, Mode::INTUITIONISTIC, &options), Some(true));
 }
 
+/// Under Mix with the memo, the parts of a stable sequent with a member
+/// less are asked whether they are provable before its partitions are
+/// searched: a part proved under a binding the whole sequent must not take
+/// (`x := t` here, where only `x := s` proves it) leaves no binding behind.
+#[test]
+fn a_part_asked_about_leaves_no_binding() {
+    let text = "|- exists x. ((~a(s) * 1) par a(x) par (~a(t) + 1))";
+    let mix = Mode::CLASSICAL.with_mix();
+    assert_eq!(decided(text, mix, &Options::default()), Some(true));
+    assert_eq!(
+        decided(text, mix, &Options::default().with_memo_limit(0)),
+        Some(true)
+    );
+}
+
 /// The focused engine decides first-order sequents in every classical
 /// mode: the order of the quantifiers (the eigenvariable condition by
 /// levels), a witness shared by both factors of a `⊗` whose first answer
