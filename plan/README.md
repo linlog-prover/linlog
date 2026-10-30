@@ -3936,3 +3936,57 @@ client follows it (step 32).
   the planning session coordinates with it (cores moved, heavy work
   held, or the run paused and resumed); `plan/handoff.md` and every
   brief say so.
+- 2026-10-30: review of session 42e, the two-sided first-order engine,
+  interactive proving with the quantifiers and the views (Opus 5.5 at
+  high, 07:26 to 10:00, unattended): `TwoSided` admits `LL1` and both
+  intuitionistic rows (affine included) take it, `Framed` under the
+  reading and nothing else in the engine changed; `Interactive`'s `∀R`,
+  `∃L` (fresh eigenvariables), `∃R`, `∀L` (a witness given as text or
+  `TermNode`s, held to the goal's scope, or left open as `$1`, `$2`, …,
+  bound by a later axiom's unification or by `close`), `undo` truncating
+  to its step's mark, the session's JSON with `instances` at level 7,
+  `interact`'s `apply G P RULE [TERM]`; the classical two-sided view's
+  four rules; the exports printing instances and `$1`; a two-sided
+  first-order reference (no disagreement in 6 000 decisions). Two
+  heads-up boxes in the session's pane, sent back and acted on: `?1`
+  for an open witness read as the formula `?(1)` (now `$1`, no reader
+  takes a `$`); the panel had reviewed before a large round of fixes (a
+  fresh-context reviewer then read the two fix commits and reran the
+  counterexamples' generators at the same seeds: no break, one lesser
+  finding fixed); a third, the target sets taken before the last fix
+  changed the engine's loop (taken again at the last code commit). The
+  panel (the argument on Fable 5.1): `close` faults on a ground and an
+  empty goal, `undo` of `close` keeping its constants, `--instances 1`
+  ignoring the stops (since 42d), a grafted session not read back, a
+  forged level and a forged binding step accepted by `load`, shared-term
+  blowups, exponential unification of shared terms, a quadratic read;
+  each fixed with a test. Checked here: the checker's diff (the
+  `FoTerm::Meta` arms only; no proof's table can hold a metavariable,
+  neither from JSON nor through `Instances`' builder); nineteen
+  intuitionistic first-order sequents through the command, every
+  verdict right (the drinker-like and its converse, `∃∀ ⊢ ∀∃` and its
+  converse, a `!∀` chain, affine against linear weakening, `&` with two
+  witnesses), every proof accepted by `check -i`; an interactive
+  session filling an open witness with a younger eigenvariable refused
+  by the axiom and by `close`; both target sets at the last code commit
+  against `42d.csv` and `net-42d.csv` (0 of 145 and 0 of 64 decided
+  rows differ); the chain rebased on `main` with only plan commits
+  between, the text checks; pushed. The pinned rows now each run a
+  second or more (`growing` dropped: 0.14 s at every size; `mix/8`
+  dropped); the pinned run itself waits for the author's yes, its
+  command in the report (base `wqqxusyk`, lift `trrlqvvm`, now rebased:
+  the same trees). A panel member wrote a scratch file into the main
+  checkout (`cyc20000.json`, removed here); briefs now name the scratch
+  directory as the only place for files. 0.2.0's list gains
+  `FoTerm::Meta` (exhaustive); variants of non-exhaustive enums:
+  `StepError::{NoWitness, Witness, Eigenvariable}`, `Needs::Witness`,
+  `ClassicalRule::{ForallLeft, ForallRight, ExistsLeft, ExistsRight}`.
+  Departures, for the author: `close` writes a first-order goal as a
+  sequent of its own (`∃` over open witnesses, `∀` over later
+  eigenvariables, a `⅋` spine) instead of a session zone; the library
+  reads a witness's text; `undo`'s marks are not in the JSON; a given
+  witness held to its goal's scope (stricter than the calculus); a cut
+  refused in a first-order session (plan decision 7 had it); the goal
+  lines' separator fixed (README's `goal 2:, 1:`); `close` on one
+  thread. Follow-ups in `later.md` ("Follow-ups: interactive
+  proving"). Next: 42f, cut elimination at first order.

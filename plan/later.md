@@ -1588,6 +1588,20 @@ it reduces (the library's `at` does), and its exit status differs
 between the default `--steps` (3 with cuts left) and the same number
 given (0), as documented.
 
+Found at the review of 42e (2026-10-30): a cut is refused in a
+first-order interactive session (the cut rebuilds the session's forest,
+and members past it would be numbered anew), where the plan's decision 7
+had `Interactive::cut` take a first-order formula; for 42f or after
+0.2.0, the author's to place. The refusal of a witness that names a
+younger eigenvariable says "no ∀ step below this goal introduced it",
+also in the two-sided reading where the step was `∃L` (`interact -i
+"forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)"`, `∃R`
+open, `∀R`, `∀L a`, `∃L`, `ax`). `Error::Quantifiers`' message still
+says first-order input is "read, printed and written as JSON, and
+nothing else". The stray comma of 41a's goal lines is fixed (42e).
+`cargo clippy -p linlog` alone warns of an unused `Member` import in
+`search/focus/tests.rs` without `parallel` (on `main` before 42e).
+
 ## Follow-ups: the exports
 
 - **The essential net's input side is green in the library's default
