@@ -2620,3 +2620,479 @@ and `witness-fo` in `families::FAMILIES`.
 - **The comparison's timing**: on the author's word, the command
   above; its rows into `bench/comparison/first-order/`, its table into
   `bench/COMPARISON.md` and `bench/TOOLS.md`.
+
+## Session 42i: the first-order search reusing its work
+
+Opus 5.5 at `high`, unattended, 2026-10-30, in the jj workspace
+`../linlog-step42i` on `zstmussx` (linlog's `main`), with scratch
+workspaces of its own (`../linlog-step42i-base`, `-gate`, `-revert`,
+`-panel`). The session was ended by a SIGTERM at about 18:30 (not an
+out-of-memory kill) and resumed in the same conversation; its sub-agents
+were resumed from their transcripts.
+
+### Outcome
+
+Both mechanisms exist, each in commits of its own, each switchable off
+for the measurement and each revertible by one `jj revert` (jj 0.46's
+name for backout) that leaves 42d's form working, and both were measured
+against 42d's form. **The memo with the loop check**, keyed by instance,
+changes nothing on 42h's three families and gains 2 of the 2 600
+generated first-order sequents, and pays on first-order problems whose
+search comes back to an instance it met: a `!` clause that leads back
+to where it started is refuted instead of cut at the copy bound, and
+graph reachability (a first-order Horn program) on a cycle is decided
+where 42d's form runs out of time; on propositional problems under a
+vacuous quantifier (the lifted rows) it gains 8 verdicts. **The resumed
+answers** gain no verdict anywhere; they save a third of the
+unifications and half of the bindings where a premise is asked for many
+answers (`chain-fo`, `witness-fo`), at equal stable sequents and
+splits. The recommendation: **keep the memo, revert the resumed
+answers** (below, with the reasons). The panel found a wrong
+"unprovable" under Mix that the memo had opened (a part probed by Mix
+kept its bindings) and two resource holes in the memo's keys; all three
+held, were reproduced and are fixed in commits of their own, with
+tests. The propositional case is unchanged: both target sets equal
+their oracles on every decided row, the ratchet within every ceiling
+with none raised. The pinned CPU times wait for the author's word.
+
+### What was built
+
+- **The memo and the loop check by instance** (`ltnkvkqu`): a
+  first-order stable sequent reaches `prove_unkeyed`, which hands it to
+  `prove_keyed` (`core/src/search/focus/keyed.rs`) when the memo is on.
+  The zone writes two keys (`Framed::write_keys` in `framed.rs`, beside
+  `KeyScratch`): the instance's own key, which names the metavariables
+  and eigenvariables as the search does and writes every
+  metavariable's level, and the canonical key, the same sequent up to
+  a renaming (members sorted with metavariables alike, metavariables
+  numbered by first appearance, eigenvariables ranked, each
+  metavariable's level as the number of the sequent's eigenvariables
+  below it). Only failures are recorded: complete ones under the
+  canonical key, ones cut by a bound under the own key; never while an
+  answer is excluded, never with a dependency on a pruned ancestor
+  (no waiting failures at first order). The loop check compares own
+  keys against the branch stack. The memo's table keeps no unrestricted
+  zone for a first-order search (`Interner::new(0)`), and the zone has
+  a word pool of its own (`Pools::words`). Fixes: `rttyuyst` writes a
+  member present several times once, after its count; `kykxwxqv`
+  charges the keys and counts their writing as work; `vxtzoyxr` takes
+  back a part's proof that Mix only probed.
+- **The resumed answers** (`upzuutms`): while a rule with shared
+  metavariables is open, every first-order choice point logs its
+  choice (`core/src/search/focus/choices.rs`, `Choices`; the sites
+  `choose_framed` in `resumed.rs`, `initial_framed` and `answers` in
+  `first_order.rs`, `search_splits_framed` and `parts_fail_logged` in
+  `split.rs`). Where the second premise fails, the first is replayed
+  from the rule's zone mark: each choice point takes its logged
+  alternative at once (the cuts of those before restored), the last one
+  that took an alternative goes on with the next, the cuts of
+  everything given up are added; a replay that meets what its log does
+  not say has diverged and falls back to 42d's re-search with the failed
+  answers excluded. The exclusion of failed answers is kept as a prune
+  beside the resumption, and suspended while a replay runs.
+- **Tests**: `the_memo_and_the_loop_check_key_first_order_sequents`,
+  `the_first_order_keys_are_charged_and_counted`,
+  `a_part_asked_about_leaves_no_binding` (the memo), and
+  `a_premise_gives_its_answers_in_turn` with the log's unit tests
+  `a_resumption_goes_on_at_the_last_open_choice`,
+  `a_replay_off_its_log_diverges`, `no_open_choice_leaves_no_answer`
+  (the resumption); every first-order test and both reference
+  comparisons run with both mechanisms on.
+- **Docs**: README ("First-order sequents": the memo and the loop check
+  by instance with an example, the resumption in a clause), the guide
+  (`reference.md`'s first-order paragraph), the changelog, and
+  `.claude/rules/core-focus.md` ("The first-order zone": the memo by
+  instance, the resumption as a replay, what is switched off), each
+  mechanism's docs in a commit of its own.
+
+### The commits, and how each mechanism is reverted
+
+| mechanism | commits (code, tests, fixes, docs) | revert |
+|---|---|---|
+| the memo | `ltnkvkqu` code, `sunvryvk` test, `rttyuyst` fix, `kwqsnwnm` docs, `kykxwxqv` fix, `rmrqoqqn` test, `vxtzoyxr` fix, `oklrxxql` test, `wpzmqvun` rules | `jj revert -r 'ltnkvkqu \| sunvryvk \| rttyuyst \| kwqsnwnm \| kykxwxqv \| rmrqoqqn \| vxtzoyxr \| oklrxxql \| wpzmqvun' --onto <top>` |
+| the resumed answers | `upzuutms` code, `tnmvuyyw` tests, `muvwmvsn` docs | `jj revert -r 'upzuutms \| tnmvuyyw \| muvwmvsn' --onto <top>` |
+
+Both reverts were applied to the final top in the scratch workspace
+`../linlog-step42i-revert` without a conflict, each leaving exactly the
+other mechanism's files against the base, and both reverted trees
+passed clippy (`--deny warnings`) and the workspace's tests (21 test
+binaries each) and built their release binaries. Their edits were kept apart on purpose: the
+resumption's test was moved away from the memo's in
+`core/tests/first_order.rs` (adjacent insertions made the memo's revert
+conflict), the docs split per mechanism, and every later fix placed
+off the other mechanism's lines.
+
+### Switched off for the measurement
+
+The memo by `--memo-limit 0` (it switches the loop check off too) and by
+the build beside it; the resumption by the build beside it (agreed with
+`linlog-orchestrator`: an option would have added a flag, a JSON key and
+docs to the mechanism's cost). Builds: **base** (`zstmussx`, 42d's form),
+**memo** (the memo, 42d's re-search), **resumed** (the resumption, no
+memo: the memo's revert), **top** (both). Counters and verdicts by
+`linlog-bench run --timeout 10` on one thread; "decided" counts a
+verdict within the command's default time limit of 2 s; peak memory is
+each row's process tree's largest resident set (the harness records
+peak memory for the other tools only). The rows: 42h's families at every
+size (`lambek-fo` 16 to 512 #0–#4, `chain-fo` 16 to 512 #0–#1,
+`witness-fo` 4 to 12 #0–#3), the 2 600 generated first-order sequents
+(the references' generators, seeds 9100 and 9300, one- and two-sided,
+every mode, copy bound 1), chosen sequents, and the **lifted** rows: the
+propositional families' smallest instances with their first formula (or
+goal) under a vacuous `∀`, which sends them through the first-order zone.
+
+### Table 1: the memo with the loop check, against 42d's form
+
+First-order rows (base → memo; the same with the resumption on gives the
+same verdicts and counters, resumed → top):
+
+| rows | decided ≤ 2 s | stable sequents | memo hits | unifications | bindings | peak memory | what dominates |
+|---|---|---|---|---|---|---|---|
+| `lambek-fo`, 20 rows | 18 → 18 | 1 504 → 1 504 | 0 → 0 | 2 352 → 2 352 | 2 338 → 2 338 | 21–28 MiB, equal | the split search inside one focus phase; `/512` #0 and #2 at the recursion limit in both |
+| `chain-fo`, 8 rows | 3 → 3 | 240 232 → 240 232 | 0 → 0 | 716 542 → 716 542 | 476 310 → 476 310 | 21 MiB, equal | every level a new instance `p(sⁿ(z))`: nothing repeats |
+| `witness-fo`, 16 rows | 14 → 14 | 84 → 84 | 0 → 0 | equal but for `/12#3`, cut by the time limit | equal | 21 MiB, equal | one stable sequent; #3 is one focus phase of 55 million split steps at size 10, which a memo of stable sequents never sees |
+| generated one-sided, 1 800 | 1 773 → 1 774 | 7 712 → 7 356 | 714 → 2 122 | 2 040 → 1 456 | 518 → 506 | — | `gen1/1797` refuted where cut at the copy bound |
+| generated two-sided, 800 | 789 → 790 | 4 103 → 3 830 | 349 → 896 | 993 → 823 | 202 → 197 | — | `gen2/2328` refuted likewise |
+| chosen: `!(∀x.(p(x) ⊸ p(x))), !(q ⊸ r), !(r ⊸ q), p(e) ⊢ r` (`-i --copies 6`) | unknown → unprovable | 466 → 29 | 0 → 15 | 240 → 16 | 240 → 16 | equal | a clause leading back to where it started |
+| chosen: reachability `!e(n0,n1), …, r(n0), !∀x∀y.(e(x,y) ⊗ r(x) ⊸ r(y)) ⊢ r(z)`, no copy bound, unreachable goal on a 2-cycle | timeout → unprovable in 5.5 ms | 2.2 M → 1 269 | | | | | the loop through the cycle |
+| the same, unreachable on 3- to 8-cycles | unknown → unknown | | | | | | the key tells an instance by its occurrence and whole frame: `r(n0)` reached by another edge is another key |
+| the same, reachable past an n-cycle, n = 4, 6, 8 | proved both; n = 8 timeout → proved | 899 → 351, 77 697 → 3 637, — → 29 979 | | | | | 4.5 ms → 1.3 ms, 1.75 s → 36 ms, timeout → 0.95 s (unpinned) |
+| chosen: repeated subgoals under `&` (`p(a1), …, q(b) ⊢ A & A`), `witness-last-n` | equal | equal | | | | | refuted by the counts or proved at once |
+
+Lifted rows (propositional problems under a vacuous `∀`):
+
+| rows | decided ≤ 2 s | stable sequents | memo hits | peak memory |
+|---|---|---|---|---|
+| all 70 | 57 → 65 | 219 M → 7.2 M | 0 → 3.9 M | 21 MiB, but `additive/14` 23 → 47 MiB, `/16` 74 → 151 MiB, `mix/9` 21 → 29 MiB |
+| gained | `partition-no/9`, `mix/6`, `mix/8`, `chain/64`, `/128`, `/256`, `additive/14` (6.8 s → 0.24 s), `/16` | | | |
+| `growing/16`–`/1024` | 0 → 0 at the copy bound | equal | 0 → 165 081 | equal; 0.23 s → 1.33 s before `rttyuyst` (keys written once per copy of a repeated member), 0.21 s after |
+| `counter`, `counter-over`, `3-partition-no`, `partition-yes` | equal verdicts | 13 641 → 2 059, 11 943 → 1 842, 22 246 → 2 790, 566 → 318 | | equal |
+
+Verdicts lost: none, in any set. Pinned time: pending (below).
+
+**Its cost in code.** About 560 lines added outside tests (95 of them
+doc comments): `keyed.rs` (156), the key writer in `framed.rs` (about
+350 with its fixes), the trait's two methods (22), the dispatch, the
+memo's table and the word pool (20). New invariants
+(`core-focus.md`): what a key holds is all a search of the sequent
+reads (a later change that lets a search read anything else, a global
+count, the branch, a side effect, must key it or keep the sequent out of
+the memo); nothing is recorded while an answer is excluded or with a
+dependency; a probe that discards a proof undoes its bindings. The
+panel's findings against it: one wrong "unprovable" (Mix's probed parts,
+`vxtzoyxr`) and two resource holes (keys uncharged, key work uncounted,
+`kykxwxqv`), all fixed; it was the memo, not the engine, that turned
+Mix's probes on at first order. What it adds to every later change of
+the first-order engine: a check that the change leaves a recorded
+failure a fact about the keyed instance.
+
+**Recommendation: keep the memo.** On 42h's families it neither gains
+nor costs; on generated first-order sequents it gains two verdicts and
+loses none; and on the problems where first-order search really comes
+back to where it was, a `!` clause looping and reachability over a
+cyclic graph, it turns "unknown at the copy bound or the time limit"
+into a refutation or a proof, and the 42h families' undecided rows were
+never of that kind. The code is moderate (a key writer and a slimmed
+copy of the propositional memo path), and its subtle point, which the
+panel found, is fixed and pinned. Two notes for the author's weighing:
+(1) 8 of its 10 gained verdicts are lifted rows, which dropping a
+vacuous quantifier before the search (`∀x.A` with `x` not free is `A`,
+the proof re-wrapped with its `∀` or `∃` step) would hand to the
+propositional engine and its stronger memo for an estimated 100 to 200
+lines of front-door code, without the first-order memo; that would not
+capture the first-order gains above. (2) The follow-up that would most
+change this table is keying a literal member by its predicate and
+arguments rather than by its occurrence and frame: the reachability
+loops on longer cycles would then be seen after one turn; not built.
+
+### Table 2: the resumed answers, against 42d's re-search
+
+base → resumed (no memo); memo → top gives the same differences. Every
+row decided alike; nodes and splits equal; no divergence (fallback to
+the re-search) on any row of any set.
+
+| rows | decided ≤ 2 s | resumptions | choice points replayed | fallbacks | unifications | bindings | peak memory | cpu (unpinned, a second or more) |
+|---|---|---|---|---|---|---|---|---|
+| `lambek-fo`, 20 rows | 18 → 18 | 0 | 0 | 0 | equal | equal | equal | `/512#2` 4.02 s → 4.06 s |
+| `chain-fo`, 8 rows | 3 → 3 | 120 to 83 845 per row | as many | 0 | 716 542 → 478 964 (−33 %) | 476 310 → 238 732 (−50 %) | equal | `/512#0` 1.66 s → 1.21 s, `#1` 1.51 → 1.05 |
+| `witness-fo`, 16 rows | 14 → 14 | #0, #1: n − 1 and n; #3: 24, 40 320, 3 628 800, 10.7 M at 4, 8, 10, 12 | as many | 0 | `/10#3` 10.9 M → 7.3 M | 7.3 M → 3.6 M | equal | `/10#3` 2.95 s → 2.66 s; `/12#3` undecided in both |
+| generated, 2 600 | equal | 65 | 89 | 0 | 3 033 → 2 955 | 720 → 655 | — | — |
+| chosen `witness-last-16/20/30` (`p(a1) & … & p(an), q(an) ⊢ ∃x.(p(x) ⊗ q(x))`) | equal | n − 1 | n − 1 | 0 | 47 → 32, 59 → 40, 89 → 60 | 31 → 16, 39 → 20, 59 → 30 | equal | — |
+| chosen `forced-8/16/24` (a forced chain of `n` literals in the first premise) | equal | 7–8 | 7–8 | 0 | 23 → 16 | 15 → 8 | equal | — |
+| chosen reachability, cycles of 2 to 8 | equal | up to 15 M | up to 17 M | 0 | | | | — |
+
+**What a replay costs against the re-search it replaces.** Here the
+first premises are shallow (an `∃` in focus whose identity is its only
+choice point), so a replay walks one choice point and its unification,
+and the re-search of 42d does the same work plus the answers it
+re-finds before the next: on `chain-fo/256` the 32 640 resumptions
+saved exactly 32 640 unifications (98 689 → 66 049). Where the first
+premise's search is long before its answer, a replay walks the answer's
+path (its choice points and their identities) where the re-search walks
+the failed alternatives again too; no row of the families, the generated
+sets or the chosen ones has such a premise, so that gain is not
+measured here. **The other way to resume**, a search suspended in place
+(a success continuation threaded through every rule, or a coroutine per
+first premise): Rust has no stable coroutines, a stackful coroutine
+crate does not build for wasm32, and threading continuations through the
+generic engine would change `Ground`'s code, which must stay the old
+code; so it would be a second, first-order-only engine written as an
+explicit stack machine over the focused rules (decide, choose, the
+splits, the identities, `&`, the binder rules), an estimated 2 000 to
+3 000 lines beside the generic one.
+
+**Its cost in code.** About 610 lines added outside tests (120 doc
+comments): `choices.rs` (320), `resumed.rs` (54), the logged split
+search and parts in `split.rs` (100), the rewritten `answers` and the
+logged identities in `first_order.rs` (100). New invariants: every
+first-order choice point logs through `Choices` (a missing one
+misaligns the replay, caught as divergence, which costs the gain), the
+cuts of every alternative skipped or given up are carried into the
+failure (one dropped is a wrong "unprovable", which no counter shows),
+the replay is deterministic only while the undo restores the zone
+exactly. The panel's findings against it: none.
+
+**Recommendation: revert the resumed answers.** They gain no verdict on
+any set; their saving is a third of the unifications on the rows where
+a premise is asked for many answers, about 10 to 30 % of the time there
+(unpinned), and nothing elsewhere; and they add 610 lines and an
+invariant that every later change of the first-order engine must keep
+at every choice point it adds or moves, where a mistake in the cuts is a
+wrong verdict. That is the author's case of a marginal gain for
+disproportionately more complicated code. If the pinned time showed a
+larger gain than the unpinned one, or a later family has deep first
+premises with many answers, the revert can be undone by the same three
+commits.
+
+### The panel's findings and answers
+
+On the frozen tree `tnmvuyyw` (the workspace `../linlog-step42i-panel`),
+each reviewer in a fresh context with its own scratch directory, the
+argument on core 4, the counterexamples on cores 5 and 6, the integers
+on core 7; the session's termination stopped the argument and the
+counterexamples, which were resumed from their transcripts.
+
+- **The argument (Fable 5.1, `high`)**: refuted, one finding, held.
+  1. *A wrong "unprovable" under Mix*: `linlog prove --mix "|- exists x.
+     ((~a(s) * 1) par a(x) par (~a(t) + 1))"` answered unprovable on the
+     frozen tree, provable on the base and with `--memo-limit 0`.
+     Reproduced. Cause: with the memo on, Mix's `parts_fail` probes each
+     part with a member less, and a part proved there (`x := t`) kept its
+     bindings, so the partitions ran under that witness and the failure
+     was recorded as complete. Fixed at the cause (`vxtzoyxr`: the zone
+     undone and the nodes released after a probed part is proved),
+     pinned by `a_part_asked_about_leaves_no_binding`.
+  2. *The rules not updated*: on the frozen tree, true; the docs commits
+     `kwqsnwnm`, `muvwmvsn` and `wpzmqvun` carry them.
+  It derived from the code, before reading the docs, that own-key
+  equality means the same instance (prefix-free, values refused past
+  2³⁰), canonical-key equality the same sequent up to a renaming that
+  keeps the levels' order (the eigenvariables below a level that do not
+  occur in the sequent are unreachable, so writing the level's rank
+  loses nothing), that only facts are recorded, that the loop check's
+  repeat is the ancestor itself so a smaller proof gives the same
+  answer, and that the resumption is a depth-first continuation whose
+  cuts are carried; checked against `rttyuyst`'s record form and
+  `kykxwxqv`. 720 random sequents and 31 hand-written ones against the
+  base, no other disagreement. Its observation that a cut by
+  `--instances` recorded under the own key depends on the spans held
+  above the sequent is no finding (a cut never refutes) and is in the
+  rules.
+- **The counterexamples (Opus 5.5, `high`)**: not refuted. 11 200
+  one-sided and 3 200 two-sided cases of the widened references under
+  13 option sets (memo 0, 1, 3, 16 and on; copies 0, 1, none; small
+  witness depth, instances and memory), about 187 000 runs, every proof
+  checked, no contradiction; about 42 000 decisions across the base,
+  the memo, the top, the memo's revert and the latest build; the
+  families on all five builds, equal. On the fixed key (`rttyuyst`,
+  `kykxwxqv`): 840 generated sequents with repeated members under `!`,
+  each in two to four modes, memo on against `--memo-limit 0` and 2 or 3,
+  no disagreement;
+  the lifted rows, none. After the Mix fix, a differential aimed at it
+  (2 200 generated sequents in `--mix` and `--affine --mix`): the frozen
+  tree wrong on 15 of them, the fixed build equal to the base on all
+  4 400 sequent-mode pairs. Its two observations (cuts by a bound under
+  the own key depend on the context; a tensor without shared
+  metavariables moves to its next split when its right premise fails
+  after a resumption) are no findings, the second probed with 12
+  sequents.
+- **The integers and limits (Sonnet 5.5, `high`)**: two findings, both
+  held, both reproduced.
+  1. *The live keys were not charged*: one pair per stable sequent on the
+     branch, up to 2 × 2¹⁶ words each; a tower of 200 `∃ ∀` pairs over 150
+     literals held 167 MB under `--memory-limit 8MiB` (15 MB with the memo
+     off). Fixed (`kykxwxqv`): the keys are settled into the engine's
+     account when written and the key buffers charged with the zone's
+     tables; the witness now stops at the memory limit after 18 ms with
+     18.7 MB.
+  2. *Writing the keys was not counted as work*: a tower of 12 000
+     instances stopped at the same work after 8.4 s with the memo and
+     22 ms without. Fixed (`kykxwxqv`): the words written times the
+     sorts' depth are counted as term steps and polled at once, and the
+     quadratic lookup of metavariables is a hash set; at 5 000 the work
+     limit now stops the memo's search after 0.10 s.
+  Pinned by `the_first_order_keys_are_charged_and_counted` (the memory
+  bound reached within 500 000 units of work, which the old build
+  missed; the keys' work more than twice the memo-free search's at a
+  tower of 100, the old build 1.3 times). Held, each checked at its limit:
+  the tags and values, `KEY_WORDS`, every cast, the log's numbers with
+  `checked_add`, the log and script charged, the memo's records,
+  overflow-checked and debug builds without a panic.
+
+### The propositional case (D17)
+
+- **Target sets**, run at the tree of the last code commit
+  (`vxtzoyxr`): `bench/targets/42i.csv` against `bench/targets/42h.csv`
+  and `bench/targets/net-42i.csv` against `bench/targets/net-42h.csv`
+  (`linlog-bench summary --against … --counters`): no verdict differs;
+  of the 145 focused and 64 net problems both decide alike on one
+  thread, none differs in `nodes`, `splits`, `memo_hits`,
+  `memo_entries`, `links` or `tests`.
+- **The ratchet** (every gate, none raised): within every ceiling.
+  Against the base build (`zstmussx`) the memo's commit moved the search
+  journeys by −0.00 % to +0.15 % (`search-partition-no-5` +0.154 %,
+  `batch-families` +0.135 %, `search-qbf-20-2` +0.131 %: the word pool
+  `Pools::words`, a field the propositional engine never reads, and the
+  first-order dispatch in `prove_unkeyed`, which it never reaches); the
+  resumption's commit by at most 12 instructions on any journey;
+  `derivation-chain-64` unchanged (its 0.01 % margin untouched).
+- **Pinned time: pending**, below.
+
+### The timed runs: pending
+
+Asked of `linlog-orchestrator` with their rows, cores, rule and
+duration; no yes had come when this section was written. Each runs
+on cores 2 and 3 only, five runs per row, the builds swapped between
+the cores halfway (`bench/pinned-time.py`), as a user unit under the
+machine's lock, after telling `linlog-orchestrator` it starts. The
+binaries: the base (`zstmussx`), the top (`vxtzoyxr`'s code), the memo
+alone (the resumption's three commits reverted on the top) and the
+resumption alone (the memo's nine reverted), built in
+`../linlog-step42i-base`, `../linlog-step42i` and
+`../linlog-step42i-revert`.
+
+1. **D17, the propositional engine**, rule set before the run (42d's):
+   the focused rows summed at most 3 % above the base, no focused row's
+   median more than 5 % above it, else the journeys' counts read first.
+   `flock -o /tmp/linlog-machine.lock systemd-run --user --unit
+   linlog-step42i-pinned --same-dir --wait python3 bench/pinned-time.py
+   run BASE/linlog-bench TOP/linlog-bench bench/targets/pinned-42i.runs.csv`,
+   then `python3 bench/pinned-time.py summary
+   bench/targets/pinned-42i.runs.csv bench/targets/pinned-42i.csv`
+   (about 10 minutes).
+2. **The memo**, `pinned-time.py` with its rows replaced by
+   `lambek-fo/512#2`, `chain-fo/512#0`, `#1`, `witness-fo/10#3`,
+   `lifted-growing/1024`, `lifted-additive/14` (the scratch copy
+   `scripts/pinned-memo.py`): base against the memo alone, and the
+   resumption alone against the top (about 8 minutes).
+3. **The resumption**, the rows `lambek-fo/512#2`, `chain-fo/512#0`,
+   `#1`, `witness-fo/10#3`, `lifted-mix/9`, `lifted-chain/256`,
+   `lifted-additive/16`, `lifted-growing/1024`
+   (`scripts/pinned-resumed.py`): base against the resumption alone,
+   and the memo alone against the top (about 12 minutes).
+   Rule for 2 and 3: a row's change is a gain or a loss only where the
+   medians differ by more than 5 % and the runs' ratios lie wholly on
+   one side of 1, else within noise.
+
+### The closed enums' new variants (for step 45)
+
+None, and no public item changed: both mechanisms are internal to the
+focused engine; `--memo-limit` (existing) now switches the first-order
+memo and loop check too.
+
+### Departures from the design
+
+- **The resumption replays the path to its last open choice point**
+  rather than continuing a suspended search (departs from the design:
+  "resuming its search where it stopped"). The answers it reaches are
+  those of chronological backtracking, in the same order, none skipped;
+  what a replay re-does is the answer's path, not the failed
+  alternatives before it. A search suspended in place would need a
+  continuation threaded through the generic engine, which `Ground`
+  shares, or a coroutine, which wasm32 lacks (Table 2).
+- **The exclusion of failed answers stays beside the resumption** (an
+  addition to the design's "not by searching again with the failed
+  answers excluded"): it prunes, at the binding, every answer that is an
+  instance of a failed one, so an answer is not tried twice where that
+  costs; the re-search itself survives as the fallback of a diverged
+  replay.
+- **The loop check compares the instance's own key, not the canonical
+  one** (departs from the design's "keyed by canonical instance ids" for
+  the loop check): an ancestor's key is a snapshot, and a renaming of it
+  is no repeat (`p(X)` below `p(s(Y))` once `X := s(Y)` is a chain's
+  next step); equal own keys mean the ancestor's metavariables are still
+  unbound, so the sequent is the ancestor. Complete failures are keyed
+  canonically, as designed; failures cut by a bound by the own key, as
+  the propositional memo keeps them by the sequent's own key.
+- **No waiting failures at first order** (departs from the propositional
+  memo's design): a failure that rests on a pruned ancestor is dropped,
+  not kept to wait on it; dropping one is always sound.
+- **Proofs are never kept in the first-order memo** (the design's first
+  choice, "kept out of the memo").
+- **The resumption's off switch is the build beside it**, not an option
+  (agreed with `linlog-orchestrator`, 2026-10-30).
+- **The memo turns on Mix's probe of parts at first order** (`parts_fail`
+  runs where `problem.memoizes`), which needed the probe to undo a proved
+  part (`vxtzoyxr`), the panel's finding.
+
+### What is not verified
+
+- The pinned CPU times (above): every time in Tables 1 and 2 is
+  unpinned (`cpu_ms` of one run, cores 2, 3 or 7 of a machine in use).
+- Peak memory was measured on the builds before `rttyuyst` and
+  `kykxwxqv`; the first shortened keys, the second charges them and
+  changes no allocation.
+- The resumption's gain where a first premise's search is long before
+  its answer: no row of any set has such a premise.
+
+### Checklist
+
+- [x] The memo and the loop check for first-order goals keyed by
+  canonical instance ids, one- and two-sided, every proof checked
+  (`ltnkvkqu`, its fixes; the tests and both references).
+- [x] A premise's next answer found by resuming its search, every proof
+  checked (`upzuutms`; its tests and both references).
+- [x] Each mechanism in commits of its own, apart from the other and
+  from its tests, fixes and docs; each revert one `jj revert`, applied
+  without conflict to the final top, the reverted trees passing clippy
+  and the workspace's tests.
+- [x] Each mechanism switchable off for the measurement (`--memo-limit
+  0`; the builds beside them).
+- [x] Table 1 and Table 2 against 42d's form: 42h's families at every
+  size, the generated sequents, chosen ones for and against, the lifted
+  rows; verdicts within the default time limit, counters, peak memory;
+  the cost in code; a recommendation each.
+- [ ] Pinned CPU time: requested, pending (commands above).
+- [x] Both target sets at the last code commit against `42h.csv` and
+  `net-42h.csv`, every decided row's counters equal; the ratchet within
+  its ceilings, none raised.
+- [x] The panel's review on a frozen tree, each finding answered.
+- [x] README, the guide (its tests pass) and the changelog true; the
+  rules amended.
+- [x] Every code commit gated; `nix flake check` at the last commit: see
+  the last message to the supervisor for its exit status.
+- [x] `jj st` clean, the session's commits in `jj log`.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **`.claude/rules/core-focus.md`, "The first-order zone"**, holds both
+  mechanisms' invariants: the memo by instance (what a key holds, the
+  two keys and why the loop check takes the own one, nothing recorded
+  under an exclusion or with a dependency, the keys charged and counted,
+  a probed part undone) and the resumption (the choice log, the cuts
+  carried, divergence and its fallback).
+- **The author decides keep or revert**; the commands are in the table
+  of commits above. Reverting the memo also reverts its three fixes and
+  their tests and its docs; reverting the resumption its tests and docs.
+- **42j (the pool)**: a first-order goal still runs on one thread; the
+  memo is an engine's own (`Table::Own`), and a pool's shared memo would
+  need the instance keys to name metavariables a worker shares; the
+  resumption's log is per zone and a worker would need its own.
+- **The memo's next gain** is keying a literal by predicate and
+  arguments rather than by occurrence and frame (the reachability loops
+  on longer cycles); and dropping vacuous quantifiers before the search
+  would hand lifted problems to the propositional memo.
+- **A choice point added to the first-order engine** must log through
+  `Choices` while the resumption stays (`choices.rs`).
