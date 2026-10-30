@@ -1222,6 +1222,21 @@ code it was. What a later session must keep:
   for a first-order search (`Interner::new(0)`): `Set::ground` is empty,
   and `ByClass` must see a new id for every `Θ`. A key past `KEY_WORDS`
   words or a value past 2³⁰ is no key: the sequent is decided unkeyed.
+  **A ground term is one word of a key** (`Framed::name`, the table
+  `Framed::ground`, seeded with the arena's closed terms): every ground
+  term gets one id for the whole search, so equal ids are equal terms
+  whether they came from the arena or through bindings, and each bound
+  metavariable keeps its name (`Named`, on the trail as
+  `Undone::Named`, so an undo takes it back before any binding it rests
+  on; an open name holds while its variable is unbound). Before, a key
+  wrote every witness out in full, and a chain of bindings (`chain-fo`,
+  `X_k := s(x)` under `X_{k-1}`) made each key as long as the chain:
+  the memo cost 10 to 13 % of `chain-fo`'s time, where nothing repeats
+  (`a_deep_witness_is_one_word_of_a_key`). What remains of its cost
+  there (about 2 % of the instructions) is mostly the loop check's scan
+  of the branch (`Run::repeated`, linear, the propositional engine's
+  own code). The table never shrinks (its ids are in the memo's
+  entries) and is charged with the zone's tables.
   The keys of the stable sequents on the branch are charged when written
   and their writing counted as work (a tower of binders over many
   literals held 24 times its memory bound before). With the memo on, Mix

@@ -828,6 +828,36 @@ fn the_first_order_keys_are_charged_and_counted() {
     assert!(work(1 << 20) > 2 * work(0));
 }
 
+/// A witness built over a chain of bindings is one word of a key, not
+/// its length: on a chain whose every level is a new instance, which no
+/// memo answers, the memo's keys cost little beside the search.
+#[test]
+fn a_deep_witness_is_one_word_of_a_key() {
+    let n = 64;
+    let chain: Sequent = "p(z), !forall x. (p(x) -o p(s(x))) |- p(b)"
+        .parse()
+        .unwrap();
+    let work = move |memo_limit| {
+        let options = Options::default()
+            .with_copies(Some(n))
+            .with_witness_depth(n - 1)
+            .with_memo_limit(memo_limit);
+        let outcome = linlog::prove(&chain, Mode::CLASSICAL, &options).unwrap();
+        assert!(matches!(outcome.verdict, Verdict::Unknown(_)));
+        outcome.statistics.work
+    };
+    // The search recurses as deep as the chain, as the command's does on
+    // a thread of this stack.
+    let works = std::thread::Builder::new()
+        .stack_size(Limits::default().stack_bytes())
+        .spawn(move || (work(1 << 20), work(0)))
+        .unwrap()
+        .join()
+        .unwrap();
+    // 6 % more, where keys that wrote every witness out cost 31 % more.
+    assert!(works.0 * 20 < works.1 * 23, "{works:?}");
+}
+
 /// The position in a goal of the formula written `text`.
 fn at(state: &Interactive, goal: GoalId, text: &str) -> usize {
     let goal = state.goal(goal).unwrap();

@@ -68,6 +68,7 @@ use crate::search::{Options, Reason};
 use crate::sequents::fo::FirstOrder;
 use crate::sequents::{Eigen, FoTerm, FoTermId, Symbol};
 use std::cell::RefCell;
+use std::collections::hash_map::Entry;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// The frame of no binder: an occurrence outside every binder, or a
@@ -143,6 +144,56 @@ enum Undone {
     Bound(u32),
     /// The lowering of the metavariable of this index from that level.
     Lowered(u32, u32),
+    /// What the metavariable of this index was found to stand for.
+    Named(u32),
+}
+
+/// What a bound metavariable was found to stand for, kept until an undo
+/// takes back a binding it rests on.
+#[derive(Clone, Copy, Debug)]
+enum Named {
+    /// Not looked at since it was bound.
+    Unknown,
+    /// The ground term of this id.
+    Ground(u32),
+    /// A term that holds the variable of this index, unbound or an
+    /// eigenvariable: so while that variable stays unbound.
+    Open(u32),
+}
+
+/// The head of an application in the table of ground terms: a symbol
+/// before its first argument, else the application to the arguments
+/// before.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum Head {
+    /// The symbol.
+    Symbol(u32),
+    /// The application of this id.
+    Applied(u32),
+}
+
+/// A step of the walk that names a metavariable's term.
+#[derive(Clone, Copy, Debug)]
+enum Naming {
+    /// Name a term.
+    Term(TRef),
+    /// Name a variable, by index.
+    Var(u32),
+    /// Apply the symbol to the last names found, as many as its arity.
+    Apply(Symbol, u32),
+    /// Keep the last name found as the metavariable's of this index.
+    Keep(u32),
+}
+
+/// A name a walk found for a term.
+#[derive(Clone, Copy, Debug)]
+enum Name {
+    /// The ground term of this id.
+    Ground(u32),
+    /// A term holding the variable of this index.
+    Open(u32),
+    /// A ground term whose id would pass a key word's value.
+    Past,
 }
 
 /// The members of one instance of a binder's body: the ids from `base`
@@ -290,6 +341,19 @@ pub(super) struct Framed {
     depths: HashMap<TRef, u32>,
     /// Scratch: the buffers the keys of stable sequents are written with.
     key: KeyScratch,
+    /// The ground terms the keys name, by their heads and last arguments:
+    /// each term met gets one id for the whole search, so equal ids are
+    /// equal terms however they were reached.
+    ground: HashMap<(Head, u32), u32>,
+    /// Per term of the sequent's arena, its id in `ground` if it is
+    /// closed and its id below a key word's value, else [`NONE`].
+    arena: Box<[u32]>,
+    /// Per variable, what it was found to stand for, on the trail.
+    named: Vec<Named>,
+    /// Scratch: the steps of a naming walk.
+    naming: Vec<Naming>,
+    /// Scratch: the names it found.
+    names: Vec<Name>,
 }
 
 impl Framed {
@@ -369,6 +433,7 @@ impl Framed {
             .filter(|&id| id < u32::MAX)
             .ok_or(Reason::IndexLimit)?;
         self.vars.push(var);
+        self.named.push(Named::Unknown);
         Ok(TRef { id, frame: NONE })
     }
 
@@ -768,9 +833,12 @@ impl Framed {
 //
 // A member is written as its occurrence followed by the terms of its
 // frame, innermost first, each in prefix order as the bindings resolve
-// it: a closed term of the sequent's arena by its id (hash-consed, so
-// equal ids are equal terms), an application by its symbol followed by
-// its arguments, a metavariable or an eigenvariable by a number. The
+// it: a ground term by its id in the search's table of ground terms
+// (the arena's closed terms and every ground term a binding built, each
+// once, so equal ids are equal terms however they were reached, and a
+// witness built over many bindings is one word, not its length), an
+// application holding a variable by its symbol followed by its
+// arguments, a metavariable or an eigenvariable by a number. The
 // occurrence fixes how many binders lie above it, and a symbol its
 // arity, so the words of a member end where its last term does.
 //
@@ -796,8 +864,8 @@ impl Framed {
 
 /// The bits of a term's word that say what it is.
 const TAG: u32 = 3 << 30;
-/// A closed term of the arena, by its id.
-const CLOSED: u32 = 0;
+/// A ground term, by its id in the table of ground terms.
+const GROUND: u32 = 0;
 /// An application, by its symbol; its arguments follow.
 const APP: u32 = 1 << 30;
 /// An eigenvariable, by its number or rank.
@@ -941,7 +1009,7 @@ impl Framed {
     }
 
     /// Writes a member's words, collecting its eigenvariables.
-    fn write_member(&self, fo: &FirstOrder, m: FMember, s: &mut KeyScratch) -> bool {
+    fn write_member(&mut self, fo: &FirstOrder, m: FMember, s: &mut KeyScratch) -> bool {
         let (o, mut frame) = self.instance(m);
         s.starts.push(s.words.len());
         s.words.push(o.get());
@@ -954,24 +1022,28 @@ impl Framed {
                 if s.words.len() >= KEY_WORDS {
                     return false;
                 }
-                let t = self.deref(fo, t);
-                let (tag, value) = if let Some(v) = self.var(t) {
-                    match self.vars[v as usize] {
-                        Var::Meta { .. } => (META, v),
-                        Var::Eigen(number) => {
-                            s.eigens.push(number);
-                            (EIGEN, number)
+                let (tag, value) = match self.name(fo, t) {
+                    Name::Ground(id) => (GROUND, id),
+                    Name::Past => return false,
+                    Name::Open(_) => {
+                        let t = self.deref(fo, t);
+                        if let Some(v) = self.var(t) {
+                            match self.vars[v as usize] {
+                                Var::Meta { .. } => (META, v),
+                                Var::Eigen(number) => {
+                                    s.eigens.push(number);
+                                    (EIGEN, number)
+                                }
+                            }
+                        } else {
+                            let (symbol, args) = Self::app(fo, t);
+                            s.walk.extend(args.iter().rev().map(|a| TRef {
+                                id: a.get(),
+                                frame: t.frame,
+                            }));
+                            (APP, symbol.get())
                         }
                     }
-                } else if self.closed[t.id as usize] {
-                    (CLOSED, t.id)
-                } else {
-                    let (symbol, args) = Self::app(fo, t);
-                    s.walk.extend(args.iter().rev().map(|a| TRef {
-                        id: a.get(),
-                        frame: t.frame,
-                    }));
-                    (APP, symbol.get())
                 };
                 if value > VALUE {
                     return false;
@@ -981,6 +1053,133 @@ impl Framed {
             frame = parent;
         }
         true
+    }
+
+    /// The name of the term `t` stands for: its id where it is ground, a
+    /// variable it holds where it is not, or past a word's value. Every
+    /// bound metavariable the walk passes keeps its name, on the trail,
+    /// so a key names a witness built over many bindings in one step:
+    /// a name rests only on bindings made before it, which an undo takes
+    /// back after it, and an open name is asked again once its variable
+    /// is bound.
+    fn name(&mut self, fo: &FirstOrder, t: TRef) -> Name {
+        let mut steps = std::mem::take(&mut self.naming);
+        let mut names = std::mem::take(&mut self.names);
+        steps.clear();
+        names.clear();
+        steps.push(Naming::Term(t));
+        while let Some(step) = steps.pop() {
+            self.step();
+            match step {
+                Naming::Term(mut t) => {
+                    while t.id < self.base
+                        && let FoTerm::Bound(i) = fo.terms[t.id as usize]
+                    {
+                        t = self.frame_term(t.frame, i);
+                    }
+                    if let Some(v) = self.var(t) {
+                        steps.push(Naming::Var(v));
+                    } else if self.closed[t.id as usize] {
+                        names.push(match self.arena[t.id as usize] {
+                            NONE => Name::Past,
+                            id => Name::Ground(id),
+                        });
+                    } else {
+                        let (symbol, args) = Self::app(fo, t);
+                        // An arity is below a sequent's length.
+                        steps.push(Naming::Apply(symbol, args.len() as u32));
+                        steps.extend(args.iter().rev().map(|a| {
+                            Naming::Term(TRef {
+                                id: a.get(),
+                                frame: t.frame,
+                            })
+                        }));
+                    }
+                }
+                Naming::Var(v) => match self.vars[v as usize] {
+                    Var::Meta {
+                        binding: Some(b), ..
+                    } => match self.kept(v) {
+                        Some(name) => names.push(name),
+                        None => {
+                            steps.push(Naming::Keep(v));
+                            steps.push(Naming::Term(b));
+                        }
+                    },
+                    _ => names.push(Name::Open(v)),
+                },
+                Naming::Apply(symbol, arity) => {
+                    let at = names.len() - arity as usize;
+                    let name = Self::apply(&mut self.ground, symbol, &names[at..]);
+                    names.truncate(at);
+                    names.push(name);
+                }
+                Naming::Keep(v) => {
+                    let kept = match names.last() {
+                        Some(&Name::Ground(id)) => Named::Ground(id),
+                        Some(&Name::Open(w)) => Named::Open(w),
+                        _ => continue,
+                    };
+                    self.named[v as usize] = kept;
+                    self.trail.push(Undone::Named(v));
+                }
+            }
+        }
+        let name = names.pop().expect("a walk names its term");
+        self.naming = steps;
+        self.names = names;
+        name
+    }
+
+    /// The name the bound metavariable `v` keeps, where it still holds.
+    fn kept(&self, v: u32) -> Option<Name> {
+        match self.named[v as usize] {
+            Named::Unknown => None,
+            Named::Ground(id) => Some(Name::Ground(id)),
+            Named::Open(w) => match self.vars[w as usize] {
+                Var::Meta {
+                    binding: Some(_), ..
+                } => None,
+                _ => Some(Name::Open(w)),
+            },
+        }
+    }
+
+    /// The name of the application of `symbol` to terms of the names
+    /// `args`: where all are ground, the id of the term in `ground`, a
+    /// new one for a new term, the arguments taken one at a time (a
+    /// constant applied to none, [`NONE`]); else the first open one, or
+    /// past.
+    fn apply(ground: &mut HashMap<(Head, u32), u32>, symbol: Symbol, args: &[Name]) -> Name {
+        let mut past = false;
+        for &arg in args {
+            match arg {
+                Name::Open(v) => return Name::Open(v),
+                Name::Past => past = true,
+                Name::Ground(_) => {}
+            }
+        }
+        if past {
+            return Name::Past;
+        }
+        let ids = args.iter().map(|&arg| match arg {
+            Name::Ground(id) => id,
+            Name::Open(_) | Name::Past => unreachable!("every argument is ground"),
+        });
+        let mut head = Head::Symbol(symbol.get());
+        let mut id = NONE;
+        for arg in ids.chain(args.is_empty().then_some(NONE)) {
+            let next = u32::try_from(ground.len())
+                .ok()
+                .filter(|&next| next <= VALUE);
+            id = match (ground.entry((head, arg)), next) {
+                (Entry::Occupied(entry), _) => *entry.get(),
+                (Entry::Vacant(entry), Some(next)) => *entry.insert(next),
+                (Entry::Vacant(_), None) => return Name::Past,
+            };
+            head = Head::Applied(id);
+        }
+        Name::Ground(id)
     }
 
     /// The level of a metavariable, by index.
@@ -1104,7 +1303,7 @@ impl Zone for Framed {
         // A forest has fewer than 2³² occurrences and a sequent fewer
         // terms than its text or document.
         let occurrences = forest.len() as u32;
-        Self {
+        let mut framed = Self {
             occurrences,
             base: fo.terms.len() as u32,
             spans: Vec::new(),
@@ -1131,7 +1330,29 @@ impl Zone for Framed {
             walk: Vec::new(),
             depths: HashMap::default(),
             key: KeyScratch::default(),
+            ground: HashMap::default(),
+            arena: vec![NONE; fo.terms.len()].into_boxed_slice(),
+            named: Vec::new(),
+            naming: Vec::new(),
+            names: Vec::new(),
+        };
+        // Every term names only terms before it.
+        let mut names = Vec::new();
+        for (i, term) in fo.terms.iter().enumerate() {
+            if let FoTerm::App(symbol, args) = *term
+                && framed.closed[i]
+            {
+                names.clear();
+                names.extend(fo.list(args).iter().map(|a| match framed.arena[a.index()] {
+                    NONE => Name::Past,
+                    id => Name::Ground(id),
+                }));
+                if let Name::Ground(id) = Self::apply(&mut framed.ground, symbol, &names) {
+                    framed.arena[i] = id;
+                }
+            }
         }
+        framed
     }
 
     /// A first-order search runs on one thread.
@@ -1272,11 +1493,13 @@ impl Zone for Framed {
                         *level = old;
                     }
                 }
+                Undone::Named(v) => self.named[v as usize] = Named::Unknown,
             }
         }
         self.spans.truncate(mark.spans);
         self.frames.truncate(mark.frames);
         self.vars.truncate(mark.vars);
+        self.named.truncate(mark.vars);
         self.eigens = mark.eigens;
         // The nodes built since took theirs already.
         self.introduced.truncate(mark.introduced);
@@ -1505,6 +1728,10 @@ impl Zone for Framed {
             + self.key.bytes()
             + entries(self.met.capacity(), size_of::<(TRef, TRef)>())
             + entries(self.depths.capacity(), size_of::<(TRef, u32)>())
+            + entries(self.ground.capacity(), size_of::<((Head, u32), u32)>())
+            + bytes_of(&self.named)
+            + bytes_of(&self.naming)
+            + bytes_of(&self.names)
             + self.choices.bytes();
         (std::mem::replace(&mut self.charged, held), held)
     }
