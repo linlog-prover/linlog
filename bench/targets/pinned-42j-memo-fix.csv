@@ -1,0 +1,14 @@
+# top zzlqvqmk (base) against the memo's fix pumwkknm (lift)
+# load, the 1-minute average at each run's start: 0.27 to 1.40, median 1.01
+row,group,runs,base_median_ms,base_spread,lift_median_ms,lift_spread,ratio,ratio_min,ratio_max
+chain-fo/384#0,focused,5,1080.000,0.0370,990.000,0.0303,0.9167,0.9083,0.9439
+chain-fo/384#1,focused,5,970.000,0.0309,870.000,0.0230,0.8969,0.8878,0.9167
+chain-fo/408#0,focused,5,1290.000,0.0310,1180.000,0.0254,0.9147,0.9077,0.9375
+chain-fo/512#0,focused,5,1300.000,0.0385,1220.000,0.0492,0.9385,0.9160,0.9615
+chain-fo/512#1,focused,5,1170.000,0.0342,1040.000,0.0192,0.8889,0.8889,0.9217
+lambek-fo/512#2,focused,5,3910.000,0.0230,3890.000,0.0206,0.9949,0.9773,1.0180
+witness-fo/10#3,focused,5,2620.000,0.0267,2610.000,0.0192,0.9962,0.9886,1.0156
+lifted-growing/1024,focused,5,210.000,0.0476,220.000,0.0455,1.0476,1.0476,1.1000
+lifted-additive/14,focused,5,220.000,0.0455,230.000,0.0000,1.0455,1.0000,1.0455
+sum:focused,focused,5,12770.000,,12250.000,,0.9593,0.9509,0.9795
+sum:all,all,5,12770.000,,12250.000,,0.9593,0.9509,0.9795

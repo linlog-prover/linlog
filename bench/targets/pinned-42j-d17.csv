@@ -1,0 +1,22 @@
+# top zzlqvqmk (base) against session 42j's last code commit (lift)
+# load, the 1-minute average at each run's start: 1.45 to 2.82, median 1.80
+row,group,runs,base_median_ms,base_spread,lift_median_ms,lift_spread,ratio,ratio_min,ratio_max
+search-qbf-20-2,focused,5,950.680,0.0977,951.169,0.0686,1.0005,0.9720,1.0027
+search-chain-128,focused,5,1038.791,0.0876,1048.361,0.0651,1.0092,0.9844,1.0092
+search-partition-no-5,focused,5,813.707,0.0894,815.898,0.0574,1.0027,0.9825,1.0141
+search-chain-64-intuitionistic,focused,5,897.612,0.0885,895.157,0.0554,0.9973,0.9730,1.0094
+chain/512,focused,5,2270.000,0.0837,2310.000,0.0476,1.0176,0.9792,1.0221
+qbf/34#1,focused,5,1210.000,0.0826,1210.000,0.0496,1.0000,0.9692,1.0000
+mix/9,focused,5,5830.000,0.0686,5950.000,0.0387,1.0206,0.9822,1.0206
+chain/384-intuitionistic,focused,5,950.000,0.0526,960.000,0.0312,1.0105,0.9700,1.0105
+chain/512-intuitionistic,focused,5,2310.000,0.0519,2300.000,0.0391,0.9957,0.9827,1.0177
+search-wide-m2-256,other,5,8.048,0.1626,8.175,0.1209,1.0158,0.9575,1.0305
+search-spec-chain,other,5,0.859,0.0850,0.846,0.1064,0.9849,0.9849,1.0387
+search-additive-14,other,5,63.143,0.0708,62.790,0.0524,0.9944,0.9842,1.0039
+batch-families,other,5,2.549,0.0373,2.522,0.0393,0.9894,0.9761,1.0145
+ordinary-pigeons,other,5,1.713,0.2633,1.736,0.0916,1.0134,0.8599,1.0266
+Peterson-4_50_1,other,5,5090.000,0.0020,5090.000,0.0000,1.0000,1.0000,1.0020
+JoinFreeModules_joinFree-10_50_1,other,5,3640.000,0.0549,3670.000,0.0409,1.0082,1.0000,1.0223
+sum:focused,focused,5,16270.790,,16440.585,,1.0104,0.9810,1.0105
+sum:other,other,5,8806.312,,8836.069,,1.0034,0.9999,1.0092
+sum:all,all,5,25077.102,,25276.654,,1.0080,0.9874,1.0100

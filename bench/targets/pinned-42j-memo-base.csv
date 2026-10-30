@@ -1,0 +1,8 @@
+# 42d's form zstmussx (base) against 42i's memo alone (lift)
+# load, the 1-minute average at each run's start: 1.40 to 1.70, median 1.64
+row,group,runs,base_median_ms,base_spread,lift_median_ms,lift_spread,ratio,ratio_min,ratio_max
+chain-fo/384#0,focused,5,1310.000,0.0229,1450.000,0.0138,1.1069,1.0752,1.1154
+chain-fo/384#1,focused,5,1210.000,0.0165,1320.000,0.0152,1.0909,1.0744,1.1092
+chain-fo/408#0,focused,5,1580.000,0.0190,1710.000,0.0117,1.0823,1.0755,1.1090
+sum:focused,focused,5,4100.000,,4480.000,,1.0927,1.0799,1.1111
+sum:all,all,5,4100.000,,4480.000,,1.0927,1.0799,1.1111
