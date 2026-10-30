@@ -356,6 +356,32 @@ fn decided(text: &str, mode: Mode, options: &Options) -> Option<bool> {
     }
 }
 
+/// The memo and the loop check key a first-order stable sequent by its
+/// instance: a clause that leads back to the sequent it started from is
+/// pruned as a repeat, the failures below are reused, and the search
+/// ends exhaustive where without the memo every copy level is cut by the
+/// budget; a sequent proved with the memo has its proof checked.
+#[test]
+fn the_memo_and_the_loop_check_key_first_order_sequents() {
+    let looping = [
+        "!(forall x. (p(x) -o p(x))), !(q -o r), !(r -o q), p(e) |- r",
+        "!(a -o a), !(b -o c), !(c -o b), a |- forall z. c",
+    ];
+    let options = Options::default().with_copies(Some(6));
+    for text in looping {
+        let outcome =
+            linlog::prove(&text.parse().unwrap(), Mode::INTUITIONISTIC, &options).unwrap();
+        assert!(matches!(outcome.verdict, Verdict::Unprovable(_)), "{text}");
+        assert!(outcome.statistics.memo_hits > 0, "{text}");
+        let unkeyed = options.clone().with_memo_limit(0);
+        let outcome =
+            linlog::prove(&text.parse().unwrap(), Mode::INTUITIONISTIC, &unkeyed).unwrap();
+        assert!(matches!(outcome.verdict, Verdict::Unknown(_)), "{text}");
+    }
+    let proved = "!(forall x. (p(x) -o p(x))), !(forall x. (p(x) -o q(x))), p(e) |- q(e)";
+    assert_eq!(decided(proved, Mode::INTUITIONISTIC, &options), Some(true));
+}
+
 /// The focused engine decides first-order sequents in every classical
 /// mode: the order of the quantifiers (the eigenvariable condition by
 /// levels), a witness shared by both factors of a `⊗` whose first answer
