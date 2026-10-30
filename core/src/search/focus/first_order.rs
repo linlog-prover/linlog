@@ -143,7 +143,7 @@ impl<Z: Zone> Run<'_, Z> {
     /// [`FORCED_PER_POLL`] of them: a unification of deep terms is work
     /// that no step of the search counts, and a split search polls only
     /// every [`SPLITS_PER_POLL`](super::SPLITS_PER_POLL) of its steps.
-    fn poll_terms(&mut self) -> Result<(), Reason> {
+    pub(super) fn poll_terms(&mut self) -> Result<(), Reason> {
         let (before, after) = self.zone.held();
         self.scratch.resize(before, after);
         let steps = self.zone.take_steps();

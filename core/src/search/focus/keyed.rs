@@ -37,10 +37,18 @@ impl<Z: Zone> Run<'_, Z> {
         let mut own = self.take_words();
         let mut canonical = self.take_words();
         let forest = self.problem.forest;
-        let decided = self
+        let keyed = self
             .zone
-            .keys(forest, &theta.set, gamma, &mut own, &mut canonical)
-            .then(|| self.prove_by_keys(theta, gamma, (&own, &canonical), budget));
+            .keys(forest, &theta.set, gamma, &mut own, &mut canonical);
+        // The keys live while the sequent's subtree is searched, one pair
+        // per stable sequent on the branch: charged before it, and their
+        // writing counted as work.
+        own.settle(&mut self.scratch);
+        canonical.settle(&mut self.scratch);
+        let decided = match self.poll_terms() {
+            Err(reason) => Some(Err(reason)),
+            Ok(()) => keyed.then(|| self.prove_by_keys(theta, gamma, (&own, &canonical), budget)),
+        };
         self.give_words(own);
         self.give_words(canonical);
         decided

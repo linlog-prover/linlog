@@ -836,6 +836,19 @@ struct KeyScratch {
 }
 
 impl KeyScratch {
+    /// The bytes its buffers hold; a hash table's entries as its slots
+    /// and a control byte each.
+    fn bytes(&self) -> usize {
+        bytes_of(&self.words)
+            + bytes_of(&self.starts)
+            + bytes_of(&self.copies)
+            + bytes_of(&self.order)
+            + bytes_of(&self.eigens)
+            + bytes_of(&self.metas)
+            + bytes_of(&self.walk)
+            + self.numbers.capacity() * (size_of::<(u32, u32)>() + 1)
+    }
+
     /// Where the words of member `i` lie.
     fn range(&self, i: usize) -> std::ops::Range<usize> {
         let end = self.starts.get(i + 1).copied().unwrap_or(self.words.len());
@@ -910,6 +923,13 @@ impl Framed {
                 })
             });
         if written {
+            // Writing the keys reads every word once per key and sorts the
+            // members: counted as the terms a walk visits.
+            let sorting = usize::BITS - s.starts.len().leading_zeros();
+            self.steps.fetch_add(
+                (s.words.len() as u64).saturating_mul(2 * u64::from(1 + sorting)),
+                Ordering::Relaxed,
+            );
             s.eigens.sort_unstable();
             s.eigens.dedup();
             let n = gamma.0.chunk_by(|x, y| x == y).count();
@@ -984,6 +1004,7 @@ impl Framed {
         order[..n].sort_by(|&x, &y| s.member(x).cmp(s.member(y)));
         order[n..].sort_by(|&x, &y| s.member(x).cmp(s.member(y)));
         s.metas.clear();
+        s.numbers.clear();
         key.clear();
         for members in [&order[..n], &order[n..]] {
             // A zone's distinct members are fewer than a word counts: each
@@ -994,7 +1015,7 @@ impl Framed {
                 key.push(OccId::new(s.copies[i]));
                 key.push(OccId::new(s.words[range.start]));
                 for &w in &s.words[range.start + 1..range.end] {
-                    if w & TAG == META && !s.metas.contains(&(w & VALUE)) {
+                    if w & TAG == META && s.numbers.insert(w & VALUE, 0).is_none() {
                         s.metas.push(w & VALUE);
                     }
                     key.push(OccId::new(w));
@@ -1481,6 +1502,7 @@ impl Zone for Framed {
             + bytes_of(&self.introduced)
             + bytes_of(&self.pairs)
             + bytes_of(&self.walk)
+            + self.key.bytes()
             + entries(self.met.capacity(), size_of::<(TRef, TRef)>())
             + entries(self.depths.capacity(), size_of::<(TRef, u32)>())
             + self.choices.bytes();
