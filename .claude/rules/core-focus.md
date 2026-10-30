@@ -1144,8 +1144,10 @@ relies on:
 ## The first-order zone
 
 `Framed` (`focus/framed.rs`) is the second `impl Zone`, chosen by the
-quantifier bit in `Focused::decide` (`search_goal::<Framed>`, one
-thread: a first-order goal never reaches the pool). `first_order.rs`
+quantifier bit in `Focused::decide` (`search_goal::<Framed>`, or
+`parallel::search_goal::<Framed>` on several threads, with the
+differences `core-parallel.md` lists under "A first-order goal on the
+pool"). `first_order.rs`
 holds the rules it adds; every first-order path in the generic engine
 is behind `if Z::FIRST_ORDER`, a constant, so `Ground` compiles to the
 code it was. What a later session must keep:

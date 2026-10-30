@@ -554,7 +554,8 @@ whose proof and statistics are a function of the input, where a parallel
 run may find a different proof of the same sequent, never a different
 verdict. The
 focus engine splits the choices nearest the root among the threads and
-shares its memo; the net engine splits its search into cubes at its
+shares its memo (on a first-order sequent it splits only the choices
+that no rule around them may ask for another witness); the net engine splits its search into cubes at its
 first choices, and where every link is forced it makes each link once,
 as one thread does; the additive engine is sequential in every case. A
 search never uses more threads than the machine runs at once, and a
@@ -1714,7 +1715,19 @@ failure is remembered for every renaming of the witnesses it leaves
 open, and a sequent met again on its own branch as the same instance is
 a loop, so a hypothesis under `!` that leads back to where it started is
 refuted rather than cut at the copy bound (`--memo-limit 0` switches
-both off). The proof
+both off). On several threads (`--jobs`, and the pool that joins one
+thread by default) a first-order sequent is searched as a propositional
+one is, the choices nearest the root split among the threads, where no
+rule around a choice may ask its premise for another witness:
+
+<!-- readme-check: machine -->
+```console
+$ linlog prove -q -j 4 "p(a1), p(a2), p(a3), p(a4), q(b) |- (exists x. (p(x) * q(x))) * (exists x. p(x)) * (exists x. p(x)) * (exists x. p(x))"; echo "exit $?"
+unprovable (MLL1, classical, focus engine): the search was exhaustive
+exit 1
+```
+
+The proof
 nets refuse a quantifier yet, saying so with the exit status 2, the
 error's, and a first-order proof's Rocq certificate is written for
 linlog's library (`--format rocq` above). The verdicts and the bounds:

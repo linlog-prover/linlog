@@ -350,6 +350,50 @@ has no or-choices worth sharing out). What the code relies on:
   was removed. The two searches of the default bias are the portfolio
   that pays: two orders that differ in the one choice that changes the
   search. Candidates and copies are ordered by id on every engine.
+- **A first-order goal on the pool** (`search_goal::<Framed>`): the
+  race of the two biases and the cubes as for a propositional goal,
+  with four differences, each for a reason a later change must keep.
+  (1) **A choice is divided only where `Zone::divides`**: no rule around
+  it may ask a premise for another answer (`Framed::answers` empty).
+  Inside such a rule the choices are logged and replayed in order, a
+  failure may rest on an excluded answer, and the rule needs the first
+  premise's answers one by one; so below it everything is sequential,
+  and a choice divided answers with any proof, as no one asks it again.
+  (2) **One memo, one table of ground terms** (`Zone::share`, called on
+  the root's zone in `search_on`; `Grounds::Shared`, an `Arc<Mutex>` that
+  every fork holds): a key names a ground term by its id, so the ids must
+  be the pool's, not a worker's, or one worker's key could stand for
+  another's sequent, a wrong "unprovable". With them a canonical key
+  (metavariables numbered by first appearance, eigenvariables ranked)
+  means the same sequent in every engine, so complete failures are
+  shared; an own key names metavariables and eigenvariables by a
+  worker's numbers, so two workers may share one for two sequents equal
+  up to those names, which holds a failure cut by a bound for both (a
+  cut never refutes). The memo's table of zones keeps none
+  (`Shared::new(entries, 0)`): `ByClass` must see a new id for every
+  `Θ`. Each worker with a fresh memo instead lost `gen1/1797` and
+  `gen2/2328` at the copy bound and made the lifted rows three times as
+  costly. (3) **The worker that proves a choice hands over its zone and
+  arena** (`Collected::won`; every engine keeps its own arena,
+  `Spawn::arena` none): the spawning engine's zone has not moved since
+  the fork (it waits at the scope), so it takes the worker's
+  (`Zone::adopt`: spans, frames, variables, bindings, trail, names; its
+  own counters and cut stay), and pushes the worker's kept nodes onto
+  its pending ones, renamed (`Run::adopted`), so the proof's members name
+  instances of its zone and the root's closing writes them; a losing
+  worker's zone and arena are dropped, and its cut reason joins the
+  engine's (`Zone::cut_by`). A worker's zone counters reach the engine
+  through `Run::report`. (4) **A cut last level is searched once more
+  alone** (`Run::again_alone`) where the engine divided a choice in it:
+  a worker may have searched a sequent cut by its budget while a sibling
+  was still finding it unprovable, where one thread reads the sibling's
+  failure and decides (`gen2/2328` on four threads, two runs in three);
+  the pass runs without the runtime in a new generation of the memo, so
+  it reads the workers' complete failures and none of their cuts. The
+  `&` rule stays sequential at first order (`with_framed`): its two
+  premises would extend one zone two ways, which no adoption merges. A
+  first-order root keeps its arena (`Kept::Own`) and closes its proof in
+  `search_on` (`schedule::closed`), as `Plan::search` does.
 - **Statistics** add every worker's counters (`Statistics::add`, the
   memo's read off the shared table once), so a parallel `nodes` is the
   work done, not the work one thread would have done, and the CLI's

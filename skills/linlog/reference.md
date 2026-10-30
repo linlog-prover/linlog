@@ -101,7 +101,9 @@ filled in by unification where an axiom matches two atoms, the proof
 names every witness, and MLL1 and MALL1 are decided, with `!` and `?`
 within the copy bound (the memo and the loop check key a sequent by its
 instances, so a `!` hypothesis that leads back to where it started is
-refuted; `--memo-limit 0` switches them off); `--stats` then adds the unifications tried and
+refuted; `--memo-limit 0` switches them off; `--jobs` splits the
+choices nearest the root among threads, where no rule around them may
+ask for another witness); `--stats` then adds the unifications tried and
 the metavariables bound (JSON `unifications` and `bindings`, written
 only where not zero). `interact` proves it step by step with the
 quantifier rules (section 10). The net outputs refuse it with an error

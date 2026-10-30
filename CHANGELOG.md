@@ -93,7 +93,14 @@ second number (0.1.x to 0.2.0), anything else the third.
   open witnesses and eigenvariables, a failure cut by a bound for the
   instance itself, never a proof, and a sequent equal to an ancestor
   whose witnesses are still open is a loop (`--memo-limit 0` switches
-  both off). A first-order goal runs on one thread. The counts carry over: a predicate with an open atom is
+  both off). A first-order goal is searched on several threads
+  (`Options::jobs`, the command's `--jobs` and the pool that joins one
+  thread by default) as a propositional one is, the two searches of the
+  default bias side by side and the choices nearest the root split
+  among the threads, where no rule around a choice may ask its premise
+  for another answer; the threads share one memo, and the thread whose
+  alternative proves a choice hands over the bindings and instances its
+  proof rests on. The counts carry over: a predicate with an open atom is
   counted over all its atoms and refuted by `Refutation::UnbalancedSymbol`
   and `OneSidedSymbol` (in JSON `unbalanced_symbol` and
   `one_sided_symbol`, the predicate by its index), which
