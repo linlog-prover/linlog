@@ -4164,3 +4164,23 @@ client follows it (step 32).
   every choice point (a dropped cut is a wrong "unprovable") while the
   default runs and the tests seldom exercise it, for no verdict gained;
   its commits stay in the history, restored by reverting the revert.
+- 2026-10-30: the timed runs, run by the planning session (20:41 to
+  21:05, cores 2 and 3, the learning website's heavy work paused, the
+  machine otherwise quiet). D17 from 42e's base (`wqqxusyk`) to the
+  top, which covers 42e to 42i: the focused rows summed 0.9969 of the
+  base, the highest row `chain/384` two-sided at 1.0104, against the
+  rule of 3 % summed and 5 % a row (`bench/targets/pinned-42e-42i.csv`).
+  42i's mechanisms (`bench/targets/pinned-42i-*.csv`, the rule a change
+  past 5 % with every run on one side): the memo costs `chain-fo/512`
+  #0 and #1 10 to 13 % and makes `lifted-additive/14` 30 times faster,
+  the other rows within noise; the resumption makes `chain-fo/512` #0
+  and #1 26 to 29 % faster, alone and with the memo, the other rows
+  within noise. LinearOne's wall times: linlog faster on 24 of the 25
+  problems both decide (4.0 ms against 51 ms in the median, LinearOne's
+  floor SWI-Prolog's start), LinearOne ahead on `witness-fo/10#3` (46 ms
+  against 2.5 s) and alone on three. 42i's pinned scripts' summaries
+  crashed on an empty group and were patched in a scratch copy (the
+  runs untouched). The author's decisions after them: the resumption
+  kept on by default (the earlier revert withdrawn before it was made),
+  the memo kept and its cost on `chain-fo` found and removed by 42j
+  first.

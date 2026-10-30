@@ -190,12 +190,12 @@ references and the panel's tests still passing.
 
 **42j, parallel first-order search** (Opus 5.5 at `high`; panel; the
 author, 2026-10-30, before 0.2.0). The decision on 42i's tables
-(2026-10-30): the memo is kept; the resumption is reverted (the author
-first asked to keep it as an option off by default, then left it to the
-planning session, which reverted it: an option off by default keeps
-its code and its invariant at every choice point while the default
-runs and tests seldom exercise it, for no verdict gained), so 42j builds
-on 42d's re-search with the memo. A first-order goal on the pool as a
+(2026-10-30, after the pinned times): both mechanisms are kept, the
+resumption on by default (`chain-fo` 26 to 29 % faster, every other row
+within noise); the memo costs `chain-fo` 10 to 13 % (every run agreeing,
+`bench/targets/pinned-42i-memo-*.csv`), so 42j first finds that cost
+and removes it, measured by pinned time against the top before it (the
+timed run asked of the author first), then builds the parallel search. A first-order goal on the pool as a
 propositional one is (`--jobs`, the race, the cubes), dividing only work
 that shares no unbound metavariable (decision 4) or by another division
 the session argues for; 42d runs it on one thread whatever `--jobs`
