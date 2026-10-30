@@ -316,9 +316,10 @@ that `q(b)` meets nothing. Our LinearOne driver printed the proof's
 λ-term until 2026-10-30, which SWI-Prolog's printer refused at 256
 formulas (`portray_nesting`); it prints the verdict alone now.
 
-**The times**: pending the author's word. The command, from a checkout
-with this session's release build on the path beside BenchExec and the
-flake's `prover-linearone`, under the machine's lock:
+**The times** (`comparison/first-order/times-1.csv` and `times-2.csv`,
+2026-10-30, summed up in `bench/COMPARISON.md`), taken by this command
+from a checkout with `nix build .#comparison`'s `bin` on the path (the
+release build, BenchExec and every prover), under the machine's lock:
 
 ```sh
 taskset -c 2 linlog-bench run --tools linlog,linearone --family lambek-fo --family witness-fo \

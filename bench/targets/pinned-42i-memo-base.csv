@@ -1,0 +1,10 @@
+# load, the 1-minute average at each run's start: 1.88 to 2.30, median 2.02
+row,group,runs,base_median_ms,base_spread,lift_median_ms,lift_spread,ratio,ratio_min,ratio_max
+lambek-fo/512#2,focused,5,3870.000,0.0078,3880.000,0.0026,1.0026,1.0000,1.0104
+chain-fo/512#0,focused,5,1580.000,0.0253,1730.000,0.0231,1.0949,1.0688,1.1218
+chain-fo/512#1,focused,5,1430.000,0.0140,1570.000,0.0255,1.0979,1.0764,1.1197
+witness-fo/10#3,focused,5,2650.000,0.0151,2580.000,0.0233,0.9736,0.9627,1.0000
+lifted-growing/1024,focused,5,220.000,0.0455,200.000,0.0500,0.9091,0.8696,0.9545
+lifted-additive/14,focused,5,6380.000,0.0188,210.000,0.0000,0.0329,0.0326,0.0332
+sum:focused,focused,5,16130.000,,10170.000,,0.6305,0.6242,0.6403
+sum:all,all,5,16130.000,,10170.000,,0.6305,0.6242,0.6403

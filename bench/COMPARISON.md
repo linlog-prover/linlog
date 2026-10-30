@@ -2561,6 +2561,15 @@ first-order MILL, is the prover their comparison is made with
 Every verdict of both equals the family's by construction. linlog's three
 undecided rows: `lambek-fo/512` #0 and #2 at its recursion limit (2 048),
 `witness-fo/12#3` at the time limit. `chain-fo` (MELL1) is outside
-LinearOne's fragment. The wall times wait for the author's word for a
-timed run; the command is in `bench/TOOLS.md`.
+LinearOne's fragment.
+
+The wall times (`comparison/first-order/times-1.csv` and `times-2.csv`,
+2026-10-30, the command of `bench/TOOLS.md` on cores 2 and 3 of an
+otherwise quiet machine, one run per problem): on the 25 problems both
+decide, linlog takes 4.0 ms in the median and LinearOne 51 ms, linlog
+the faster on 24; LinearOne's floor of about 46 ms is SWI-Prolog's
+start. Where the problems grow, `lambek-fo/512#3` takes linlog 24 ms and
+LinearOne 3.2 s, and the one row LinearOne wins of those both decide,
+`witness-fo/10#3`, takes linlog 2.5 s and LinearOne 46 ms; LinearOne
+also decides the three linlog leaves undecided.
 
