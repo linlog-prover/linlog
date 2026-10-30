@@ -555,6 +555,63 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   double induction. A step on a cut the caller names may move a cut
   above another, which the strategy never does.
 
+- **At first order every case reads members, not occurrences**
+  (`proofs/cut/framed.rs`): a step works on a copy of the proof's
+  instance table (`Table`, with lookups by occurrence and frame, by a
+  frame's parent and term, by an eigenvariable), a subformula, dual or
+  parent of a member is the occurrence's under the same frame
+  (`Rewrite::beside`), a binder's body under a pushed term
+  (`Rewrite::body`), and the zones `Record` keeps are members. A
+  propositional proof has no table and takes the old path (`table` is
+  `None`, `beside` is the occurrence itself).
+- **The key case of `∀` and `∃`** (`Case::ForallExists`) cuts the body
+  instance under the `∃` step's witness `w` and substitutes `w` for the
+  `∀` step's eigenvariable `e` in its premise (`Rewrite::substitute`):
+  frames, witnesses, and a `∀` step's own eigenvariable when the map
+  renames it. Terms are closed, so nothing is captured; `w` cannot name
+  an eigenvariable introduced inside the `∀` premise, since the cut
+  carries `w`'s eigenvariables to the root unless a `∀` step below the
+  cut removes them (the checker's flow), and none above it can.
+  A node is copied only if its subproof names the map's domain, so
+  whatever else reads the premise keeps the original.
+- **Every eigenvariable stays introduced by one `∀` node**
+  (`Rewrite::apart`, after every first-order step): a step remakes a
+  `∀` step (a copy in the key case, a commutation over it, the axiom
+  case's rename path, the exponential cases' generic arm, the affine
+  erasure's specialization), and where the proof still reads the
+  original (the `∀` premise shared, e.g. by the two cuts a commutation
+  over `&` makes) the two are twins, which the checker refuses as
+  `Reintroduced`. Each round takes the first twin pair in arena order,
+  renames the later one (or the earlier where it lies above the later)
+  with a fresh eigenvariable throughout its premise, and with fresh ones
+  every `∀` step of that premise the proof reads elsewhere too (the
+  reachability avoiding the renamed node), then replaces it below. A
+  round removes one twin and adds none, so the rounds end. Fresh
+  numbers are past every eigenvariable of the table and the nodes, so
+  no constant (an eigenvariable no `∀` introduces) is taken.
+- **Copies are charged before they are made** (`Rewrite::afford`, the
+  supervisor's requirement of 2026-10-30): `substitute` counts the
+  nodes it will make (a first pass over what its top reaches, reading
+  only) and `apart` the chain below the renamed node, and each refuses
+  an arena (the proof's nodes and the step's) past `cut::Options::nodes`
+  or `limits.memory_bytes` at 16 bytes a node before building. A copy
+  has at most the nodes its top reaches, so one step's arena is at most
+  the proof, its copies and the chains below them; sharing makes the
+  proof grow (`copies_are_charged_against_the_bounds`: a `∀` subproof
+  eight cuts share grows the proof by copies alone). The charge is on
+  the arena, so a step whose copy replaces a subproof no longer read
+  can be refused though the proof made would be within the bound
+  (conservative). The checker's memory per pass is far above 16 bytes
+  a node, so `memory_bytes` is in practice met by a check first.
+- **A step's table is compacted** (`Rewrite::compact`): the made
+  proof's table holds only what its reachable nodes name, since
+  `instances::canonical` keeps every member of the table it is given
+  and the copies would otherwise pile up across the steps.
+- **`Step::formula` is a member of the proof the step was taken on**
+  (as `cut` is a node of it): at first order its number means nothing
+  in the proof reached; `eliminate`'s callback gets that proof, whose
+  `Proof::formula` writes the instance (the command prints it so).
+
 ## Decisions
 
 The author's answers for the release (`plan/notes/api.md` §14), which

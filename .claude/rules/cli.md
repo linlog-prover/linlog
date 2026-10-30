@@ -182,7 +182,12 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   set (`--steps`, or a settings file's `cut.steps` other than the
   default: `asked_steps`), 3 at the default steps bound with cuts left
   (exit 0 there read as done) and at any other refusal, 1 for an invalid
-  proof, the record of the library with `--format json`. With `--net`
+  proof, the record of the library with `--format json`. Each step's
+  line names the formula cut in the proof the step was taken on
+  (`cut_formula`, from `eliminate`'s callback): at first order the
+  step's member is an instance numbered by that proof alone, so the
+  proof reached cannot name it; an occurrence is written as before, by
+  the command's reading. With `--net`
   (`eliminate_net`) it eliminates on the proof's net through `Net`
   (`net_of`, then `nets::cut::eliminate` with a callback that collects
   each step's line and, in a drawing format, its drawing,

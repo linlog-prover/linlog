@@ -1723,3 +1723,241 @@ the dispatch (a poll per copy level) is behind `Z::FIRST_ORDER`, which
   gives it the session's written sequent, as `close` does.
 - 0.2.0's list gains `FoTerm::Meta`; the rest are variants of
   non-exhaustive enums and additions (above).
+
+## Session 42f: cut elimination at first order
+
+Opus 5.5 at `high`, unattended, 2026-10-30, in the jj workspace
+`../linlog-step42f` on `qvpqzppo` (linlog's `main`); the reviewer in a
+workspace of its own, `../linlog-step42f-review`, at the frozen code
+commit `wpuvlukz`.
+
+### Outcome
+
+Cut elimination on proof terms works on first-order proofs, in every
+mode that has the cut (classical, with Mix, affine, intuitionistic,
+intuitionistic affine), one step at a time and to the end, every step's
+proof accepted by the unchanged checker. Every case of 41b's reads
+members (instances) through the proof's instance table, and the key case
+of `∀` against `∃` (`Case::ForallExists`) cuts the body's instance at the
+witness and substitutes the witness for the eigenvariable throughout the
+`∀` premise, in a copy where something else still reads it. A `∀` step
+that a step remakes while the proof still reads the original gets an
+eigenvariable of its own, so that every eigenvariable stays introduced by
+one node, as the checker demands. Copies are charged against the bound on
+nodes before they are made (the supervisor's requirement). `linlog
+eliminate` takes first-order proofs, each step's line writing the
+instance it cut; the nets' elimination still refuses them. The
+propositional case is unchanged: both target sets equal their oracles on
+every decided row, the ratchet within its ceilings with none raised.
+
+### What was built
+
+- **`core/src/proofs/cut/framed.rs`** (new): `Table`, the step's copy of
+  the proof's instance table with lookups by occurrence and frame, by a
+  frame's parent and term and by eigenvariable, and fresh eigenvariables
+  past every one the table or a node names; `Rewrite::substitute`, the
+  substitution of terms for eigenvariables in a subproof (frames,
+  witnesses, a `∀` step's own eigenvariable when renamed), which copies
+  only the nodes whose subproof names the map's domain and counts them
+  first; `Rewrite::afford`, the charge of a copy against `cut.nodes` and
+  `limits.memory_bytes`; `Rewrite::apart`, the renaming apart of twin
+  `∀` steps after a step; `Rewrite::compact`, the made proof's table
+  holding only what its nodes name.
+- **`core/src/proofs/cut/mod.rs`**: every helper on members (`occ`,
+  `beside`, `left`, `right`, `child`, `dual`, `body`), the zones
+  `Record` keeps as members, `above` with the rules `∀` and `∃` (the
+  affine erasure's specialization), the key case pair, `reduce`
+  fallible (a copy's refusal), the quantifier refusal of `step` and
+  `eliminate` gone. `Proof::formula` writes an instance with its frame's
+  terms (it indexed past the forest before).
+- **The command** (`cli/src/eliminate.rs`): each step's formula is
+  written from the proof the step was taken on (`cut_formula`, in
+  `eliminate`'s callback), since an instance's number means nothing in
+  the proof reached.
+- **Tests**: six proof files written by hand
+  (`core/tests/first-order/cut_shared{,_ill}.json`, a `∀x.∀y` subproof
+  that two cuts share after a commutation over `&`, whose inner `∀` step
+  the substitution's copy renames; `cut_tensor{,_ill}.json`, a cut on the
+  instance `p(a) ⊗ q(a)` of an eigenvariable introduced below the cut;
+  `cut_deep{,_ill}.json`, the eigenvariable in the witness `f(g(b))` two
+  rules up the `∀` premise), beside 42b's `cut`, `cut_ill` and
+  `cut_instance`. `the_cuts_are_eliminated` takes every one of them step
+  by step in its mode and every mode beside it (28 eliminations), each
+  step checked, the last cut-free, and asserts the renaming happened;
+  `the_written_cuts_are_eliminated` reads the files through the wire and
+  eliminates them through the public API, every proof seen checked, and
+  the proof structures refusing them; `first_order_cuts_are_eliminated`
+  takes the search's proofs of 600 generated classical sequents and ten
+  written intuitionistic ones, cuts each root against its identity
+  expanded rule by rule, and eliminates 413 proofs (4 338 steps, 385 key
+  cases of `∀` and `∃`, classical, Mix, affine, intuitionistic and
+  intuitionistic affine), reducing every cut on the way first too;
+  `copies_are_charged_against_the_bounds` (below).
+
+### The bound on copies (departs from the design)
+
+The plan's decision 7 says "no step adds a node, so the bounded
+elimination stays bounded". At first order that is wrong: the key case
+copies the `∀` premise where another cut still reads it, and the
+renaming apart copies a `∀` step's premise, so a proof whose shared
+subproof sits under several `∀`/`∃` cuts grows with every key case. How
+large a copy can get: `substitute` copies at most the nodes its top
+reaches, so a key case adds at most the `∀` premise's nodes and the
+chain below the cut; a round of `apart` adds at most the renamed step's
+premise and the chain below it, and the rounds are at most the twins the
+step made (each round removes one and adds none). Why the bound holds:
+every copy is counted before it is built (`substitute`'s first pass
+reads only) and refused when the arena, the proof's nodes and the
+step's, would pass `cut.nodes`, or `limits.memory_bytes` at 16 bytes a
+node (`afford`); the proof made has at most the arena's nodes, so it is
+within the bound, and the elimination ends there with the last checked
+proof and `Refusal::Elimination { what: Nodes }`, as the propositional
+bound ends it. The charge is on the arena, conservative: a step whose
+copy replaces a subproof nothing else reads may be refused though the
+proof it would make is smaller. The memory bound is charged too, but the
+checker's pass needs far more than 16 bytes a node, so in practice it
+refuses first. `copies_are_charged_against_the_bounds` pins it: a
+`∀x.∀y.∀z` subproof that eight cuts share (a goal of three levels of
+`&`) grows the proof by copies alone, and under a bound between its
+nodes and the most the unbounded elimination reaches, the elimination
+stops with a checked proof, cuts left, the bound's refusal, at a key
+case of `∀` and `∃`.
+
+### Decisions, and where they depart from the design
+
+- **Renaming apart after the step, not inside each case** (`apart`):
+  every case that remakes a `∀` step (the key case's copy, a commutation
+  over a shared `∀`, the axiom case's rename path, the exponentials'
+  generic arm, the affine erasure's specialization) can leave a twin
+  while the original is still read; one pass after the step finds them
+  by reachability and renames the later twin (or the earlier, where it
+  lies above the later), so no case needs to know whether its original
+  survives. A twin that nothing reads any more is dropped and keeps its
+  eigenvariable, so the names a reader sees change only where a copy
+  must differ from a surviving original.
+- **The checker is the judge, unchanged**: every proof a step makes is
+  checked (as in 41b), so a defect of the substitution would surface as
+  `Error::Reduction`, never as a wrong proof.
+- **`Proof::formula` writes instances** (an addition to a public
+  method's behaviour: it indexed past the forest on an instance before,
+  a panic), each term cut after 4 096 characters as an error's are.
+- **The record's `formula`** stays a member of the proof the step was
+  taken on, as `cut` and `above` are its nodes; a front end that draws a
+  step has that proof from `eliminate`'s callback.
+- **The propositional path is the old one**: a proof without a table
+  takes `Member::occ` and the forest's navigation; no elimination journey
+  is in the ratchet, and the search does not read `proofs::cut`.
+
+### The closed enums' new variants (for step 45)
+
+None of a closed enum: `Case` is non-exhaustive, and gains
+`Case::ForallExists` (`forall_exists` on the wire, "the key case of ∀
+and ∃"). No variant of `Node`, `Rule`, `Term`, `Kind` or `FoTerm` was
+added. Changed by addition: `Proof::formula` writes instances.
+`Error::Quantifiers` is no longer returned by cut elimination (its doc
+names the one entry left, a cut in a first-order session).
+
+### The propositional case (D17)
+
+- **Target sets** at `wpuvlukz`, the session's code commit, against
+  `bench/targets/42e-last.csv` and `bench/targets/net-42e-last.csv`
+  (`linlog-bench summary --against … --counters`): no verdict differs;
+  of the 145 focused problems both decide alike on one thread, 0 differ
+  in `nodes`, `splits`, `memo_hits`, `memo_entries`, `links` or `tests`;
+  of the 64 net problems, 0. The files are `bench/targets/42f.csv` and
+  `bench/targets/net-42f.csv`; every later commit touches documents
+  only.
+- **The ratchet** (the gate at `wpuvlukz`): every journey within its
+  ceiling, `bench/ceilings.csv` unchanged; `derivation-chain-64` +1.97 %
+  (42e's +1.97 %), `check-qbf-20-2` +0.61 %, `search-chain-128` −0.21 %,
+  as at the base.
+
+### The reviewer's round
+
+`linlog-step42f-review` (Opus 5.5 at `high`, fresh context, cores 4 to
+11, its own workspace at `wpuvlukz` and scratch directory), briefed with
+the claim (every step on a checked proof gives a checked proof of the
+same conclusion or a bound's refusal, never `Error::Reduction` or a
+panic) and four criteria: the substitution against the eigenvariable
+condition (no capture, frames rebuilt right, a shared subproof copied),
+every eigenvariable introduced by one node after every step, the other
+cases on members in every mode, and the bounds (the supervisor's: every
+copy charged before it is built), told to report only what breaks one
+of them with a witness. **No finding.** What it ran: about 18 000
+accepted proofs and 566 000 steps from search proofs of generated and
+hand-picked sequents, cut against identities at the root and at random
+inner nodes, an identity shared by two cuts, two cut formulas, and
+proofs hash-consed into DAGs, in every mode each passes, random walks
+at random cuts of up to 60 steps besides the strategy, every step's
+proof checked with its sequent and conclusion (about 69 900 key cases
+of `∀` and `∃`, 300 rounds of `apart`, 34 of them renaming more than
+one eigenvariable; 0 failures); a hand-built proof reaching `apart`'s
+branch that renames the earlier twin (a `∀` step read by an outer cut
+and by a cut inside its other premise, `⊢ ?∀x.(p(x) ⅋ ~p(x))` with the
+cut formula `⊥` in Mix mode), every cut at every stage to depth 8 and
+the command; 6 787 propositional proofs with cuts through the base's
+and this commit's `linlog eliminate --format json`, byte-identical
+outputs and exit statuses; `--node-limit` 5 to 30 and none on every
+committed file, each ending cut-free or refused with a checked proof.
+Two notes, neither a finding, answered here: its generator could not
+build cuts for some deep `∀x₁…∀xₖ` formulas (a defect of its scratch
+table, so deep chains were covered only by the repository's tests and
+the generated proofs where the cut was built); and the instance table's
+growth inside a step is not charged to `memory_bytes`. **Answer**: the
+table grows by at most its own size per substitution and the rounds are
+bounded by the node budget, which the node charge already holds; no
+change.
+
+### What is not verified
+
+- The memory bound's charge of copies is not reached by a test: the
+  checker's pass refuses first at any memory limit low enough (above).
+- No pinned-time run: no search changed (the brief's).
+- The web bindings call the same `step` and `eliminate`, so the page's
+  elimination now takes first-order proofs too; their drawing of a
+  first-order step is 42k's to test.
+
+### Checklist
+
+- [x] The key case of `∀` and `∃` and the other cases on proofs with
+  instances, the eliminations of committed first-order proofs with cuts
+  (a cut on a first-order formula, one on an instance, a shared subproof
+  under a `∀`/`∃` cut, an eigenvariable deep in a witness), every step
+  checked, the last cut-free.
+- [x] `linlog eliminate` on first-order proofs, classical, Mix, affine
+  and intuitionistic, its steps writing instances, each intermediate
+  proof (`--steps=k --format json`) accepted by `linlog check`; `--net`
+  refusing first-order input (exit 2, "proof nets exist for MLL without
+  units only, not for MLL1").
+- [x] Copies charged before they are made, pinned by a test (the
+  supervisor's requirement).
+- [x] Both target sets against `42e-last` and `net-42e-last`, every
+  decided row's counters equal; the ratchet within its ceilings, none
+  raised.
+- [x] The reviewer's round, each finding answered above.
+- [x] README, the guide (its tests pass) and the changelog true.
+- [x] Every code commit gated; `nix flake check` at the last commit: see
+  the last message to the supervisor for its exit status.
+- [x] `.claude/rules/core-proofs.md` and `cli.md` amended.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **`.claude/rules/core-proofs.md`, "Cut elimination"**, holds the
+  first-order invariants: members everywhere, the substitution and why
+  nothing is captured, the renaming apart after every step, copies
+  charged before they are made, the table compacted, `Step::formula` a
+  member of the proof the step was taken on.
+- **42g (Rocq)**: the eliminated proofs are ordinary checked proofs with
+  instances; an eigenvariable a substitution brings in from a witness is
+  either one a `∀` step below the cut introduces or a constant no step
+  introduces, which the certificates must admit as 42b's checker does.
+- **42k (the web page)**: the bindings' `cut_step` and `eliminate` now
+  take first-order proofs (nothing in `web/` changed); a step's
+  `formula` is a member of the proof drawn before the step, whose
+  derivation writes the instance; `Case::ForallExists` is
+  `forall_exists` on the wire, and its step has no `above`.
+- **A proof made by a step may name eigenvariables past the input's**:
+  the renamed twins take fresh numbers, so the letters a derivation
+  gives eigenvariables can shift between steps where a copy was renamed.
