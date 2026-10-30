@@ -331,19 +331,25 @@ premises and `times`; no sequent is copied.
   rule, the root last). So every rule acts on formulas as written, and
   the negation steps of one premise stack in position order. The children
   a rule exposes in premise `j` are `exposed`'s: both factors of `⅋`, one
-  each of `⊗` and `&`, the operand of `⊕ᵢ`, `!` and `?d`; structural
-  rules expose none. A derivation of a goal (`is_of_goal`) gets no steps
+  each of `⊗` and `&`, the operand of `⊕ᵢ`, `!`, `?d`, and the body of
+  `∀` and `∃`; structural rules expose none. A derivation of a goal (`is_of_goal`) gets no steps
   below its root.
 - **The names** (`ClassicalRule::applied`): the one-sided rule and the
   principal's `Written`: `⊗` on the input side `⅋L` (`⊸L` for an
   implication), `⅋` `⊗L` on the input side and `⅋R` (`⊸R`) on the
   output, `1`/`⊥` on the input side `⊥L`/`1L`, `!` promotion `!R` or
   `?L`, `?d` `?R` or `!L`, `?c`/`?w` `?c`/`?w` on the right and `!c`/`!w`
-  on the left, `⊤` `⊤R` or `0L`; ax, mix and wk keep theirs. A negation
+  on the left, `⊤` `⊤R` or `0L`, `∀` `∀R` or `∃L` on the input side, `∃`
+  `∃R` or `∀L`; ax, mix and wk keep theirs. A negation
   step is `~L`/`~R` by the side its formula stands on in its conclusion.
   The view has its own label tables (`UPRIGHT`, `SUBSCRIPT`, indexed by
-  the declaration order, `ALL` crate-private); a `Labels::Table` keyed by
-  `Named` leaves them upright, as for LK.
+  the declaration order, `ALL` crate-private; the quantifier rules
+  `ForallLeft`, `ForallRight`, `ExistsLeft`, `ExistsRight` sit between
+  `QuestWeakening` and `Mix`); a `Labels::Table` keyed by `Named` leaves
+  them upright, as for LK. `rules_are_labelled_in_declaration_order`
+  holds `ALL` to the declaration order and pins the quantifier rules'
+  names and labels; `every_label` pins them in every target
+  (`first_order_classical`).
 - **A compact run is split by side** (`by_side`): the one-sided builder
   merges `?w` (or `?c`) applications whatever side their formulas were
   written on, so a run that acts on both sides is shown as two
@@ -365,7 +371,8 @@ premises and `times`; no sequent is copied.
   sequent as written.
 - **Bounded before it is made**: `new` walks once counting
   (`Counted`: inferences, and bytes by `Size::bytes`'s estimate with each
-  inference's one-sided sequent's weights) and refuses past
+  inference's one-sided sequent's weights, by member through
+  `Weights::of_members`, so that an instance counts at most) and refuses past
   `limits.derivation_bytes` (`Refusal::Output`) or past
   `Derivation::MOST` inferences (`Refusal::Index`, reachable only
   unbounded: the view has at most three times the derivation's
@@ -669,7 +676,22 @@ step. What the code relies on:
 - An eigenvariable is written `a`, `b`, … `z`, `a_1`, … in the order of
   its number, skipping every symbol's name (`instances::eigen_names`),
   so a derivation's sequent reads as a sequent with those constants.
-- The classical two-sided view refuses a sequent with binders
-  (`Error::Quantifiers`); its rules for the quantifiers are a later
-  session's.
+- The classical two-sided view draws a first-order derivation: a member
+  is read through `Derivation::occurrence` wherever the view asks its
+  record (`writing`, `context`, `negated`), and `Notation::classical`
+  takes members and the framing, writing an instance through
+  `written_instance` (the frame's scope of `instance` around
+  `written_in`).
+- **An exposed child is found by member, not occurrence**
+  (`TwoSided::exposed_at`): with instances, a premise may hold several
+  members of one occurrence (a `!∀` derelicted twice holds the body under
+  two witnesses). Without a framing every member is its occurrence and a
+  binary search finds it; with one, the child is the member of that
+  occurrence under the frame of the member it comes from (the principal,
+  or the cut formula), a binder's body under a frame whose parent is that
+  frame, and of several such the one the premise holds more often than
+  the conclusion. `a_first_order_view_reads_as_its_term` runs the checks
+  of `reads_as_its_term` (now shared with the generated sequents' test,
+  plus the printed formula equal to `Derivation::formula`'s) over
+  first-order proofs, one with two negated bodies of one binder.
 

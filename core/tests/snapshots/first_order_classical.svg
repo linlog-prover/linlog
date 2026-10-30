@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="277.68" height="134.592" viewBox="0 0 17355 8412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>∃y. (∀x. r(x, y)) ⊢ ∀x. (∃y. r(x, y))</title>
+<desc>1. r(b, a) ⊢ r(b, a), by ax.
+2. r(b, a) ⊢ ∃y. r(b, y), by ∃R from 1.
+3. ∀x. r(x, a) ⊢ ∃y. r(b, y), by ∀L from 2.
+4. ∀x. r(x, a) ⊢ ∀x. (∃y. r(x, y)), by ∀R from 3.
+5. ∃y. (∀x. r(x, y)) ⊢ ∀x. (∃y. r(x, y)), by ∃L from 4.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M300 6812H15888"/>
+<path d="M1547 5312H14642"/>
+<path d="M2737 3812H13452"/>
+<path d="M3599 2312H12590"/>
+<path d="M4517 812H11671"/>
+</g>
+<text x="300" y="7902" textLength="15588" lengthAdjust="spacing" id="i4">∃𝑦. (∀𝑥. 𝑟(𝑥, 𝑦)) ⊢ ∀𝑥. (∃𝑦. 𝑟(𝑥, 𝑦))</text>
+<text x="16088" y="7012" textLength="967" lengthAdjust="spacing" font-size="800">∃L</text>
+<text x="1547" y="6402" textLength="13095" lengthAdjust="spacing" id="i3">∀𝑥. 𝑟(𝑥, 𝑎) ⊢ ∀𝑥. (∃𝑦. 𝑟(𝑥, 𝑦))</text>
+<text x="14842" y="5512" textLength="1007" lengthAdjust="spacing" font-size="800">∀R</text>
+<text x="2737" y="4902" textLength="10715" lengthAdjust="spacing" id="i2">∀𝑥. 𝑟(𝑥, 𝑎) ⊢ ∃𝑦. 𝑟(𝑏, 𝑦)</text>
+<text x="13652" y="4012" textLength="967" lengthAdjust="spacing" font-size="800">∀L</text>
+<text x="3599" y="3402" textLength="8991" lengthAdjust="spacing" id="i1">𝑟(𝑏, 𝑎) ⊢ ∃𝑦. 𝑟(𝑏, 𝑦)</text>
+<text x="12790" y="2512" textLength="1007" lengthAdjust="spacing" font-size="800">∃R</text>
+<text x="4517" y="1902" textLength="7154" lengthAdjust="spacing" id="i0">𝑟(𝑏, 𝑎) ⊢ 𝑟(𝑏, 𝑎)</text>
+<text x="11871" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

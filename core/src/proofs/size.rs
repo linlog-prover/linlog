@@ -279,9 +279,15 @@ pub(crate) struct Weights(Vec<u32>);
 impl Weights {
     /// Returns the weights of the members of `proof`.
     pub(crate) fn of(proof: &Proof) -> Self {
-        let mut weights = weights(proof.forest());
-        if let Some(table) = proof.instances() {
-            let instances = instance_weights(proof.forest(), table, &weights);
+        Self::of_members(proof.forest(), proof.instances())
+    }
+
+    /// Returns the weights of the members of a proof over `forest` whose
+    /// table is `instances`, where it has one.
+    pub(crate) fn of_members(forest: &Forest, instances: Option<&crate::Instances>) -> Self {
+        let mut weights = weights(forest);
+        if let Some(table) = instances {
+            let instances = instance_weights(forest, table, &weights);
             weights.extend(instances);
         }
         Self(weights)

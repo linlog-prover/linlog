@@ -412,6 +412,49 @@ impl Notation {
         member: Member,
         cap: Option<usize>,
     ) -> FmtResult {
+        let (o, mut slot) = self.framed_scope(framing, member, cap)?;
+        // A writer of its own type, so that the walks a propositional
+        // print makes stay instantiated once, with the iterator inside.
+        let mut out = Apart(out);
+        let written = match reading {
+            Some(reading) => self.ill_in(&mut out, reading, o, false, &mut slot),
+            None => self.term_in(&mut out, forest.sequent(), forest.term(o), false, &mut slot),
+        };
+        close(slot);
+        written
+    }
+
+    /// Writes the formula of the instance `member` of a proof's `framing`
+    /// as [`written`](Self::written) writes an occurrence, as its author
+    /// wrote it, with its bound variables that no binder of it binds
+    /// written as the terms of its frame.
+    #[cold]
+    #[inline(never)]
+    fn written_instance<W: Write>(
+        &self,
+        out: &mut W,
+        forest: &Forest,
+        writing: &[Written],
+        framing: &Framing<'_>,
+        member: Member,
+        negated: bool,
+    ) -> FmtResult {
+        let (o, mut slot) = self.framed_scope(framing, member, None)?;
+        let written = self.written_in(&mut Apart(out), forest, writing, o, negated, &mut slot);
+        close(slot);
+        written
+    }
+
+    /// Returns the occurrence the instance `member` of `framing` stands
+    /// for and the scope it is written in: its frame's terms, each cut
+    /// after `cap` characters with `…` where one is given, and the
+    /// eigenvariables' names open.
+    fn framed_scope<'f>(
+        &self,
+        framing: &'f Framing<'_>,
+        member: Member,
+        cap: Option<usize>,
+    ) -> Result<(OccId, Slot<'f>), std::fmt::Error> {
         let (o, frame) = framing
             .table
             .instance(member)
@@ -435,16 +478,7 @@ impl Notation {
             })
             .collect::<Result<Vec<String>, _>>()?;
         let scope = Scope::framed(frame, framing.names());
-        let mut slot: Slot<'_> = std::mem::ManuallyDrop::new(Some(Box::new(scope)));
-        // A writer of its own type, so that the walks a propositional
-        // print makes stay instantiated once, with the iterator inside.
-        let mut out = Apart(out);
-        let written = match reading {
-            Some(reading) => self.ill_in(&mut out, reading, o, false, &mut slot),
-            None => self.term_in(&mut out, forest.sequent(), forest.term(o), false, &mut slot),
-        };
-        close(slot);
-        written
+        Ok((o, std::mem::ManuallyDrop::new(Some(Box::new(scope)))))
     }
 
     /// Writes the formula as [`term`](Self::term) does, its scope in
@@ -763,33 +797,43 @@ impl Notation {
     }
 
     /// Writes a classical sequent two-sided, `left ⊢ right`, each formula
-    /// an occurrence as its author wrote it with a negation before it or
-    /// without ([`written`](Self::written)), the turnstile lined up as
+    /// a member as its author wrote it with a negation before it or
+    /// without ([`written`](Self::written)), a member past the forest an
+    /// instance of the proof's `framing`, the turnstile lined up as
     /// [`sequent`](Self::sequent) does when `aligned` is set, and with
     /// `marks` every formula between `'\u{2}'` and `'\u{3}'`.
     #[expect(
         clippy::too_many_arguments,
-        reason = "the sides and the two switches are what every target passes"
+        reason = "the sides, the instances and the two switches are what every target passes"
     )]
     pub(crate) fn classical<W: Write>(
         &self,
         out: &mut W,
         forest: &Forest,
         writing: &[Written],
-        left: impl Iterator<Item = (OccId, bool)>,
-        right: impl Iterator<Item = (OccId, bool)>,
+        framing: Option<&Framing<'_>>,
+        left: impl Iterator<Item = (Member, bool)>,
+        right: impl Iterator<Item = (Member, bool)>,
         aligned: bool,
         marks: bool,
     ) -> FmtResult {
         let (open, close) = if marks { ("\u{2}", "\u{3}") } else { ("", "") };
+        let formula = |out: &mut W, m: Member, negated: bool| {
+            out.write_str(open)?;
+            match framing {
+                Some(framing) if m.index() >= forest.len() => {
+                    self.written_instance(out, forest, writing, framing, m, negated)?;
+                }
+                _ => self.written(out, forest, writing, m.occ(), negated)?,
+            }
+            out.write_str(close)
+        };
         let mut any = false;
-        for (o, negated) in left {
+        for (m, negated) in left {
             if any {
                 out.write_str(", ")?;
             }
-            out.write_str(open)?;
-            self.written(out, forest, writing, o, negated)?;
-            out.write_str(close)?;
+            formula(out, m, negated)?;
             any = true;
         }
         if any {
@@ -799,11 +843,9 @@ impl Notation {
             out.write_str(self.align)?;
         }
         out.write_str(self.turnstile)?;
-        for (i, (o, negated)) in right.enumerate() {
+        for (i, (m, negated)) in right.enumerate() {
             out.write_str(if i == 0 { " " } else { ", " })?;
-            out.write_str(open)?;
-            self.written(out, forest, writing, o, negated)?;
-            out.write_str(close)?;
+            formula(out, m, negated)?;
         }
         Ok(())
     }

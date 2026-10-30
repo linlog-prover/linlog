@@ -814,6 +814,10 @@ for NanoYalla. What the code relies on:
   symbols map `∀` and `∃`. `every_label` pins the first-order
   derivations `first_order_swap` (one-sided) and `first_order_swap_ill`
   (two-sided), read from `core/tests/first-order/`.
+- The classical two-sided view has its own `∀L`, `∀R`, `∃L`, `∃R` in its
+  tables (`ClassicalRule`, core-derivations.md); `every_label` pins them
+  in the snapshots `first_order_classical.*` (`pin` takes anything that
+  is a `Drawable`).
 - The Rocq export still refuses a sequent with binders; its arms for the
   quantifier rules are unreachable behind that guard.
 

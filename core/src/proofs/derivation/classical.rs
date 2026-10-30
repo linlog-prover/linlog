@@ -7,11 +7,12 @@
 //! its principal formula, and a negation step wherever a negation was
 //! written, which the one-sided calculus does not have.
 
-use super::view::{Derivation, InfId};
+use super::view::{Derivation, InfId, Inference};
 use crate::Error;
 use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::written::{self, Written};
 use crate::occurrences::{Forest, Member, OccId, Side};
+use crate::proofs::size::Weights;
 use crate::proofs::style::{Drawn, Labels};
 use crate::proofs::{Rule, Size, TextOptions};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
@@ -77,6 +78,16 @@ pub enum ClassicalRule {
     QuestContraction,
     /// `?w`, weakening by a `?` formula on the right.
     QuestWeakening,
+    /// `∀L`: from `Γ, A[t/x] ⊢ Δ` to `Γ, ∀x. A ⊢ Δ`.
+    ForallLeft,
+    /// `∀R`: from `Γ ⊢ A[a/x], Δ` to `Γ ⊢ ∀x. A, Δ`, the eigenvariable `a`
+    /// in neither `Γ` nor `Δ`.
+    ForallRight,
+    /// `∃L`: from `Γ, A[a/x] ⊢ Δ` to `Γ, ∃x. A ⊢ Δ`, the eigenvariable `a`
+    /// in neither `Γ` nor `Δ`.
+    ExistsLeft,
+    /// `∃R`: from `Γ ⊢ A[t/x], Δ` to `Γ ⊢ ∃x. A, Δ`.
+    ExistsRight,
     /// `mix`
     Mix,
     /// `wk`, weakening by a formula that is no exponential, in affine
@@ -95,7 +106,7 @@ pub enum ClassicalRule {
 impl ClassicalRule {
     /// Every rule, in the order of declaration, by which the label tables
     /// are indexed.
-    pub(crate) const ALL: [Self; 33] = {
+    pub(crate) const ALL: [Self; 37] = {
         use ClassicalRule::*;
         [
             Axiom,
@@ -125,6 +136,10 @@ impl ClassicalRule {
             QuestRight,
             QuestContraction,
             QuestWeakening,
+            ForallLeft,
+            ForallRight,
+            ExistsLeft,
+            ExistsRight,
             Mix,
             Weakening,
             Cut,
@@ -135,18 +150,19 @@ impl ClassicalRule {
     };
 
     /// The upright labels, in the order of [`ALL`](Self::ALL).
-    const UPRIGHT: [&'static str; 33] = [
+    const UPRIGHT: [&'static str; 37] = [
         "ax", "⊗L", "⊗R", "⅋L", "⅋R", "⊸L", "⊸R", "1L", "1R", "⊥L", "⊥R", "&L_1", "&L_2", "&R",
-        "⊕L", "⊕R_1", "⊕R_2", "⊤R", "0L", "!L", "!R", "!c", "!w", "?L", "?R", "?c", "?w", "mix",
-        "wk", "cut", "~L", "~R", "",
+        "⊕L", "⊕R_1", "⊕R_2", "⊤R", "0L", "!L", "!R", "!c", "!w", "?L", "?R", "?c", "?w", "∀L",
+        "∀R", "∃L", "∃R", "mix", "wk", "cut", "~L", "~R", "",
     ];
 
     /// The labels with the side as a subscript, in the order of
     /// [`ALL`](Self::ALL).
-    const SUBSCRIPT: [&'static str; 33] = [
+    const SUBSCRIPT: [&'static str; 37] = [
         "ax", "⊗_L", "⊗_R", "⅋_L", "⅋_R", "⊸_L", "⊸_R", "1_L", "1_R", "⊥_L", "⊥_R", "&_{L1}",
         "&_{L2}", "&_R", "⊕_L", "⊕_{R1}", "⊕_{R2}", "⊤_R", "0_L", "!_L", "!_R", "!_c", "!_w",
-        "?_L", "?_R", "?_c", "?_w", "mix", "wk", "cut", "~_L", "~_R", "",
+        "?_L", "?_R", "?_c", "?_w", "∀_L", "∀_R", "∃_L", "∃_R", "mix", "wk", "cut", "~_L", "~_R",
+        "",
     ];
 
     /// Returns the rule's name: `⊗L`, `⅋R`, `⊸L`, `&L₁`, `~R`, and so on.
@@ -180,6 +196,10 @@ impl ClassicalRule {
             QuestRight => "?R",
             QuestContraction => "?c",
             QuestWeakening => "?w",
+            ForallLeft => "∀L",
+            ForallRight => "∀R",
+            ExistsLeft => "∃L",
+            ExistsRight => "∃R",
             Mix => "mix",
             Weakening => "wk",
             Cut => "cut",
@@ -208,6 +228,8 @@ impl ClassicalRule {
             BangLeft | QuestRight => Rule::Dereliction,
             BangContraction | QuestContraction => Rule::Contraction,
             BangWeakening | QuestWeakening => Rule::Weakening,
+            ForallRight | ExistsLeft => Rule::Forall,
+            ExistsRight | ForallLeft => Rule::Exists,
             Mix => Rule::Mix,
             Weakening => Rule::AffineWeakening,
             Cut => Rule::Cut,
@@ -224,24 +246,25 @@ impl ClassicalRule {
         match self {
             TensorLeft | ParLeft | LollipopLeft | OneLeft | BotLeft | WithLeft1 | WithLeft2
             | PlusLeft | ZeroLeft | BangLeft | BangContraction | BangWeakening | QuestLeft
-            | NegationLeft => Some(Side::Input),
+            | ForallLeft | ExistsLeft | NegationLeft => Some(Side::Input),
             TensorRight | ParRight | LollipopRight | OneRight | BotRight | WithRight
             | PlusRight1 | PlusRight2 | TopRight | BangRight | QuestRight | QuestContraction
-            | QuestWeakening | NegationRight => Some(Side::Output),
+            | QuestWeakening | ForallRight | ExistsRight | NegationRight => Some(Side::Output),
             Axiom | Mix | Weakening | Cut | Open => None,
         }
     }
 
     /// Returns the one-sided rule `rule` applied to a formula written as
     /// `written`, named two-sided: a `⊗` on the input side is `⅋L`, or
-    /// `⊸L` where an implication was written, and so on.
+    /// `⊸L` where an implication was written, a `∀` on the input side
+    /// `∃L`, and so on.
     fn applied(rule: Rule, written: Written) -> Self {
         use ClassicalRule::*;
         let left = written.side() == Side::Input;
         let pick = |input, output| if left { input } else { output };
         match rule {
-            // The view refuses a sequent with binders.
-            Rule::Forall | Rule::Exists => unreachable!("no binder in the classical view"),
+            Rule::Forall => pick(ExistsLeft, ForallRight),
+            Rule::Exists => pick(ForallLeft, ExistsRight),
             Rule::Ax => Axiom,
             Rule::Tensor if written.is_implication() => LollipopLeft,
             Rule::Tensor => pick(ParLeft, TensorRight),
@@ -336,7 +359,10 @@ struct Shown {
 /// as the rules above it read it, with no negation step below, as the goal
 /// stands in a larger derivation. Read one-sided (every formula on the
 /// left negated and moved right), every inference is the one-sided
-/// inference it shows, a negation step its premise's sequent again.
+/// inference it shows, a negation step its premise's sequent again. A
+/// first-order derivation's quantifier rules are `∀L`, `∀R`, `∃L` and
+/// `∃R`, and an instance is written with the eigenvariables and witnesses
+/// of its frame, as the derivation writes it.
 ///
 /// [`Display`] draws the tree as [`Derivation`]'s does.
 ///
@@ -395,11 +421,6 @@ impl<'a> TwoSided<'a> {
         if let Some(fault) = written::fault(forest, writing) {
             panic!("the record is not one of the derivation's sequent: {fault}");
         }
-        if forest.has_binders() {
-            return Err(Error::Quantifiers {
-                what: "the classical two-sided view",
-            });
-        }
         let view = Self {
             derivation,
             writing,
@@ -446,28 +467,34 @@ impl<'a> TwoSided<'a> {
             let rule = inference.rule().rule;
             let principal = inference
                 .principal()
-                .map(|position| inference.sequent()[position].occ());
+                .map(|position| inference.sequent()[position]);
+            let body = matches!(rule, Rule::Forall | Rule::Exists);
             let mut premises = Vec::with_capacity(inference.premises().len());
             for (j, &premise) in inference.premises().iter().enumerate() {
                 let top: InfId = ids[premise.index()];
                 // A cut puts its cut formula into its first premise and the
-                // dual into its second, as roots are written.
+                // dual into its second, as roots are written; each is exposed
+                // under the member it comes from.
                 let exposed = match (inference.cut(), principal) {
                     (Some(a), _) => {
-                        let a = a.occ();
-                        [Some(if j == 0 { a } else { forest.dual(a).unwrap() }), None]
+                        let o = derivation.occurrence(a);
+                        let c = if j == 0 { o } else { forest.dual(o).unwrap() };
+                        Some((a, [Some(c), None]))
                     }
-                    (None, Some(p)) => exposed(forest, rule, p, j),
-                    (None, None) => [None, None],
+                    (None, Some(p)) => {
+                        Some((p, exposed(forest, rule, derivation.occurrence(p), j)))
+                    }
+                    (None, None) => None,
                 };
                 let negated = exposed
                     .into_iter()
-                    .flatten()
-                    .filter(|&c| written::negated(forest, self.writing, c));
+                    .flat_map(|(of, children)| children.into_iter().flatten().map(move |c| (of, c)))
+                    .filter(|&(_, c)| written::negated(forest, self.writing, c))
+                    .map(|(of, c)| (self.exposed_at(inference, premise, of, c, body), c));
                 premises.push(self.negations(sink, premise, negated, top));
             }
             let written = principal.map_or(Written::new(Side::Output, false), |p| {
-                self.writing[p.index()]
+                self.writing[derivation.occurrence(p).index()]
             });
             let shown = Shown {
                 base: InfId::new(index as u32),
@@ -484,9 +511,14 @@ impl<'a> TwoSided<'a> {
             // The formulas of the sequent written with a negation, as they
             // were written below the last rule.
             let sequent = derivation.inference(root).sequent();
-            let roots = sequent.iter().map(|m| m.occ()).filter(|&o| {
-                forest.parent(o).is_none() && written::negated(forest, self.writing, o)
-            });
+            // A root's member is numbered as its occurrence.
+            let roots = sequent
+                .iter()
+                .map(|&m| derivation.occurrence(m))
+                .filter(|&o| {
+                    forest.parent(o).is_none() && written::negated(forest, self.writing, o)
+                })
+                .map(|o| (sequent.partition_point(|&m| m < Member::from(o)), o));
             self.negations(sink, root, roots, ids[root.index()]);
         }
     }
@@ -519,7 +551,8 @@ impl<'a> TwoSided<'a> {
             (premise, difference(above, conclusion))
         };
         let larger_sequent = derivation.inference(larger).sequent();
-        let side = |&p: &usize| self.writing[larger_sequent[p].occ().index()].side();
+        let side =
+            |&p: &usize| self.writing[derivation.occurrence(larger_sequent[p]).index()].side();
         let (input, output): (Vec<usize>, Vec<usize>) =
             extra.iter().partition(|p| side(p) == Side::Input);
         if input.is_empty() || output.is_empty() {
@@ -548,23 +581,25 @@ impl<'a> TwoSided<'a> {
     }
 
     /// Hands `sink` a negation step below the inference `top`, which shows
-    /// the one-sided inference `base`, for each of `negated` in turn, and
-    /// returns the id of the last, or `top` for none: each step's
-    /// conclusion shows one formula more as written, negation and all.
+    /// the one-sided inference `base`, for each of `negated` in turn (a
+    /// position in its sequent and the occurrence there), and returns the
+    /// id of the last, or `top` for none: each step's conclusion shows one
+    /// formula more as written, negation and all.
     fn negations(
         &self,
         sink: &mut impl Sink,
         base: InfId,
-        negated: impl Iterator<Item = OccId>,
+        negated: impl Iterator<Item = (usize, OccId)>,
         mut top: InfId,
     ) -> InfId {
         let forest = self.derivation.forest();
-        let sequent = self.derivation.inference(base).sequent();
         let mut pending = Vec::new();
-        for c in negated {
-            // A formula the sequent holds twice is either copy.
-            let position = sequent.partition_point(|m| m.occ() < c);
-            debug_assert_eq!(sequent[position].occ(), c);
+        for (position, c) in negated {
+            debug_assert_eq!(
+                self.derivation
+                    .occurrence(self.derivation.inference(base).sequent()[position]),
+                c
+            );
             pending.push(position);
             let side = written::context(forest, self.writing, c);
             top = sink.take(Shown {
@@ -577,6 +612,53 @@ impl<'a> TwoSided<'a> {
             });
         }
         top
+    }
+
+    /// Returns the position in the sequent of the one-sided inference
+    /// `premise` of the member of `c` that the rule of `below` exposes
+    /// there: a subformula of the member `of` (the principal formula or
+    /// the cut formula) under its frame, or the body of a binder (`body`)
+    /// under a frame that pushes one term onto it. A formula the sequent
+    /// holds twice is either copy.
+    fn exposed_at(
+        &self,
+        below: &Inference,
+        premise: InfId,
+        of: Member,
+        c: OccId,
+        body: bool,
+    ) -> usize {
+        let sequent = self.derivation.inference(premise).sequent();
+        let Some(framing) = self.derivation.framing() else {
+            // Every member is the occurrence it stands for.
+            let position = sequent.partition_point(|&m| m < Member::from(c));
+            debug_assert_eq!(sequent[position].occ(), c);
+            return position;
+        };
+        let table = framing.table;
+        let frame = |m: Member| table.instance(m).map(|(_, f)| f);
+        let wanted = frame(of);
+        let fits = |m: Member| {
+            framing.occurrence(m) == c
+                && if body {
+                    frame(m).is_some_and(|f| table.frame_parts(f).0 == wanted)
+                } else {
+                    frame(m) == wanted
+                }
+        };
+        let count = |s: &[Member], m: Member| {
+            s.partition_point(|&x| x <= m) - s.partition_point(|&x| x < m)
+        };
+        // Of a binder's bodies under several terms, the one the rule adds:
+        // the premise holds more of it than the conclusion.
+        let mut first = None;
+        for (position, &m) in sequent.iter().enumerate().filter(|&(_, &m)| fits(m)) {
+            if count(sequent, m) > count(below.sequent(), m) {
+                return position;
+            }
+            first.get_or_insert(position);
+        }
+        first.expect("a premise holds what its rule exposes")
     }
 
     /// Returns the one-sided derivation the view shows.
@@ -641,18 +723,20 @@ impl<'a> TwoSided<'a> {
     /// For an id past the view's end.
     pub fn sides(&self, id: InfId) -> impl Iterator<Item = (Member, Side, bool)> + '_ {
         let shown = &self.inferences[id.index()];
-        let forest = self.derivation.forest();
-        let sequent = self.derivation.inference(shown.base).sequent();
+        let derivation = self.derivation;
+        let forest = derivation.forest();
+        let sequent = derivation.inference(shown.base).sequent();
         let shown_at = move |&(position, _): &(usize, &Member)| !shown.hidden.contains(&position);
         sequent
             .iter()
             .enumerate()
             .filter(shown_at)
             .map(move |(position, &m)| {
+                let o = derivation.occurrence(m);
                 if shown.pending.contains(&position) {
-                    (m, written::context(forest, self.writing, m.occ()), true)
+                    (m, written::context(forest, self.writing, o), true)
                 } else {
-                    (m, self.writing[m.occ().index()].side(), false)
+                    (m, self.writing[o.index()].side(), false)
                 }
             })
     }
@@ -679,12 +763,13 @@ impl<'a> TwoSided<'a> {
         let shown = |side: Side| {
             self.sides(id)
                 .filter(move |&(_, s, _)| s == side)
-                .map(|(m, _, negated)| (m.occ(), negated))
+                .map(|(m, _, negated)| (m, negated))
         };
         notation.classical(
             out,
             self.derivation.forest(),
             self.writing,
+            self.derivation.framing(),
             shown(Side::Input),
             shown(Side::Output),
             aligned,
@@ -829,16 +914,21 @@ fn difference(larger: &[Member], smaller: &[Member]) -> Vec<usize> {
 /// Returns the subformulas of `p` that the one-sided rule `rule` on it
 /// puts into its premise `j`: the left and the right one of a `⅋`, one
 /// factor of a `⊗` or `&` each, the operand of a `⊕` rule, `!` and `?d`,
-/// and none for every other rule.
+/// the body of `∀` and `∃`, and none for every other rule.
 fn exposed(forest: &Forest, rule: Rule, p: OccId, j: usize) -> [Option<OccId>; 2] {
     match (rule, j) {
-        // The view refuses a sequent with binders.
-        (Rule::Forall | Rule::Exists, _) => unreachable!("no binder in the classical view"),
         (Rule::Par, _) => [forest.left(p), forest.right(p)],
         (Rule::Tensor | Rule::With, 1) | (Rule::PlusRight, _) => [forest.right(p), None],
-        (Rule::Tensor | Rule::With | Rule::PlusLeft | Rule::Promotion | Rule::Dereliction, _) => {
-            [forest.left(p), None]
-        }
+        (
+            Rule::Tensor
+            | Rule::With
+            | Rule::PlusLeft
+            | Rule::Promotion
+            | Rule::Dereliction
+            | Rule::Forall
+            | Rule::Exists,
+            _,
+        ) => [forest.left(p), None],
         (
             Rule::Ax
             | Rule::One
@@ -874,8 +964,9 @@ impl Sink for Vec<Shown> {
 struct Counted<'d> {
     /// The derivation the view shows.
     derivation: &'d Derivation<'d>,
-    /// The characters of every occurrence's formula and its separator.
-    weights: Vec<u32>,
+    /// The characters of every member's formula and its separator, an
+    /// instance's at most.
+    weights: Weights,
     /// The characters of each one-sided inference's sequent, by its id,
     /// once computed: a chain of negation steps shows one sequent again.
     characters: Vec<Option<u64>>,
@@ -890,7 +981,10 @@ impl<'d> Counted<'d> {
     fn new(derivation: &'d Derivation<'d>) -> Self {
         Self {
             derivation,
-            weights: crate::proofs::size::weights(derivation.forest()),
+            weights: Weights::of_members(
+                derivation.forest(),
+                derivation.framing().map(|framing| framing.table),
+            ),
             characters: vec![None; derivation.inferences().len()],
             inferences: 0,
             bytes: 0,
@@ -903,7 +997,7 @@ impl Sink for Counted<'_> {
         let characters = *self.characters[shown.base.index()].get_or_insert_with(|| {
             let sequent = self.derivation.inference(shown.base).sequent();
             sequent.iter().fold(0u64, |sum, m| {
-                sum.saturating_add(self.weights[m.occ().index()].into())
+                sum.saturating_add(self.weights.get(*m).into())
             })
         });
         self.inferences = self.inferences.saturating_add(1);
@@ -1053,6 +1147,21 @@ mod tests {
                  ────────────────────── ⊗R\n  \
                  !A ⊢ ?(A ⊕ B) ⊗ 1",
             ),
+            (
+                // The quantifier rules, every instance written with the
+                // eigenvariable or the witness of its frame.
+                "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)",
+                "          ───────────────── ax\n          \
+                 r(b, a) ⊢ r(b, a)\n        \
+                 ───────────────────── ∃R\n        \
+                 r(b, a) ⊢ ∃y. r(b, y)\n      \
+                 ───────────────────────── ∀L\n      \
+                 ∀x. r(x, a) ⊢ ∃y. r(b, y)\n   \
+                 ─────────────────────────────── ∀R\n   \
+                 ∀x. r(x, a) ⊢ ∀x. (∃y. r(x, y))\n\
+                 ───────────────────────────────────── ∃L\n\
+                 ∃y. (∀x. r(x, y)) ⊢ ∀x. (∃y. r(x, y))",
+            ),
         ];
         for (text, tree) in cases {
             assert_eq!(drawn(text), tree, "{text}");
@@ -1085,21 +1194,167 @@ mod tests {
         on(Side::Input).chain(on(Side::Output)).collect()
     }
 
-    /// Over the proofs of generated sequents written at random, every
-    /// inference of the two-sided view prints as a sequent that parses
-    /// back to the same: its formulas on the same sides, each written as
-    /// the sequent's own occurrence was, with the negation shown where
+    /// What [`reads_as_its_term`] saw over the views it checked.
+    #[derive(Default)]
+    struct Tally {
+        /// The inferences.
+        inferences: usize,
+        /// The negation steps.
+        negations: usize,
+        /// The inferences that leave formulas out: halves of a run split
+        /// by side.
+        split: usize,
+        /// The cuts.
+        cuts: usize,
+        /// Every rule seen.
+        rules: std::collections::BTreeSet<ClassicalRule>,
+    }
+
+    /// Checks the two-sided views of `proof`, drawn with and without
+    /// compaction, of a sequent written as `written` records: every
+    /// inference prints as a sequent that parses back to the same, its
+    /// formulas on the same sides, each written as its occurrence was and
+    /// an instance with its frame's terms, with the negation shown where
     /// the view shows one. Read one-sided, each is the inference it shows:
     /// a rule of the term with its principal formula as written on the
     /// side its name says, or a negation step that moves one formula,
     /// written with its negation in the conclusion, without it to the
-    /// other side in the premise. The root is the sequent as written. The
-    /// same holds of a proof with a cut on a formula typed as written,
-    /// whose two occurrences the session records on their sides.
+    /// other side in the premise. The root is the sequent as written.
+    fn reads_as_its_term(proof: &Proof, writing: &[Written], text: &str, tally: &mut Tally) {
+        let limits = Limits::default();
+        let written: ClassicalSequent = text.parse().unwrap();
+        for compact in [Compact::Never, Compact::Always] {
+            let options = ViewOptions::default().with_compact(compact);
+            let derivation = proof
+                .derivation_within(&options, &limits, |_| false)
+                .unwrap();
+            let view = TwoSided::new(&derivation, writing, &limits).unwrap();
+            let forest = derivation.forest();
+            let occurrence = |m: Member| derivation.occurrence(m);
+            let root = view.root();
+            assert_eq!(
+                view.sequent(root).to_string(),
+                written.to_string(),
+                "{text}"
+            );
+            for k in 0..view.len() {
+                let id = InfId::new(k as u32);
+                let printed = view.sequent(id).to_string();
+                let parsed: ClassicalSequent = printed.parse().unwrap();
+                let members = shown(&view, id);
+                let left = members.iter().filter(|m| m.1 == Side::Input).count();
+                let (pf, pw) = (parsed.forest(), parsed.writing());
+                assert_eq!(
+                    parsed.sequent().antecedents(),
+                    Some(left as u32),
+                    "{printed}"
+                );
+                assert_eq!(pf.roots().len(), members.len(), "{printed}");
+                for (&r, &(m, _, negated)) in pf.roots().iter().zip(&members) {
+                    let o = occurrence(m);
+                    assert_eq!(pf.size(r), forest.size(o), "{printed}");
+                    assert_eq!(
+                        pf.formula(r).to_string(),
+                        derivation.formula(m).to_string(),
+                        "{printed}"
+                    );
+                    for d in 0..forest.size(o) {
+                        let (p, q) = (OccId::new(r.get() + d), OccId::new(o.get() + d));
+                        assert_eq!(pf.kind(p), forest.kind(q), "{printed}");
+                        assert_eq!(pw[p.index()], writing[q.index()], "{printed}");
+                        if m.occurrence(forest).is_some() {
+                            let name = |f: &Forest, x| {
+                                f.atom(x).map(|a| f.sequent().atom_name(a).to_owned())
+                            };
+                            assert_eq!(name(pf, p), name(forest, q), "{printed}");
+                        }
+                    }
+                    assert_eq!(parsed.is_negated(r), negated, "{printed}");
+                }
+                let base = derivation.inference(view.shows(id));
+                let rule = view.rule(id);
+                match rule.rule() {
+                    None => {
+                        let &[premise] = view.premises(id) else {
+                            panic!("a negation step has one premise");
+                        };
+                        assert_eq!(view.shows(premise), view.shows(id));
+                        let above: Vec<_> = view.sides(premise).collect();
+                        let below: Vec<_> = view.sides(id).collect();
+                        let moved: Vec<_> =
+                            (0..below.len()).filter(|&p| above[p] != below[p]).collect();
+                        let &[p] = &moved[..] else {
+                            panic!("a negation step moves one formula: {printed}");
+                        };
+                        let (m, side, negated) = below[p];
+                        assert!(negated && !above[p].2, "{printed}");
+                        assert_eq!(above[p].1, writing[occurrence(m).index()].side());
+                        assert_eq!(Some(side), rule.side(), "{printed}");
+                        assert_ne!(side, above[p].1, "{printed}");
+                        tally.negations += 1;
+                    }
+                    Some(one_sided) if one_sided.is_structural() => {
+                        // A run: what it adds or takes away stands on its
+                        // name's side, as many as it counts.
+                        assert_eq!(one_sided, base.rule().rule, "{printed}");
+                        let &[premise] = view.premises(id) else {
+                            panic!("a structural rule has one premise");
+                        };
+                        let key = |s: &(Member, Side, bool)| (s.0, s.1 == Side::Input, s.2);
+                        let mut below: Vec<_> = view.sides(id).map(|s| key(&s)).collect();
+                        let mut above: Vec<_> = view.sides(premise).map(|s| key(&s)).collect();
+                        below.sort_unstable();
+                        above.sort_unstable();
+                        let (larger, smaller) = if one_sided == Rule::Contraction {
+                            (&above, &below)
+                        } else {
+                            (&below, &above)
+                        };
+                        let mut moved = larger.clone();
+                        for s in smaller {
+                            let at = moved.iter().position(|m| m == s).expect("a sub-multiset");
+                            moved.remove(at);
+                        }
+                        assert_eq!(moved.len() as u32, view.inferences[k].times, "{printed}");
+                        if let Some(named) = rule.side() {
+                            let input = named == Side::Input;
+                            assert!(moved.iter().all(|m| m.1 == input), "{printed} by {rule}");
+                        }
+                    }
+                    Some(one_sided) => {
+                        assert_eq!(one_sided, base.rule().rule, "{printed}");
+                        assert_eq!(view.premises(id).len(), base.premises().len());
+                        if let Some(position) = base.principal() {
+                            let (m, side, negated) = view.sides(id).nth(position).unwrap();
+                            assert!(!negated, "a rule acts on a formula as written");
+                            if let Some(named) = rule.side() {
+                                assert_eq!(side, named, "{printed} by {rule}");
+                            }
+                            let implication = writing[occurrence(m).index()].is_implication();
+                            let lollipop = matches!(
+                                rule,
+                                ClassicalRule::LollipopLeft | ClassicalRule::LollipopRight
+                            );
+                            assert_eq!(implication, lollipop, "{printed} by {rule}");
+                        }
+                    }
+                }
+                tally.split += usize::from(!view.inferences[k].hidden.is_empty());
+                tally.cuts += usize::from(rule == ClassicalRule::Cut);
+                tally.rules.insert(rule);
+                tally.inferences += 1;
+            }
+        }
+    }
+
+    /// Over the proofs of generated sequents written at random, every
+    /// inference of the two-sided view reads as its term
+    /// ([`reads_as_its_term`]); so does every inference of a proof with
+    /// a cut on a formula typed as written, whose two occurrences the
+    /// session records on their sides.
     #[test]
     fn every_inference_parses_back_and_reads_as_its_term() {
-        let limits = Limits::default();
-        let (mut inferences, mut negations, mut split, mut cuts) = (0, 0, 0, 0);
+        let mut tally = Tally::default();
         let mut cut_rng = Rng::new(41);
         for (i, rules) in Rules::ALL.into_iter().enumerate() {
             let mode = if rules.mix {
@@ -1116,143 +1371,86 @@ mod tests {
                 let plain = (proved(&written, mode), written.writing().to_vec());
                 let cut = cut_written(&written, mode, &mut cut_rng);
                 for (proof, writing) in [Some(plain), cut].into_iter().flatten() {
-                    for compact in [Compact::Never, Compact::Always] {
-                        let options = ViewOptions::default().with_compact(compact);
-                        let derivation = proof
-                            .derivation_within(&options, &limits, |_| false)
-                            .unwrap();
-                        let view = TwoSided::new(&derivation, &writing, &limits).unwrap();
-                        let forest = derivation.forest();
-                        let root = view.root();
-                        assert_eq!(
-                            view.sequent(root).to_string(),
-                            written.to_string(),
-                            "{text}"
-                        );
-                        for k in 0..view.len() {
-                            let id = InfId::new(k as u32);
-                            let printed = view.sequent(id).to_string();
-                            let parsed: ClassicalSequent = printed.parse().unwrap();
-                            let members = shown(&view, id);
-                            let left = members.iter().filter(|m| m.1 == Side::Input).count();
-                            let (pf, pw) = (parsed.forest(), parsed.writing());
-                            assert_eq!(
-                                parsed.sequent().antecedents(),
-                                Some(left as u32),
-                                "{printed}"
-                            );
-                            assert_eq!(pf.roots().len(), members.len(), "{printed}");
-                            for (&r, &(m, _, negated)) in pf.roots().iter().zip(&members) {
-                                let o = m.occ();
-                                assert_eq!(pf.size(r), forest.size(o), "{printed}");
-                                for d in 0..forest.size(o) {
-                                    let (p, q) = (OccId::new(r.get() + d), OccId::new(o.get() + d));
-                                    assert_eq!(pf.kind(p), forest.kind(q), "{printed}");
-                                    assert_eq!(pw[p.index()], writing[q.index()], "{printed}");
-                                    let name = |f: &Forest, x| {
-                                        f.atom(x).map(|a| f.sequent().atom_name(a).to_owned())
-                                    };
-                                    assert_eq!(name(pf, p), name(forest, q), "{printed}");
-                                }
-                                assert_eq!(parsed.is_negated(r), negated, "{printed}");
-                            }
-                            let base = derivation.inference(view.shows(id));
-                            let rule = view.rule(id);
-                            match rule.rule() {
-                                None => {
-                                    let &[premise] = view.premises(id) else {
-                                        panic!("a negation step has one premise");
-                                    };
-                                    assert_eq!(view.shows(premise), view.shows(id));
-                                    let above: Vec<_> = view.sides(premise).collect();
-                                    let below: Vec<_> = view.sides(id).collect();
-                                    let moved: Vec<_> = (0..below.len())
-                                        .filter(|&p| above[p] != below[p])
-                                        .collect();
-                                    let &[p] = &moved[..] else {
-                                        panic!("a negation step moves one formula: {printed}");
-                                    };
-                                    let (m, side, negated) = below[p];
-                                    assert!(negated && !above[p].2, "{printed}");
-                                    assert_eq!(above[p].1, writing[m.occ().index()].side());
-                                    assert_eq!(Some(side), rule.side(), "{printed}");
-                                    assert_ne!(side, above[p].1, "{printed}");
-                                    negations += 1;
-                                }
-                                Some(one_sided) if one_sided.is_structural() => {
-                                    // A run: what it adds or takes away stands on
-                                    // its name's side, as many as it counts.
-                                    assert_eq!(one_sided, base.rule().rule, "{printed}");
-                                    let &[premise] = view.premises(id) else {
-                                        panic!("a structural rule has one premise");
-                                    };
-                                    let key =
-                                        |s: &(Member, Side, bool)| (s.0, s.1 == Side::Input, s.2);
-                                    let mut below: Vec<_> =
-                                        view.sides(id).map(|s| key(&s)).collect();
-                                    let mut above: Vec<_> =
-                                        view.sides(premise).map(|s| key(&s)).collect();
-                                    below.sort_unstable();
-                                    above.sort_unstable();
-                                    let (larger, smaller) = if one_sided == Rule::Contraction {
-                                        (&above, &below)
-                                    } else {
-                                        (&below, &above)
-                                    };
-                                    let mut moved = larger.clone();
-                                    for s in smaller {
-                                        let at = moved
-                                            .iter()
-                                            .position(|m| m == s)
-                                            .expect("a sub-multiset");
-                                        moved.remove(at);
-                                    }
-                                    assert_eq!(
-                                        moved.len() as u32,
-                                        view.inferences[k].times,
-                                        "{printed}"
-                                    );
-                                    if let Some(named) = rule.side() {
-                                        let input = named == Side::Input;
-                                        assert!(
-                                            moved.iter().all(|m| m.1 == input),
-                                            "{printed} by {rule}"
-                                        );
-                                    }
-                                }
-                                Some(one_sided) => {
-                                    assert_eq!(one_sided, base.rule().rule, "{printed}");
-                                    assert_eq!(view.premises(id).len(), base.premises().len());
-                                    if let Some(position) = base.principal() {
-                                        let (m, side, negated) =
-                                            view.sides(id).nth(position).unwrap();
-                                        assert!(!negated, "a rule acts on a formula as written");
-                                        if let Some(named) = rule.side() {
-                                            assert_eq!(side, named, "{printed} by {rule}");
-                                        }
-                                        let implication = writing[m.occ().index()].is_implication();
-                                        let lollipop = matches!(
-                                            rule,
-                                            ClassicalRule::LollipopLeft
-                                                | ClassicalRule::LollipopRight
-                                        );
-                                        assert_eq!(implication, lollipop, "{printed} by {rule}");
-                                    }
-                                }
-                            }
-                            split += usize::from(!view.inferences[k].hidden.is_empty());
-                            cuts += usize::from(rule == ClassicalRule::Cut);
-                            inferences += 1;
-                        }
-                    }
+                    reads_as_its_term(&proof, &writing, &text, &mut tally);
                 }
             }
         }
+        let Tally {
+            inferences,
+            negations,
+            split,
+            cuts,
+            ..
+        } = tally;
         assert!(
             inferences > 1000 && negations > 100 && split > 0,
             "{inferences} {negations} {split}"
         );
         #[cfg(feature = "interactive")]
         assert!(cuts > 50, "{cuts} cuts");
+    }
+
+    /// A first-order proof's view reads as its term too: its quantifier
+    /// rules named by side, its instances written with the eigenvariables
+    /// and witnesses of their frames, a negation written over a binder or
+    /// its body a step of its own.
+    #[test]
+    fn a_first_order_view_reads_as_its_term() {
+        let mut tally = Tally::default();
+        for text in [
+            "forall x. p(x) |- p(a)",
+            "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)",
+            "p(a) & p(b), q(b) |- exists x. (p(x) * q(x))",
+            "|- ~(forall x. p(x)), p(a)",
+            "exists x. ~p(x) |- ~(forall x. p(x))",
+            "|- forall x. ~(p(x) * q(x)), exists x. (p(x) * q(x))",
+            "!forall x. p(x), !q(c) |- p(a) * p(b), ?q(c)",
+            "!forall x. ~p(x), p(a) par p(b) |-",
+        ] {
+            let written: ClassicalSequent = text.parse().unwrap();
+            let proof = proved(&written, Mode::CLASSICAL);
+            assert!(proof.instances().is_some(), "{text}");
+            reads_as_its_term(&proof, written.writing(), text, &mut tally);
+        }
+        let quantifiers = [
+            ClassicalRule::ForallLeft,
+            ClassicalRule::ForallRight,
+            ClassicalRule::ExistsLeft,
+            ClassicalRule::ExistsRight,
+        ];
+        assert!(
+            quantifiers.iter().all(|r| tally.rules.contains(r)),
+            "{:?}",
+            tally.rules
+        );
+        assert!(tally.negations >= 3, "{} negations", tally.negations);
+    }
+
+    /// The rules are in [`ClassicalRule::ALL`] in their order of
+    /// declaration, by which the label tables are indexed; the quantifier
+    /// rules are named and labelled by the side of their principal
+    /// formula.
+    #[test]
+    fn rules_are_labelled_in_declaration_order() {
+        use ClassicalRule::*;
+        for (i, rule) in ClassicalRule::ALL.into_iter().enumerate() {
+            assert_eq!(rule as usize, i, "{rule}");
+        }
+        for (rule, name, upright, subscript, side, one_sided) in [
+            (ForallLeft, "∀L", "∀L", "∀_L", Side::Input, Rule::Exists),
+            (ForallRight, "∀R", "∀R", "∀_R", Side::Output, Rule::Forall),
+            (ExistsLeft, "∃L", "∃L", "∃_L", Side::Input, Rule::Forall),
+            (ExistsRight, "∃R", "∃R", "∃_R", Side::Output, Rule::Exists),
+        ] {
+            assert_eq!(rule.name(), name);
+            assert_eq!(rule.markup(false), upright);
+            assert_eq!(rule.markup(true), subscript);
+            assert_eq!(rule.side(), Some(side));
+            assert_eq!(rule.rule(), Some(one_sided));
+            assert_eq!(
+                ClassicalRule::applied(one_sided, Written::new(side, false)),
+                rule
+            );
+        }
     }
 }

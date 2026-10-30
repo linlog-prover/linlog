@@ -22,13 +22,13 @@ use linlog::export::rocq::{self, Kernel, Unsupported};
 use linlog::export::svg::{
     self, Conclusions, MathFont, NetDrawing, NetLook, Premises, Style, WhyNot,
 };
-use linlog::export::{Form, latex, typst};
+use linlog::export::{Drawable, Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
-    Criterion, CutFormula, Derivation, Forest, GoalId, IllSequent, Inference, InputOptions,
-    Interactive, Limits, MellStructure, Mode, OccId, Options, Order, Parts, Placed, Proof,
-    ProofStructure, Step, VertexId, ViewOptions,
+    ClassicalSequent, Criterion, CutFormula, Derivation, Forest, GoalId, IllSequent, Inference,
+    InputOptions, Interactive, Limits, MellStructure, Mode, OccId, Options, Order, Parts, Placed,
+    Proof, ProofStructure, Step, TwoSided, VertexId, ViewOptions,
 };
 use linlog::{Error, Refusal};
 use linlog::{Named, Rule, Sequent, Verdict, prove};
@@ -50,9 +50,9 @@ fn snapshot(name: &str, actual: &str) {
     assert_eq!(actual, expected.trim_end_matches('\n'), "{name}");
 }
 
-/// Pins a derivation in every target as the snapshots `name.tex`,
-/// `name.typ` and `name.svg`.
-fn pin(name: &str, derivation: &Derivation) {
+/// Pins a derivation, or a view of one, in every target as the snapshots
+/// `name.tex`, `name.typ` and `name.svg`.
+fn pin<'a>(name: &str, derivation: impl Into<Drawable<'a>> + Copy) {
     let mut latex = latex::Options::default();
     latex.form = Form::Standalone;
     snapshot(
@@ -423,6 +423,15 @@ fn every_label() {
         rules.extend(derivation.inferences().iter().map(Inference::rule));
         pin(&format!("first_order_{name}"), &derivation);
     }
+    // The classical two-sided view's quantifier rules, `∃L`, `∀L`, `∀R`
+    // and `∃R`, on a first-order sequent as written.
+    let written: ClassicalSequent = "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)"
+        .parse()
+        .unwrap();
+    let outcome = prove(written.sequent(), Mode::CLASSICAL, &Options::default()).unwrap();
+    let derivation = outcome.verdict.proof().unwrap().derivation().unwrap();
+    let view = TwoSided::new(&derivation, written.writing(), &Limits::default()).unwrap();
+    pin("first_order_classical", &view);
     let missing: Vec<Named> = Named::ALL
         .into_iter()
         .filter(|r| r.rule != Rule::Open && !rules.contains(r))

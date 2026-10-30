@@ -10,7 +10,7 @@
 //! never inferred from the one-sided form.
 
 use super::reading::Side;
-use super::{Forest, OccId};
+use super::{Forest, Member, OccId};
 use crate::sequents::notation::TEXT;
 use crate::sequents::{Kind, Sequent};
 use crate::{Error, Limits};
@@ -333,13 +333,14 @@ impl Display for ClassicalSequent {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let (forest, writing) = (&self.forest, &self.writing[..]);
         let antecedents = forest.sequent().antecedents().unwrap_or(0) as usize;
-        let shown = |&o: &OccId| (o, negated(forest, writing, o));
+        let shown = |&o: &OccId| (Member::from(o), negated(forest, writing, o));
         let roots = forest.roots();
         let (left, right) = roots.split_at(antecedents.min(roots.len()));
         TEXT.classical(
             f,
             forest,
             writing,
+            None,
             left.iter().map(shown),
             right.iter().map(shown),
             false,
