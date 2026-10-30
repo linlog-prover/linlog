@@ -400,6 +400,12 @@ its zone, the first-order focused engine). Left, in order:
   repository) need the author's yes for that task (the yes for
   `rocq-linlog`'s creation and setup is given); deleting and
   transferring are theirs alone.
+- **Unattended, deciding** (the author, 2026-10-30, 22:07: "consider
+  yourself unattended from now. If any decisions come up, please decide
+  them in the way that rational thinking makes you believe is best"):
+  decide what would have gone to the author, each decision with its
+  reason in the Status log; the tags, publication, the night baseline,
+  `gh` administration and anything outward stay theirs.
 - **Timed runs need no yes** (the author, 2026-10-30, 21:40: "You
   don't need to ask before doing benchmarks. Just coordinate with the
   other sessions"): a session tells the planning session before each

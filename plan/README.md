@@ -4187,3 +4187,11 @@ client follows it (step 32).
 - 2026-10-30, 21:40: the author, standing: timed runs need no yes, only
   coordination with the other sessions (`plan/handoff.md`); the baseline's
   night is still theirs to give.
+- 2026-10-30, 22:07: the author: "Please consider yourself unattended
+  from now. If any decisions come up, please decide them in the way that
+  rational thinking makes you believe is best." The planning session
+  decides what would have gone to the author (keep or revert, a
+  departure, a lesson outline), records each decision with its reason in
+  this log, and starts each next step after its review; the tags, the
+  publications, the night baseline and every outward act stay the
+  author's.
