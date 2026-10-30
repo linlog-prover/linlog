@@ -269,6 +269,10 @@ pub(super) struct Framed {
     /// terms' size and not with the search's steps. Atomic, so that the
     /// walks that read the zone count too; one thread uses it.
     steps: AtomicU64,
+    /// The unifications of two literals tried.
+    unifications: u64,
+    /// The metavariables bound.
+    bindings: u64,
     /// The bytes of the tables and the walks' buffers the engine was last
     /// told the zone holds.
     charged: usize,
@@ -475,6 +479,7 @@ impl Framed {
             self.depths.insert(u, depth);
         }
         self.trail.push(Undone::Bound(x));
+        self.bindings += 1;
         self.vars[x as usize] = Var::Meta {
             binding: Some(t),
             level,
@@ -801,6 +806,8 @@ impl Zone for Framed {
             marks: Vec::new(),
             stamp: 0,
             steps: AtomicU64::new(0),
+            unifications: 0,
+            bindings: 0,
             charged: 0,
             pairs: Vec::new(),
             met: HashSet::default(),
@@ -1017,6 +1024,7 @@ impl Zone for Framed {
     }
 
     fn unify(&mut self, forest: &Forest, p: FMember, q: FMember) -> Unified {
+        self.unifications += 1;
         let fo = &forest.sequent().fo;
         let ((o, f), (r, g)) = (self.instance(p), self.instance(q));
         let (Some(a), Some(b)) = (forest.atom(o), forest.atom(r)) else {
@@ -1137,6 +1145,10 @@ impl Zone for Framed {
 
     fn take_steps(&mut self) -> u64 {
         std::mem::take(self.steps.get_mut())
+    }
+
+    fn counts(&self) -> (u64, u64) {
+        (self.unifications, self.bindings)
     }
 
     /// The tables and the walks' buffers by their capacities; a hash

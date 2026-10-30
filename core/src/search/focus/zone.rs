@@ -233,6 +233,12 @@ pub(super) trait Zone: Sized + Send + Sync {
         unreachable!("a zone without binders walks no term")
     }
 
+    /// The unifications of two literals the zone tried and the
+    /// metavariables it bound since it was made.
+    fn counts(&self) -> (u64, u64) {
+        unreachable!("a zone without binders unifies nothing")
+    }
+
     /// The bytes the zone's tables held when last asked and hold now,
     /// which the engine charges to its account.
     fn held(&mut self) -> (usize, usize) {

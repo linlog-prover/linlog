@@ -2164,6 +2164,16 @@ impl Engine {
                 "forward search's copy bound reached",
                 "the forward search's level under the default bias",
             ),
+            Counter::new(
+                "unifications",
+                "unifications tried",
+                "unifications of two literals tried, on a first-order sequent",
+            ),
+            Counter::new(
+                "bindings",
+                "metavariables bound",
+                "metavariables bound, on a first-order sequent",
+            ),
             WORK,
         ];
         /// The net engine's counters.
@@ -3094,7 +3104,9 @@ impl Display for Reason {
 /// the counters an engine does not list stay zero.
 ///
 /// In JSON (feature `serialize`) an object of the counters by name, read
-/// back with a missing one as zero.
+/// back with a missing one as zero; the first-order counters are written
+/// only where they are not zero, so a propositional search's object is
+/// what it was before them.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default))]
@@ -3150,6 +3162,26 @@ pub struct Statistics {
     /// add up to; other threads' units come into [`Progress::done`]
     /// only.
     pub work: u64,
+    /// The unifications of two literals the focused engines tried on a
+    /// first-order sequent, at an identity or against a copy of the
+    /// unrestricted zone, whether they unified or not.
+    #[cfg_attr(feature = "serialize", serde(skip_serializing_if = "is_zero"))]
+    pub unifications: u64,
+    /// The bindings of a metavariable the focused engines made on a
+    /// first-order sequent: one that an undo took back and the search
+    /// made again counts again.
+    #[cfg_attr(feature = "serialize", serde(skip_serializing_if = "is_zero"))]
+    pub bindings: u64,
+}
+
+/// Whether a counter is zero, which its JSON then leaves out.
+#[cfg(feature = "serialize")]
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if passes a reference"
+)]
+fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 impl Statistics {
@@ -3174,6 +3206,8 @@ impl Statistics {
         self.links += other.links;
         self.tests += other.tests;
         self.copies = self.copies.max(other.copies);
+        self.unifications += other.unifications;
+        self.bindings += other.bindings;
     }
 }
 
@@ -3257,7 +3291,14 @@ mod tests {
     #[cfg(feature = "serialize")]
     #[test]
     fn counters_are_fields() {
-        let written = serde_json::to_value(Statistics::default()).unwrap();
+        // Every counter not zero, since the first-order ones are written
+        // only then.
+        let written = serde_json::to_value(Statistics {
+            unifications: 1,
+            bindings: 1,
+            ..Statistics::default()
+        })
+        .unwrap();
         for &engine in Engine::ALL {
             let keys: Vec<&str> = engine.counters().iter().map(|c| c.key).collect();
             for key in &keys {
@@ -4056,6 +4097,8 @@ mod tests {
             copies: 2,
             forward_copies: 9,
             work: 10,
+            unifications: 6,
+            bindings: 2,
         };
         let second = Statistics {
             nodes: 5,
@@ -4067,6 +4110,8 @@ mod tests {
             copies: 5,
             forward_copies: 0,
             work: 20,
+            unifications: 1,
+            bindings: 3,
         };
         first.add(&second);
         assert_eq!(
@@ -4081,6 +4126,8 @@ mod tests {
                 copies: 5,
                 forward_copies: 9,
                 work: 30,
+                unifications: 7,
+                bindings: 5,
             }
         );
     }

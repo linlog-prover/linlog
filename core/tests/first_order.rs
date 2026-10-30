@@ -536,6 +536,28 @@ fn the_first_order_families_have_their_verdicts() {
     }
 }
 
+/// A first-order search counts the unifications of two literals it tried
+/// and the metavariables it bound, one-sided and two-sided; a
+/// propositional search counts neither, and its JSON leaves them out.
+#[test]
+fn a_first_order_search_counts_its_unifications() {
+    let counted = |text: &str, mode: Mode| {
+        let sequent: Sequent = text.parse().unwrap();
+        linlog::prove(&sequent, mode, &Options::default())
+            .unwrap()
+            .statistics
+    };
+    for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+        let statistics = counted("p(a), p(b) & q(c) |- exists x. (p(x) * p(b))", mode);
+        assert!(statistics.unifications >= 2, "{mode}: {statistics:?}");
+        assert!(statistics.bindings >= 1, "{mode}: {statistics:?}");
+    }
+    let statistics = counted("a, b |- a * b", Mode::CLASSICAL);
+    assert_eq!((statistics.unifications, statistics.bindings), (0, 0));
+    let written = serde_json::to_value(statistics).unwrap();
+    assert!(written.get("unifications").is_none() && written.get("bindings").is_none());
+}
+
 /// Each first-order bound stops a search that reaches it, with its own
 /// reason, and one more lets the search through: a witness deeper than
 /// the witness depth, an instance past the bound on instances.

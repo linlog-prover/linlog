@@ -1225,6 +1225,16 @@ code it was. What a later session must keep:
   walks' temporary sets (`equal`, `fits`, `instance_of`, `pattern`,
   `open_answers`) are not charged: each is as large as the terms it
   walks, freed at its end.
+- **The first-order counters** (`Statistics::unifications`,
+  `bindings`): `Framed::unify` counts every unification of two literals
+  tried, `Framed::bind` every binding made (one an undo took back and
+  the search made again counts again); `Zone::counts` hands them to
+  `Run::statistics` behind `Z::FIRST_ORDER`, so `Ground` reads nothing
+  and its statistics are built as before. Their JSON keys are skipped
+  when zero, which keeps a propositional outcome's JSON and the
+  command's `--stats` lines byte for byte (`prove.rs` shows them for a
+  fragment with quantifiers only). On one thread they are a function of
+  the input, as `nodes` is: 42i's measurements can compare them.
 - **Every walk over terms has a stack of its own**, here and in the
   proof's canonicalization (`occurrences/instances.rs`, `Canonical::term`,
   which the engine's closed proofs feed): a witness may be nested as

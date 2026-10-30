@@ -99,7 +99,9 @@ and `prove` decides it in the classical modes (with `--mix` and
 the two-sided engine: a witness of `∃` is left open and
 filled in by unification where an axiom matches two atoms, the proof
 names every witness, and MLL1 and MALL1 are decided, with `!` and `?`
-within the copy bound. `interact` proves it step by step with the
+within the copy bound; `--stats` then adds the unifications tried and
+the metavariables bound (JSON `unifications` and `bindings`, written
+only where not zero). `interact` proves it step by step with the
 quantifier rules (section 10). The net outputs refuse it with an error
 (exit status 2), `--format rocq` certifies its proofs in the Rocq
 library's first-order development (section 18), while a sequent with

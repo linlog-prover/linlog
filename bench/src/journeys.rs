@@ -125,7 +125,7 @@ pub static JOURNEYS: &[Journey] = &[
     },
     Journey {
         name: "batch-families",
-        summary: "a batch of the families' smallest instances on one worker",
+        summary: "a batch of the propositional families' smallest instances on one worker",
         run: batch,
     },
     Journey {
@@ -411,17 +411,19 @@ fn render(format: Render) -> Result<()> {
 
 /// Decides the smallest instance of every family as one batch.
 fn batch() -> Result<()> {
-    let problems: Vec<batch::Problem> = linlog::families::FAMILIES
-        .iter()
-        .map(|family| {
-            let problem = family.instance(family.sizes[0], 0)?;
-            Ok(batch::Problem::new(
+    // The propositional families: the first-order ones have searches of
+    // their own, which this count of the batch leaves out.
+    let mut problems: Vec<batch::Problem> = Vec::new();
+    for family in linlog::families::FAMILIES {
+        let problem = family.instance(family.sizes[0], 0)?;
+        if !problem.sequent.is_first_order() {
+            problems.push(batch::Problem::new(
                 problem.name,
                 problem.sequent,
                 Some(problem.mode),
-            ))
-        })
-        .collect::<Result<_>>()?;
+            ));
+        }
+    }
     let options = batch::Options::default().with_cores(batch::Cores::Across);
     // The rarer literal's search alone, as `options` takes it with
     // exponentials, for every problem.

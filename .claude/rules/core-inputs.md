@@ -97,6 +97,35 @@ the generated families are read or changed; the harness that runs them is
   S`; a clause is the `⊕` of `(tx ⊗ ⊤)`/`(fx ⊗ ⊤)`, and the matrix their
   `&`. `mix` wraps each tensor pair in `⊕ 0` because in MLL the count
   equation refutes the bare pairs at once.
+- **The first-order families** (`lambek-fo`, `chain-fo`, `witness-fo`)
+  are constructed families of several shapes, the index naming the
+  shape (`instances` counts them; their summaries say which is which),
+  each verdict argued at its generator. `lambek-fo` translates Lambek
+  sequents built as a private `Lambek` tree by Moot and Piazza's clauses
+  (positions `i0`, …, `in` constants, bound variables `v1`, … each
+  fresh), intuitionistic; its verdicts are argued on the translation
+  itself (the positions are distinct constants, and in cut-free MILL1
+  every atom of the conclusion's instance meets one of equal arguments),
+  so they hold without the embedding's theorem, which
+  `lambek_translations_keep_the_planar_verdicts` checks against the
+  planar search on the Lambek originals at sizes 2 to 5 (the test parses
+  them with `Order::Cyclic`). `chain-fo` is classical with `copies` n
+  and `witness_depth` n − 1 (the last binding is sⁿ⁻¹(z), and the
+  default depth 64 cut the family at 128 before): its unprovable shape
+  `p(b)` rests on a classical countermodel and ends at the copy bound,
+  `provable: false`, which `summary` counts as undecided, never as a
+  mismatch. `witness-fo` is intuitionistic so that LinearOne runs its
+  MILL1 shapes (#2, #3); the MALL1 shapes (#0, #1) are the plan's.
+- **`Instance::witness_depth`** is the depth under which a proof
+  exists, `None` where the default serves; `verdicts_as_constructed`
+  and the harness's child apply it as they apply `copies`. A family
+  whose witnesses deepen with its size sets it, or its larger sizes end
+  at the witness depth instead of measuring the engine.
+- **The sizes** of the first-order families go up to where the default
+  limits are reached (the command's 2 s, the recursion limit of 2 048):
+  `lambek-fo/512` #0 and #2 meet the recursion limit (#2 after 3.9 s),
+  `chain-fo/512` meets it at about 1.5 s, `witness-fo/10#3` takes 2.7 s
+  and `/12#3` passes 10 s; every other shape is fast at every size.
 
 ## Decisions
 

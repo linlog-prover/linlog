@@ -1704,7 +1704,10 @@ cannot refute ends at the time limit. Two bounds of their own cut a
 branch where the search would go further, and a search that cut one is
 unknown rather than unprovable: `--witness-depth N` (64), the deepest
 term a witness is filled in with, and `--instances N` (65536), the most
-instances of quantified formulas the search holds at once. The proof
+instances of quantified formulas the search holds at once. `--stats`
+adds two counters on a first-order sequent, the unifications of two
+literals tried and the bindings of a witness made (in JSON `unifications`
+and `bindings`, written only where they are not zero). The proof
 nets refuse a quantifier yet, saying so with the exit status 2, the
 error's, and a first-order proof's Rocq certificate is written for
 linlog's library (`--format rocq` above). The verdicts and the bounds:
@@ -1719,6 +1722,16 @@ provable (MELL1, classical, focus engine)
 $ linlog prove --witness-depth 2 "|- exists x. p(x), ~p(f(f(f(a))))" | sed 's/after .*;/after …;/'; echo "exit $?"
 unknown (MLL1, classical, focus engine): the witness depth of 2 was reached after …; raise it with --witness-depth N
 exit 3
+$ linlog prove -q --deterministic --stats "p(a), p(b) & q(c) |- exists x. (p(x) * p(b))"
+provable (MALL1, classical, focus engine)
+stable sequents visited: 2
+from the memo: 0
+memo entries at most: 0
+splits examined: 6
+unifications tried: 5
+metavariables bound: 3
+units of work: 36
+time: 391.45µs
 ```
 
 In `interact` the quantifier rules are `∀R` and `∃L` (`∀` one-sided),
@@ -2078,7 +2091,9 @@ or `nix build .#linlog-bench`) times the engines on four kinds of
 problems: generated families with known verdicts (`linlog-bench families`
 lists them: 3-Partition as a Horn program and as an MLL sequent,
 Matsuoka's Partition, random QBF, wide sequents, contexts under Mix,
-Petri-net counters and more, each at any size), the problems of the
+Petri-net counters, the Lambek calculus in first-order MILL, a chain of
+instances of a quantified clause under `!`, a witness among many and
+more, each at any size), the problems of the
 [LLTP library](https://github.com/meta-logic/lltp) (`nix build .#lltp -o
 bench/lltp` fetches it at a pinned commit; its problems under `ILL/` run
 intuitionistically), coverability problems in the `.spec` format with
@@ -2283,7 +2298,11 @@ Built:
   by levels, and another witness asked of a premise where the first
   fails; MLL1 and MALL1 decided, with exponentials within the copy
   bound; the counts' refutations per predicate; the bounds
-  `--witness-depth` and `--instances`.
+  `--witness-depth` and `--instances`; the unifications and bindings
+  counted.
+- First-order benchmark families with verdicts by construction (the
+  Lambek calculus in Moot and Piazza's translation into MILL1, a chain
+  under `!`, a witness among many in MALL1 and MILL1).
 - First-order certificates: every first-order proof, classical,
   intuitionistic, affine, with Mix or with cuts, written for the Rocq
   library's first-order development and checked by Rocq.
@@ -2561,10 +2580,9 @@ Planned, in roughly this order:
   countermodels of the other logics, failure certificates of the
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
-- First-order linear logic beyond its syntax, its proofs, the
-  search, interactive proving, cut elimination on proof terms and the
-  Rocq certificates: first-order problem families and the comparison
-  with LinearOne.
+- First-order linear logic beyond what is built: the memo and the
+  parallel search for first-order goals, the comparison with LinearOne,
+  and first-order proving on the web page.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.

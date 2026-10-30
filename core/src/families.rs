@@ -7,7 +7,9 @@
 //! QBF under a lock-and-key encoding into MALL, Petri-net counters), the
 //! families where one engine is known to be slow (wide contexts under
 //! Mix, wide sequents of distinct or shared atoms), and the slow cases of
-//! the exponentials. Each instance says whether it is provable, by
+//! the exponentials, and first-order families: the Lambek calculus in
+//! first-order MILL, a chain of instances of a quantified clause under
+//! `!`, and a witness chosen among many. Each instance says whether it is provable, by
 //! construction or by solving the combinatorial problem it encodes, never
 //! by running an engine. Random families are seeded by their size and
 //! index, so an instance is the same on every run.
@@ -46,6 +48,10 @@ pub struct Instance {
     /// The per-branch copy bound under which a proof exists, for the
     /// families with exponentials; `None` for the others.
     pub copies: Option<u32>,
+    /// The witness depth under which a proof exists, for the families
+    /// whose witnesses deepen with the size; `None` for the others, which
+    /// the default depth serves.
+    pub witness_depth: Option<u32>,
 }
 
 /// A family of problems, indexed by a size.
@@ -60,7 +66,8 @@ pub struct Family {
     /// engines decide in minutes.
     pub sizes: &'static [u32],
     /// How many instances each size has: one for the constructed families,
-    /// several for the random ones.
+    /// several for the random ones and for the constructed families of
+    /// several shapes, whose summary says what each index is.
     pub instances: u32,
     /// The least size the family has an instance of.
     pub least: u32,
@@ -315,6 +322,80 @@ pub static FAMILIES: &[Family] = &[
             )
         },
     },
+    Family {
+        name: "lambek-fo",
+        summary: "Lambek sequents in Moot and Piazza's translation into first-order MILL, a formula at a pair of string positions; the size is k: #0 the chain a0, a0 \\ a1, …, a(k−1) \\ ak ⊢ ak, provable, #1 its first two formulas exchanged, unprovable, #2 the chain ak / a(k−1), …, a1 / a0, a0 ⊢ ak, provable, #3 a0, …, a(k−1) ⊢ a0 • … • a(k−1), provable, #4 its goal reversed, unprovable",
+        sizes: &[16, 64, 256, 512],
+        instances: 5,
+        // The reversed product of one formula is the product itself.
+        least: 2,
+        powers_of_two: false,
+        generate: |k, index| {
+            let (hypotheses, goal, provable) = lambek_shape(k, index);
+            instance(
+                parse(&lambek_first_order(&hypotheses, &goal)),
+                Mode::INTUITIONISTIC,
+                provable,
+            )
+        },
+    },
+    // #0 is proved by n copies of the clause, instantiated at z, s(z), …;
+    // fewer do not reach sⁿ(z). #1 is unprovable: forgetting linearity
+    // turns a proof into one of classical first-order logic, and the model
+    // whose domain is the closed terms, with p true of the terms sⁱ(z)
+    // alone, satisfies the hypotheses and not p(b). No refuter decides it
+    // (MELL1 is undecidable), so a search ends at the copy bound.
+    Family {
+        name: "chain-fo",
+        summary: "p(z), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(sⁿ(z)) (MELL1), #0 provable within n copies, and #1 the goal p(b), unprovable, searched to n copies; the size is n",
+        sizes: &[16, 64, 256, 512],
+        instances: 2,
+        least: 1,
+        powers_of_two: false,
+        generate: |n, index| {
+            let goal = if index == 0 {
+                format!("p({}z{})", "s(".repeat(n as usize), ")".repeat(n as usize))
+            } else {
+                "p(b)".to_owned()
+            };
+            let text = format!("p(z), !forall x. (p(x) -o p(s(x))) |- {goal}");
+            // The last step binds x to sⁿ⁻¹(z).
+            Instance {
+                copies: Some(n),
+                witness_depth: Some(n - 1),
+                ..instance(parse(&text), Mode::CLASSICAL, index == 0)
+            }
+        },
+    },
+    // The provable instances take an as the witness, and in #2 the other
+    // p(ai) for the factors ∃x.p(x). In #1 and #3 a cut-free proof links
+    // the goal's q(w) to the only q given, so w = b, and then p(b) to some
+    // p(ai), which differs from it: unprovable.
+    Family {
+        name: "witness-fo",
+        summary: "a witness among n: #0 p(a1) & … & p(an), q(an) ⊢ ∃x.(p(x) ⊗ q(x)) (MALL1), provable, #1 the same with q(b), unprovable, #2 p(a1), …, p(an), q(an) ⊢ ∃x.(p(x) ⊗ q(x)) ⊗ ∃x.p(x) ⊗ … with n − 1 factors ∃x.p(x) (MILL1), provable, #3 the same with q(b), unprovable",
+        sizes: &[4, 8, 10, 12],
+        instances: 4,
+        least: 1,
+        powers_of_two: false,
+        generate: |n, index| {
+            let alternatives: Vec<String> = (1..=n).map(|i| format!("p(a{i})")).collect();
+            let q = if index % 2 == 0 {
+                format!("q(a{n})")
+            } else {
+                "q(b)".to_owned()
+            };
+            let pair = "(exists x. (p(x) * q(x)))";
+            let text = if index < 2 {
+                format!("{}, {q} |- {pair}", alternatives.join(" & "))
+            } else {
+                let mut goal = vec![pair];
+                goal.extend((1..n).map(|_| "(exists x. p(x))"));
+                format!("{}, {q} |- {}", alternatives.join(", "), goal.join(" * "))
+            };
+            instance(parse(&text), Mode::INTUITIONISTIC, index % 2 == 0)
+        },
+    },
 ];
 
 /// Returns the family of that name.
@@ -565,6 +646,138 @@ fn additive_tree(depth: u32, level: u32, next: &mut u32) -> String {
     format!("({left} {connective} {right})")
 }
 
+/// A formula of the Lambek calculus, which [`lambek_first_order`]
+/// translates.
+#[derive(Clone, Debug)]
+enum Lambek {
+    /// An atom by its name.
+    Atom(String),
+    /// `B \ A`: the argument `B`, wanted on the left, and the result `A`.
+    Under(Box<Lambek>, Box<Lambek>),
+    /// `A / B`: the result `A` and the argument `B`, wanted on the right.
+    Over(Box<Lambek>, Box<Lambek>),
+    /// `A • B`.
+    Product(Box<Lambek>, Box<Lambek>),
+}
+
+impl Lambek {
+    /// The atom `a<i>`.
+    fn atom(i: u32) -> Self {
+        Self::Atom(format!("a{i}"))
+    }
+
+    /// The formula in the syntax of the Lambek calculus this crate's
+    /// ordered parse reads, every binary formula in parentheses.
+    #[cfg(test)]
+    fn text(&self) -> String {
+        match self {
+            Self::Atom(name) => name.clone(),
+            Self::Under(b, a) => format!("({} \\ {})", b.text(), a.text()),
+            Self::Over(a, b) => format!("({} / {})", a.text(), b.text()),
+            Self::Product(a, b) => format!("({} * {})", a.text(), b.text()),
+        }
+    }
+
+    /// Moot and Piazza's translation of the formula at the string
+    /// positions `x` to `y` into first-order MILL: an atom `p` is the
+    /// predicate `p(x, y)`, `A / B` is `∀z.(B(y, z) ⊸ A(x, z))`, `B \ A` is
+    /// `∀z.(B(z, x) ⊸ A(z, y))` and `A • B` is `∃z.(A(x, z) ⊗ B(z, y))`,
+    /// each `z` a variable of its own (`v<n>`, numbered by `fresh`).
+    fn first_order(&self, x: &str, y: &str, fresh: &mut u32) -> String {
+        if let Self::Atom(name) = self {
+            return format!("{name}({x}, {y})");
+        }
+        *fresh += 1;
+        let z = format!("v{fresh}");
+        match self {
+            Self::Atom(_) => unreachable!("handled above"),
+            Self::Over(a, b) => format!(
+                "(forall {z}. ({} -o {}))",
+                b.first_order(y, &z, fresh),
+                a.first_order(x, &z, fresh)
+            ),
+            Self::Under(b, a) => format!(
+                "(forall {z}. ({} -o {}))",
+                b.first_order(&z, x, fresh),
+                a.first_order(&z, y, fresh)
+            ),
+            Self::Product(a, b) => format!(
+                "(exists {z}. ({} * {}))",
+                a.first_order(x, &z, fresh),
+                b.first_order(&z, y, fresh)
+            ),
+        }
+    }
+}
+
+/// The Lambek sequent of shape `index` at size `k` (at least two) of the
+/// family `lambek-fo`, and whether it is provable. The verdicts hold of
+/// the translations directly, by the positions alone, since the positions
+/// `i0`, …, `in` are distinct constants and a cut-free proof of
+/// multiplicative linear logic without units links every atom of its
+/// conclusion's instance to one of the same predicate, arguments and
+/// opposite side:
+///
+/// - the chain is proved with every `∀` instantiated by `i0`, the chain
+///   of `/` with every `∀` instantiated by the last position;
+/// - the exchanged chain is not: `a0 \ a1` at `i0, i1` asks for `a0(z, i0)`,
+///   and the only `a0` given stands at `i1, i2`;
+/// - the product is proved with the positions as the witnesses;
+/// - the reversed product is not: its leftmost atom `a(k−1)` stands at
+///   `i0` and the only one given at `i(k−1)`.
+fn lambek_shape(k: u32, index: u32) -> (Vec<Lambek>, Lambek, bool) {
+    let under = |i: u32| Lambek::Under(Box::new(Lambek::atom(i)), Box::new(Lambek::atom(i + 1)));
+    let product = |order: &mut dyn Iterator<Item = u32>| {
+        let first = Lambek::atom(order.next().expect("two atoms"));
+        order.fold(first, |left, i| {
+            Lambek::Product(Box::new(left), Box::new(Lambek::atom(i)))
+        })
+    };
+    match index {
+        0 | 1 => {
+            let mut hypotheses = vec![Lambek::atom(0)];
+            hypotheses.extend((0..k).map(under));
+            if index == 1 {
+                hypotheses.swap(0, 1);
+            }
+            (hypotheses, Lambek::atom(k), index == 0)
+        }
+        2 => {
+            let mut hypotheses: Vec<Lambek> = (1..=k)
+                .rev()
+                .map(|i| Lambek::Over(Box::new(Lambek::atom(i)), Box::new(Lambek::atom(i - 1))))
+                .collect();
+            hypotheses.push(Lambek::atom(0));
+            (hypotheses, Lambek::atom(k), true)
+        }
+        3 => (
+            (0..k).map(Lambek::atom).collect(),
+            product(&mut (0..k)),
+            true,
+        ),
+        _ => (
+            (0..k).map(Lambek::atom).collect(),
+            product(&mut (0..k).rev()),
+            false,
+        ),
+    }
+}
+
+/// The two-sided text of the Lambek sequent `hypotheses ⊢ goal` in Moot
+/// and Piazza's translation: the `i`th hypothesis at the positions `i`
+/// to `i + 1`, the goal from the first position to the last, each
+/// position a constant `i<n>`.
+fn lambek_first_order(hypotheses: &[Lambek], goal: &Lambek) -> String {
+    let mut fresh = 0;
+    let translated: Vec<String> = hypotheses
+        .iter()
+        .enumerate()
+        .map(|(i, h)| h.first_order(&format!("i{i}"), &format!("i{}", i + 1), &mut fresh))
+        .collect();
+    let goal = goal.first_order("i0", &format!("i{}", hypotheses.len()), &mut fresh);
+    format!("{} |- {goal}", translated.join(", "))
+}
+
 /// `n` copies of `formula` joined by `separator`.
 fn power(formula: &str, n: u32, separator: &str) -> String {
     vec![formula; n as usize].join(separator)
@@ -572,8 +785,11 @@ fn power(formula: &str, n: u32, separator: &str) -> String {
 
 /// Parses a sequent the generators built.
 fn parse(text: &str) -> Sequent {
-    // A large size is the caller's to ask for: no bound on occurrences.
-    let unbounded = crate::Limits::default().with_occurrences(None);
+    // A large size is the caller's to ask for: no bound on occurrences or
+    // terms.
+    let unbounded = crate::Limits::default()
+        .with_occurrences(None)
+        .with_terms(None);
     Sequent::parse_within(text, &unbounded)
         .unwrap_or_else(|e| panic!("a generated sequent parses: {e}"))
 }
@@ -586,6 +802,7 @@ fn instance(sequent: Sequent, mode: Mode, provable: bool) -> Instance {
         mode,
         provable,
         copies: None,
+        witness_depth: None,
     }
 }
 
@@ -620,7 +837,12 @@ mod tests {
             for index in 0..family.instances {
                 let instance = family.instance(family.sizes[0], index).unwrap();
                 let options = Options::default()
-                    .with_copies(Some(instance.copies.unwrap_or(Options::DEFAULT_COPIES)));
+                    .with_copies(Some(instance.copies.unwrap_or(Options::DEFAULT_COPIES)))
+                    .with_witness_depth(
+                        instance
+                            .witness_depth
+                            .unwrap_or(Options::DEFAULT_WITNESS_DEPTH),
+                    );
                 let outcome = prove(&instance.sequent, instance.mode, &options).unwrap();
                 match &outcome.verdict {
                     Verdict::Proved(proof) => {
@@ -665,6 +887,36 @@ mod tests {
             }
         }
         assert!((10..50).contains(&valid), "{valid} of 60 valid");
+    }
+
+    /// The Lambek sequents behind `lambek-fo` have the verdicts the
+    /// family claims for their translations, as the planar search of the
+    /// Lambek calculus decides them, and the translations are decided so
+    /// by the first-order search: the translation keeps provability.
+    #[test]
+    fn lambek_translations_keep_the_planar_verdicts() {
+        let family = find("lambek-fo").unwrap();
+        for k in 2..=5 {
+            for index in 0..family.instances {
+                let (hypotheses, goal, provable) = lambek_shape(k, index);
+                let written: Vec<String> = hypotheses.iter().map(Lambek::text).collect();
+                let text = format!("{} |- {}", written.join(", "), goal.text());
+                let original =
+                    Sequent::parse_ordered(&text, crate::Order::Cyclic, &crate::Limits::default())
+                        .unwrap();
+                let planar = prove(&original, Mode::LAMBEK, &Options::default()).unwrap();
+                assert_eq!(planar.verdict.proof().is_some(), provable, "{text}");
+                let translated = family.instance(k, index).unwrap();
+                let first_order =
+                    prove(&translated.sequent, translated.mode, &Options::default()).unwrap();
+                assert_eq!(
+                    first_order.verdict.proof().is_some(),
+                    provable,
+                    "{}",
+                    translated.sequent
+                );
+            }
+        }
     }
 
     /// A size a family has no instance of is refused, never a panic.

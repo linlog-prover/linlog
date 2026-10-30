@@ -711,11 +711,15 @@ impl<'a, Z: Zone> Run<'a, Z> {
 
     /// Returns the counters, with the memo's.
     fn statistics(&self) -> Statistics {
-        Statistics {
+        let mut statistics = Statistics {
             memo_hits: self.memo.hits(),
             memo_entries: self.memo.peak() as u64,
             ..self.statistics
+        };
+        if Z::FIRST_ORDER {
+            (statistics.unifications, statistics.bindings) = self.zone.counts();
         }
+        statistics
     }
 
     /// Searches the goal with an empty unrestricted zone: the asynchronous

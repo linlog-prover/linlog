@@ -98,7 +98,23 @@ second number (0.1.x to 0.2.0), anything else the third.
   `search.witness_depth`) and `Options::instances` (`DEFAULT_INSTANCES`,
   65536; `--instances`, `search.instances`), each cutting a branch and
   answering `Reason::WitnessDepth` or `Reason::Instances` (in JSON
-  `witness_depth` and `instances`).
+  `witness_depth` and `instances`). `Statistics::unifications` and
+  `Statistics::bindings` count the unifications of two literals a
+  first-order search tried and the bindings of a metavariable it made;
+  `prove --stats` prints them for a first-order sequent ("unifications
+  tried", "metavariables bound"), and their JSON keys are written only
+  where they are not zero, so a propositional search's statistics are
+  written as before.
+- First-order families (`families::FAMILIES`): `lambek-fo`, Lambek
+  sequents in Moot and Piazza's translation into first-order MILL, a
+  formula at a pair of string positions (five shapes: chains of `\` and
+  of `/`, a product, and the unprovable exchanged chain and reversed
+  product); `chain-fo`, `p(z), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(sⁿ(z))` provable
+  within `n` copies, and the unprovable goal `p(b)`; `witness-fo`, a
+  witness among `n` in MALL1 (`p(a1) & … & p(an)`) and in MILL1, each
+  provable and with `q(b)` unprovable. `Instance::witness_depth` names
+  the witness depth a family's proof needs, as `Instance::copies` names
+  its copy bound.
 
 - Interactive proving with quantifiers: `Interactive` takes a sequent
   with `∀` and `∃`. `∀R` and `∃L` (`Rule::Forall`) open the formula with

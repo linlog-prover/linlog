@@ -461,6 +461,7 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
         let idle = match counter.key {
             "copies" => !outcome.fragment.has_exponentials(),
             "forward_copies" => value == 0,
+            "unifications" | "bindings" => !outcome.fragment.has_quantifiers(),
             _ => false,
         };
         if !idle {
