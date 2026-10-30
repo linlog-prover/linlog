@@ -313,40 +313,140 @@ pub fn lintap(problem: &Problem) -> Result<String> {
     Ok(out)
 }
 
-/// An intuitionistic multiplicative problem for LinearOne: `[Γ] => A.`,
-/// an atom `at(p, [])`, `p(A, B)` for `⊗` and `impl(A, B)` for `⊸`.
+/// An intuitionistic multiplicative problem for LinearOne, first-order or
+/// not: `[Γ] => A.`, an atom `at(p, [t, …])`, `p(A, B)` for `⊗`,
+/// `impl(A, B)` for `⊸`, `forall(X, A)` and `exists(X, A)`. A predicate is
+/// written `p` and a function symbol `f` with its index in the sequent's
+/// symbols (`p0`, `f3(c1)`, a constant without parentheses), and every
+/// binder of the problem binds a Prolog variable of its own (`X0`, `X1`,
+/// …), since the problem is read as one term, whose variables of one name
+/// are one variable.
 pub fn linearone(problem: &Problem) -> Result<String> {
-    let forest = Forest::new(&problem.sequent)?;
+    let sequent = &problem.sequent;
+    let forest = Forest::new(sequent)?;
     let reading = Reading::new(&forest).map_err(|e| anyhow!("no intuitionistic reading: {e}"))?;
-    let write = |o: OccId| -> Result<String> {
+    // The binders' variables numbered across the whole problem.
+    let mut variables = 0u32;
+    let mut write = |o: OccId| -> Result<String> {
         let mut out = String::new();
+        // The variables of the binders above, the innermost last.
+        let mut scope: Vec<u32> = Vec::new();
         for visit in reading.walk(o) {
             match visit {
                 Visit::Enter(o) => match reading.connective(o) {
                     IllConnective::Atom => {
                         let atom =
                             (forest.atom(o)).ok_or_else(|| anyhow!("an atom without one"))?;
-                        let _ = write!(out, "at(p{},[])", atom.index());
+                        match sequent.atom_predicate(atom) {
+                            None => {
+                                let _ = write!(out, "at(p{},[])", atom.index());
+                            }
+                            Some((symbol, args)) => {
+                                let _ = write!(out, "at(p{},[", symbol.index());
+                                for (i, &t) in sequent.arguments(args).iter().enumerate() {
+                                    if i > 0 {
+                                        out.push(',');
+                                    }
+                                    linearone_term(sequent, t, &scope, &mut out)?;
+                                }
+                                out.push_str("])");
+                            }
+                        }
                     }
                     IllConnective::Tensor => out.push_str("p("),
                     IllConnective::Lollipop => out.push_str("impl("),
+                    quantifier @ (IllConnective::Forall | IllConnective::Exists) => {
+                        let name = if quantifier == IllConnective::Forall {
+                            "forall"
+                        } else {
+                            "exists"
+                        };
+                        let _ = write!(out, "{name}(X{variables},");
+                        scope.push(variables);
+                        variables += 1;
+                    }
                     other => return Err(anyhow!("LinearOne has no {other:?}")),
                 },
                 Visit::Between(..) => out.push(','),
-                Visit::Exit(_) => out.push(')'),
+                Visit::Exit(o) => {
+                    if matches!(
+                        reading.connective(o),
+                        IllConnective::Forall | IllConnective::Exists
+                    ) {
+                        scope.pop();
+                    }
+                    out.push(')');
+                }
             }
         }
         Ok(out)
     };
     let hypotheses = reading
         .hypotheses()
-        .map(write)
+        .map(&mut write)
         .collect::<Result<Vec<_>>>()?;
-    Ok(format!(
-        "[{}] => {}.\n",
-        hypotheses.join(","),
-        write(reading.goal())?
-    ))
+    let goal = write(reading.goal())?;
+    Ok(format!("[{}] => {goal}.\n", hypotheses.join(",")))
+}
+
+/// Writes the first-order term `t` for LinearOne: a bound variable as the
+/// Prolog variable of its binder in `scope`, an application by its
+/// symbol's index. Iterative, as every translator is.
+fn linearone_term(
+    sequent: &Sequent,
+    t: linlog::sequents::FoTermId,
+    scope: &[u32],
+    out: &mut String,
+) -> Result<()> {
+    use linlog::sequents::FoTerm;
+    /// What is left to write of a term.
+    enum Item {
+        /// A term.
+        Term(linlog::sequents::FoTermId),
+        /// The comma between two arguments.
+        Comma,
+        /// An application's closing parenthesis.
+        Close,
+    }
+    let mut stack = vec![Item::Term(t)];
+    while let Some(item) = stack.pop() {
+        let t = match item {
+            Item::Term(t) => t,
+            Item::Comma => {
+                out.push(',');
+                continue;
+            }
+            Item::Close => {
+                out.push(')');
+                continue;
+            }
+        };
+        match sequent.fo_terms()[t.index()] {
+            FoTerm::Bound(i) => {
+                let variable = scope
+                    .len()
+                    .checked_sub(1 + i as usize)
+                    .ok_or_else(|| anyhow!("a variable bound outside its formula"))?;
+                let _ = write!(out, "X{}", scope[variable]);
+            }
+            FoTerm::App(symbol, args) => {
+                let _ = write!(out, "f{}", symbol.index());
+                let args = sequent.arguments(args);
+                if !args.is_empty() {
+                    out.push('(');
+                    stack.push(Item::Close);
+                    for (i, &a) in args.iter().enumerate().rev() {
+                        stack.push(Item::Term(a));
+                        if i > 0 {
+                            stack.push(Item::Comma);
+                        }
+                    }
+                }
+            }
+            other => return Err(anyhow!("a sequent's term {other:?}")),
+        }
+    }
+    Ok(())
 }
 
 /// Sympli's syntax: `#` for `⊤`, an operator between spaces, since an
@@ -454,6 +554,7 @@ mod tests {
             mode,
             expected: None,
             copies: None,
+            witness_depth: None,
         }
     }
 
@@ -504,6 +605,16 @@ mod tests {
         assert_eq!(
             linearone(&mill).unwrap(),
             "[impl(at(p0,[]),at(p1,[])),p(at(p0,[]),at(p2,[]))] => p(at(p1,[]),at(p2,[])).\n"
+        );
+        // Symbols by their index, every binder a variable of its own.
+        let mill1 = problem(
+            "a(c), forall x. (a(x) -o b(x, g(x))) |- exists x. b(c, x)",
+            linlog::Mode::INTUITIONISTIC,
+        );
+        assert_eq!(
+            linearone(&mill1).unwrap(),
+            "[at(p1,[f0]),forall(X0,impl(at(p1,[X0]),at(p3,[X0,f2(X0)])))] => \
+             exists(X1,at(p3,[f0,X1])).\n"
         );
         assert_eq!(
             sympli(&intuitionistic).unwrap(),

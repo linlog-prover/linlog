@@ -2543,3 +2543,24 @@ Problems in both; decided (late: after the time limit); decided by one and not t
 |  | ILL/misc | intuitionistic auto j1 | 3 | 3 | 3 | 0 | 0 | – | – | 1.12× (3) | 0 |
 |  | ILL/petri-nets/MCC | intuitionistic auto j1 | 3137 | 3071 | 3071 | 0 | 0 | 57 time, 9 memory | 58 time, 8 memory | 1.04× (3071) | 0 |
 
+## linlog against LinearOne on the first-order families
+
+Not a baseline: the first-order families (`lambek-fo`, `chain-fo`,
+`witness-fo`) came after the three, and LinearOne, Moot's prover of
+first-order MILL, is the prover their comparison is made with
+(`bench/TOOLS.md`, "The first-order families", says how). The verdicts,
+2026-10-30, each problem once with each tool under runexec at 10 s and
+4 GiB (`comparison/first-order/verdicts.csv`):
+
+| family (shapes) | problems | linlog decides | LinearOne decides | both, verdicts equal | contradictions |
+|---|---|---|---|---|---|
+| lambek-fo (#0 to #4) | 20 | 18 | 20 | 18 | 0 |
+| witness-fo, MILL1 (#2, #3) | 8 | 7 | 8 | 7 | 0 |
+| witness-fo, MALL1 (#0, #1) | 8 | 8 | outside its fragment | – | – |
+
+Every verdict of both equals the family's by construction. linlog's three
+undecided rows: `lambek-fo/512` #0 and #2 at its recursion limit (2 048),
+`witness-fo/12#3` at the time limit. `chain-fo` (MELL1) is outside
+LinearOne's fragment. The wall times wait for the author's word for a
+timed run; the command is in `bench/TOOLS.md`.
+

@@ -39,7 +39,7 @@ serde_json, which the CLI and the core's tests already have.
   every 64 polls was seconds late on the large nets, where a poll comes
   many milliseconds after the last)
   and with the library's own check off (`Options::check(false)`), prints
-  the 32-field tail of the CSV row (`TAIL`, whose fields are named by
+  the 34-field tail of the CSV row (`TAIL`, whose fields are named by
   `HEADER` and set through `column(name)`, never by position) with the
   search's verdict, and for a
   proof checks it outside the timed part and prints the tail once more
@@ -507,6 +507,22 @@ serde_json, which the CLI and the core's tests already have.
   beside its CSV: the command line, the limits, every tool's version and
   source, `LINLOG_COMMIT`, the processor, the CPUs it may use, the
   memory and the kernel.
+- **First-order sequents go to linlog and LinearOne alone**: every
+  other driver's `covers` asks `propositional(fragment)`, since their
+  translators write an atom by its index, which would drop a first-order
+  atom's arguments (a ground first-order sequent has no quantifier bit
+  and runs everywhere, its atoms distinct by index). LinearOne's
+  translator writes `at(p<symbol>, [terms])`, `f<symbol>(…)`,
+  `forall(X<n>, A)` and `exists(X<n>, A)` with one Prolog variable per
+  binder of the whole problem (the driver reads it as one term, whose
+  variables of one name are one). Our driver (`modules/_provers/
+  linearone.pl`) prints the verdict and the time alone: printing the
+  proof's λ-term failed in SWI-Prolog at 256 formulas
+  (`portray_nesting`), an error row for a proof LinearOne had found.
+  The verdicts against linlog's on the first-order families are in
+  `comparison/first-order/` (not a timed run: core 2 of a machine in
+  use); `run --tools` ignores `--repeat`, so a timed comparison is one
+  run per problem, as `comparison.sh` makes.
 - **`--shard K/N`** takes every N-th problem from the K-th, after
   `--only`; `shards_partition_the_problems_in_order` pins that the shards
   partition the list. `bench/comparison.sh` splits a job's shard `k/n`
@@ -566,6 +582,10 @@ serde_json, which the CLI and the core's tests already have.
   `--toggle-collect=*journeys::measured*` counts alone. `linlog-bench
   journeys` lists them, `journey NAME` runs one, `journey NAME --repeat
   N` prints the measured part's wall-clock time of each run.
+- **`batch-families` batches the propositional families' smallest
+  instances**: the first-order families (`is_first_order`) are left out,
+  so that adding them kept the journey's input, and its ceiling, what
+  they were; a first-order journey is a journey of its own.
 - **Every journey is deterministic**: one thread, and the rarer
   literal's search alone where the sequent has exponentials, since the
   default bias runs two searches in turns whose waiting thread wakes on
@@ -685,6 +705,17 @@ serde_json, which the CLI and the core's tests already have.
   `forward_copies_reached` (`Statistics::forward_copies`, the forward
   search's level beside `copies_reached`; `forward_copies` before it is
   the option) and `work` (`Statistics::work`, in the engine's units).
+  After the tools' columns come `unifications` and `bindings`
+  (`Statistics::unifications`, `bindings`: the first-order search's
+  unifications of two literals tried and bindings made, `0` on a
+  propositional row, empty on a tool's row). They are not in `COUNTERS`
+  (what `summary` sums and `--against --counters` compares): every file
+  from before them has the field empty where a new one has `0`, which
+  would read as a counter that differs on every row against the
+  oracles; a comparison of first-order counters reads the columns from
+  two files that both have them. A family's `witness_depth`
+  (`Instance::witness_depth`) reaches the child's options as its
+  `copies` does, with no column, since the problem fixes it.
   `--copies
   none` (`run::Bound`) is a search without a bound, written `none` in
   the `copies` column; without the flag the copy bound is still the

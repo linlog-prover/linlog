@@ -25,9 +25,11 @@ lo_main :-
     retractall(user:'$PROOFS'(_, _)), assert(user:'$PROOFS'(0, [])),
     retractall(portray_graph_tikz:'$GRAPH_NO'(_)), assert(portray_graph_tikz:'$GRAPH_NO'(0)),
     statistics(cputime, T0),
-    (   catch(user:first_proof(Ants, Goal, Sem), E, (print_message(error, E), halt(2)))
+    % The proof's semantics is not printed: a term nested as deep as the
+    % sequent is long exceeds the printer's nesting.
+    (   catch(user:first_proof(Ants, Goal, _), E, (print_message(error, E), halt(2)))
     ->  statistics(cputime, T1), T is T1 - T0,
-        format("PROVABLE (~3f s)~nsemantics: ", [T]), print(Sem), nl, halt(0)
+        format("PROVABLE (~3f s)~n", [T]), halt(0)
     ;   statistics(cputime, T1), T is T1 - T0,
         format("NOT PROVABLE (~3f s)~n", [T]), halt(1)
     ).

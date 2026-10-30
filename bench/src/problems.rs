@@ -53,6 +53,8 @@ pub struct Problem {
     pub expected: Option<bool>,
     /// The copy bound the source names.
     pub copies: Option<u32>,
+    /// The witness depth the source names.
+    pub witness_depth: Option<u32>,
 }
 
 /// Lists the instances of the families named (`NAME` or `NAME=SIZES`), or
@@ -240,6 +242,7 @@ pub fn load(id: &str) -> Result<Problem> {
                 mode: instance.mode,
                 expected: Some(instance.provable),
                 copies: instance.copies,
+                witness_depth: instance.witness_depth,
             })
         }
         "lltp" => {
@@ -250,6 +253,7 @@ pub fn load(id: &str) -> Result<Problem> {
                 mode: lltp_mode(Path::new(rest)),
                 expected: problem.status.map(|s| s == Status::Theorem),
                 copies: None,
+                witness_depth: None,
             })
         }
         "spec" => {
@@ -260,6 +264,7 @@ pub fn load(id: &str) -> Result<Problem> {
                 mode: Mode::INTUITIONISTIC.with_affine(),
                 expected: problem.expected.map(|s| s == Safety::Unsafe),
                 copies: None,
+                witness_depth: None,
             })
         }
         "file" => {
@@ -284,6 +289,7 @@ pub fn load(id: &str) -> Result<Problem> {
                     _ => None,
                 },
                 copies: copies.parse().ok(),
+                witness_depth: None,
             })
         }
         _ => bail!("unknown problem source in `{id}`"),

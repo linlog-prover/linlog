@@ -11,7 +11,7 @@ page on 2026-10-15; the numbers come from one night on one machine, and
 | | linlog | Maude LL prover | llprover | linTAP | Click & coLLecT | Sympli | LinearOne | lolli | APLL | Proof Net Calculator |
 |---|---|---|---|---|---|---|---|---|---|---|
 | authors | this repository | Olarte et al. | Tamura | Mantel, Otten | Callies, Laurent | Chaudhuri | Moot | ibrahimcesar | Wu | Matsuoka |
-| fragments | MLL to full LL, propositional, units | full LL and full ILL, propositional, units | full LL, first order | MLL with units and `?` | full LL, propositional, units | ILL: `! ⊗ & ⊕ ⊸ 1 0 ⊤` | MILL (`⊗ ⊸`), first order | MLL, MALL, MELL with units | full LL and full ILL, propositional, units | unit-free MLL |
+| fragments | MLL to full LL, propositional and first order, units | full LL and full ILL, propositional, units | full LL, first order | MLL with units and `?` | full LL, propositional, units | ILL: `! ⊗ & ⊕ ⊸ 1 0 ⊤` | MILL (`⊗ ⊸`), first order | MLL, MALL, MELL with units | full LL and full ILL, propositional, units | unit-free MLL |
 | modes | classical, intuitionistic, affine, Mix | classical, intuitionistic | classical, intuitionistic | classical | classical | intuitionistic | intuitionistic | classical | classical, intuitionistic | — |
 | automatic | ✓ | ✓ | ✓ | ✓ | ✓ (and interactive) | ✓ | ✓ | ✓ (and a REPL) | ✓ (backward search or inverse method) | ✗ (net checks and enumeration) |
 | interactive | ✓ (`linlog interact`) | ✗ | ✗ | ✗ | ✓ (web) | ✗ | ✗ | REPL only | ✗ | GUI for drawing nets |
@@ -51,7 +51,16 @@ Sources, all read on 2026-10-15:
   README, `Engine2_Focusing`, `Proof.test`).
 - **LinearOne**: github.com/RichardMoot/LinearOne at `d9379a5` (`LICENSE`,
   `mill1.pl` lines 672–709, `first_proof/3`); whether it checks its
-  proofs is unverified.
+  proofs is unverified. Its first-order syntax (read again on 2026-10-30
+  at the same commit: `README.md`, `mill1.pl` lines 300–315 and
+  674–760, its examples at lines 929–981): `forall(X, A)` and
+  `exists(X, A)` over a Prolog variable `X`, an atom `at(p, [t, …])`
+  whose arguments are Prolog terms, and the problem one term, so that
+  every binder of it names a variable of its own.
+- **SWI-Prolog**, which runs llprover, linTAP and LinearOne: the flake's
+  nixpkgs at its lock, version 10.0.2, licence BSD-2-Clause (its
+  `meta.license`); a tool of the comparison, never a dependency of the
+  crates, as the provers are.
 - **lolli**: github.com/ibrahimcesar/lolli at `cb09efc` (`LICENSE`,
   README, which calls it "not suitable for batch processing", and the
   command's `prove --depth`).
@@ -269,3 +278,51 @@ problem; a longer one on the problems no tool solved is open.
 Scatter plots of linlog on one thread against each tool, one point per
 problem both cover (a run not solved at the limit's line), are in
 `comparison/2026-10-15/figures/scatter-*.svg`.
+
+## The first-order families
+
+linlog's first-order families against LinearOne, the only other prover
+of first-order linear logic here that is run (llprover is not, since its
+threshold of 5 contractions makes its failures bounded): `lambek-fo`
+(the Lambek calculus in Moot and Piazza's translation into MILL1, at
+16, 64, 256 and 512 formulas, five shapes) and the MILL1 shapes of
+`witness-fo` (#2 and #3, a witness among 4, 8, 10 and 12); its MALL1
+shapes #0 and #1 are outside LinearOne's fragment, and `chain-fo`
+(MELL1) too. The translator writes a predicate `p<i>` and a function
+symbol `f<i>` by the symbol's index and the binders' variables `X0`,
+`X1`, … across the problem.
+
+**The verdicts** (`comparison/first-order/verdicts.csv`, `ranking.md`
+and `verdicts.env.json` beside them; 2026-10-30, `linlog-bench run
+--tools linlog,linearone --family lambek-fo --family witness-fo
+--timeout 10 --memory-limit 4294967296` under runexec 3.35 on core 2 of
+a machine in use, so the times in the rows are not a measurement):
+
+| tool | in its fragment | proved | unprovable | undecided | wrong |
+|---|---|---|---|---|---|
+| linlog, one thread | 36 | 18 | 15 | 3 | 0 |
+| LinearOne | 28 | 16 | 12 | 0 | 0 |
+
+No contradiction: on the 25 problems both decide the verdicts are
+equal, and every verdict of either equals the family's by
+construction. LinearOne alone decides three: `lambek-fo/512` #0 and #2,
+where linlog's two-sided search meets its recursion limit of 2 048 (the
+chains of 512 implications are searched one level of recursion per
+step and more), and `witness-fo/12#3`, which linlog leaves at the time
+limit while LinearOne refutes it at once: its search has no memo for a
+first-order goal yet and tries the witnesses of the twelve factors
+∃x.p(x) in every order, where a proof net's unification sees at once
+that `q(b)` meets nothing. Our LinearOne driver printed the proof's
+λ-term until 2026-10-30, which SWI-Prolog's printer refused at 256
+formulas (`portray_nesting`); it prints the verdict alone now.
+
+**The times**: pending the author's word. The command, from a checkout
+with this session's release build on the path beside BenchExec and the
+flake's `prover-linearone`, under the machine's lock:
+
+```sh
+taskset -c 2 linlog-bench run --tools linlog,linearone --family lambek-fo --family witness-fo \
+  --timeout 10 --memory-limit 4294967296 --shard 1/2 --output first-order-1.csv &
+taskset -c 3 linlog-bench run --tools linlog,linearone --family lambek-fo --family witness-fo \
+  --timeout 10 --memory-limit 4294967296 --shard 2/2 --output first-order-2.csv
+```

@@ -2267,7 +2267,11 @@ against Sympli's 811). On the other 1 358 intuitionistic problems Sympli
 solves the most, 873 against linlog's 829 (852 by its default), and 132
 that linlog does not, mostly refutations of the SYJ collections. No tool proves a
 sequent linlog refutes; APLL and Click & coLLecT refute provable
-sequents, 1 308 and 12 of them.
+sequents, 1 308 and 12 of them. On the first-order families in
+LinearOne's fragment (28 problems) the two agree wherever both decide:
+LinearOne decides all 28 and linlog 25, the other three ending at its
+recursion and time limits (`bench/TOOLS.md`, "The first-order
+families").
 
 ## What exists and what is planned
 
@@ -2300,9 +2304,11 @@ Built:
   bound; the counts' refutations per predicate; the bounds
   `--witness-depth` and `--instances`; the unifications and bindings
   counted.
-- First-order benchmark families with verdicts by construction (the
+- First-order benchmarks: families with verdicts by construction (the
   Lambek calculus in Moot and Piazza's translation into MILL1, a chain
-  under `!`, a witness among many in MALL1 and MILL1).
+  under `!`, a witness among many in MALL1 and MILL1), the harness's
+  columns of unifications and bindings, and the comparison of verdicts
+  with LinearOne.
 - First-order certificates: every first-order proof, classical,
   intuitionistic, affine, with Mix or with cuts, written for the Rocq
   library's first-order development and checked by Rocq.
@@ -2581,7 +2587,7 @@ Planned, in roughly this order:
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
 - First-order linear logic beyond what is built: the memo and the
-  parallel search for first-order goals, the comparison with LinearOne,
+  parallel search for first-order goals, the times against LinearOne,
   and first-order proving on the web page.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).

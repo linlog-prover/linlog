@@ -34,10 +34,10 @@ pub const HEADER: &str = "source,family,size,index,problem,mode,engine_requested
                           fragment,occurrences,multiplicity,time_ms,nodes,memo_hits,memo_entries,\
                           splits,links,tests,recursion_limit,cpu_ms,wait_ms,bias,forward_copies,\
                           check_ms,memory_limit,copies_reached,pool_after,forward_copies_reached,work,\
-                          tool,tool_version,translate_ms,peak_bytes,raw";
+                          tool,tool_version,translate_ms,peak_bytes,raw,unifications,bindings";
 
 /// The columns the child prints.
-const TAIL: usize = 32;
+const TAIL: usize = 34;
 
 /// The line the child prints when its problem is loaded and its search
 /// starts, from which the parent counts the time limit.
@@ -646,6 +646,11 @@ fn tail(args: &OneArgs) -> String {
         .with_engine(args.engine.0)
         .with_jobs(args.jobs)
         .with_copies(copies)
+        .with_witness_depth(
+            problem
+                .witness_depth
+                .unwrap_or(Options::DEFAULT_WITNESS_DEPTH),
+        )
         .with_bias(args.bias.bias())
         .with_forward_copies(forward_copies(args.forward_copies))
         .with_test_period(args.test_period)
@@ -759,6 +764,7 @@ fn tail(args: &OneArgs) -> String {
         // The columns of a row of `run --tools`: tool, tool_version,
         // translate_ms, peak_bytes and raw.
         .chain(std::iter::repeat_n(String::new(), 5))
+        .chain([s.unifications.to_string(), s.bindings.to_string()])
         .collect::<Vec<_>>()
         .join(",")
     };

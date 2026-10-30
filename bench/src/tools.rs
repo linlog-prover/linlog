@@ -92,6 +92,13 @@ fn classical(mode: Mode) -> bool {
     !mode.is_intuitionistic() && !mode.is_affine() && !mode.has_mix()
 }
 
+/// Whether a fragment has no quantifier: every other prover but LinearOne
+/// is run on propositional sequents alone, since their translators write an
+/// atom by its index, which drops a first-order atom's arguments.
+const fn propositional(fragment: Fragment) -> bool {
+    !fragment.has_quantifiers()
+}
+
 /// linlog covers every problem the harness has.
 const fn everything(_: Fragment, _: Mode) -> bool {
     true
@@ -211,7 +218,7 @@ pub const DRIVERS: &[Driver] = &[
         program: "click-and-collect",
         summary: "Click & coLLecT's automatic prover (focused search, exponential bound \
                   raised step by step), called as its web server's handler calls it",
-        covers: |_, mode| classical(mode),
+        covers: |fragment, mode| classical(mode) && propositional(fragment),
         input: Input::Translated("txt"),
         translate: translate::click_and_collect,
         arguments: |file, _, timeout, _| {
@@ -235,7 +242,7 @@ pub const DRIVERS: &[Driver] = &[
         program: "maude-ll",
         summary: "the Maude prover's focused system for ILL, its solve under the copy \
                   bound of its own script for the LLTP library",
-        covers: |_, mode| intuitionistic(mode),
+        covers: |fragment, mode| intuitionistic(mode) && propositional(fragment),
         input: Input::Translated("maude"),
         translate: translate::maude_ill,
         arguments: |file, _, _, _| vec!["ill".into(), file.display().to_string()],
@@ -261,7 +268,7 @@ pub const DRIVERS: &[Driver] = &[
         program: "maude-ll",
         summary: "the Maude prover's focused system for classical LL, a search for a \
                   proof without a bound",
-        covers: |_, mode| classical(mode),
+        covers: |fragment, mode| classical(mode) && propositional(fragment),
         input: Input::Translated("maude"),
         translate: translate::maude_cll,
         arguments: |file, _, _, _| vec!["cll".into(), file.display().to_string()],
@@ -282,7 +289,7 @@ pub const DRIVERS: &[Driver] = &[
         program: "llprover",
         summary: "llprover's classical system cll(full), its default threshold of 5 cuts \
                   and contractions per path",
-        covers: |_, mode| classical(mode),
+        covers: |fragment, mode| classical(mode) && propositional(fragment),
         input: Input::Translated("ll"),
         translate: translate::llprover_cll,
         arguments: prolog_arguments,
@@ -295,7 +302,7 @@ pub const DRIVERS: &[Driver] = &[
         program: "llprover",
         summary: "llprover's intuitionistic system ill(full), its default threshold of 5 \
                   cuts and contractions per path",
-        covers: |_, mode| intuitionistic(mode),
+        covers: |fragment, mode| intuitionistic(mode) && propositional(fragment),
         input: Input::Translated("ll"),
         translate: translate::llprover_ill,
         arguments: prolog_arguments,
@@ -309,7 +316,10 @@ pub const DRIVERS: &[Driver] = &[
         summary: "linTAP on the ⅋ of the sequent's formulas, its exponential limit raised \
                   without end as its prove/1 does",
         covers: |fragment, mode| {
-            classical(mode) && !fragment.has_additives() && !fragment.has_additive_units()
+            classical(mode)
+                && propositional(fragment)
+                && !fragment.has_additives()
+                && !fragment.has_additive_units()
         },
         input: Input::Translated("pl"),
         translate: translate::lintap,
@@ -326,8 +336,9 @@ pub const DRIVERS: &[Driver] = &[
     Driver {
         name: "linearone",
         program: "linearone",
-        summary: "LinearOne's first_proof on the sequent, multiplicative intuitionistic",
-        covers: |fragment, mode| intuitionistic(mode) && Fragment::MLL.contains(fragment),
+        summary: "LinearOne's first_proof on the sequent, multiplicative intuitionistic, \
+                  first-order",
+        covers: |fragment, mode| intuitionistic(mode) && Fragment::MLL1.contains(fragment),
         input: Input::Translated("pl"),
         translate: translate::linearone,
         arguments: prolog_arguments,
@@ -345,7 +356,7 @@ pub const DRIVERS: &[Driver] = &[
         program: "sympli",
         summary: "Sympli's inverse method on (⊗Γ) ⊸ A, its proofs validated by its own \
                   checker",
-        covers: |_, mode| intuitionistic(mode),
+        covers: |fragment, mode| intuitionistic(mode) && propositional(fragment),
         input: Input::Translated("sym"),
         translate: translate::sympli,
         arguments: |file, _, _, _| vec![file.display().to_string()],
@@ -366,7 +377,7 @@ pub const DRIVERS: &[Driver] = &[
         name: "lolli",
         program: "lolli",
         summary: "lolli's focused search under its default depth of 100",
-        covers: |_, mode| classical(mode),
+        covers: |fragment, mode| classical(mode) && propositional(fragment),
         input: Input::Translated("txt"),
         translate: translate::lolli,
         arguments: |file, _, _, _| vec![file.display().to_string()],
@@ -387,7 +398,7 @@ pub const DRIVERS: &[Driver] = &[
         program: "apll",
         summary: "APLL's focused backward search for LL under its default bound of 3 \
                   contractions",
-        covers: |_, mode| classical(mode),
+        covers: |fragment, mode| classical(mode) && propositional(fragment),
         input: Input::Translated("txt"),
         translate: translate::apll_ll,
         arguments: |file, _, _, _| vec!["-t".into(), file.display().to_string()],
@@ -400,7 +411,7 @@ pub const DRIVERS: &[Driver] = &[
         program: "apll",
         summary: "APLL's focused backward search for ILL under its default bound of 3 \
                   contractions",
-        covers: |_, mode| intuitionistic(mode),
+        covers: |fragment, mode| intuitionistic(mode) && propositional(fragment),
         input: Input::Translated("txt"),
         translate: translate::apll_ill,
         arguments: |file, _, _, _| vec!["-ill".into(), "-t".into(), file.display().to_string()],
