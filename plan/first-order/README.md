@@ -515,8 +515,10 @@ it as written) and cut elimination on terms in 42f (the `∀`/`∃` key
 case by substitution of the witness for the eigenvariable, well defined
 because an eigenvariable is introduced once and used inside its node's
 subtree only; a shared subproof under the cut is copied before it is
-substituted; no step adds a node, so the bounded elimination stays
-bounded). The nets' cut elimination refuses first-order input with the
+substituted, which grows the proof (corrected 2026-10-30 at a heads-up
+box in 42f's pane: the plan said no step adds a node), so each copy is
+charged against `cut::Options`' nodes bound before it is built, and the
+bounded elimination stays bounded by that charge). The nets' cut elimination refuses first-order input with the
 net engine.
 
 ### 8. The Rocq development (42g)
