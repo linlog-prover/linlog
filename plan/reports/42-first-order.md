@@ -3096,3 +3096,472 @@ memo and loop check too.
   would hand lifted problems to the propositional memo.
 - **A choice point added to the first-order engine** must log through
   `Choices` while the resumption stays (`choices.rs`).
+
+## Session 42j: the memo's cost and parallel first-order search
+
+Opus 5.5 at `high`, unattended, 2026-10-30 to 31, in the jj workspace
+`../linlog-step42j` on `zzlqvqmk` (linlog's `main`), with the scratch
+workspaces `../linlog-step42j-base` (the top before the session, for the
+comparisons) and `../linlog-step42j-panel` (the panel's frozen tree,
+`pqnouqyo`).
+
+### Outcome
+
+**The memo's cost on `chain-fo` is found and removed.** Its cause, from
+callgrind function by function against `--memo-limit 0`: the keys wrote
+every term reached through a binding out in full, and a `chain-fo`
+witness is a chain of bindings (`X_k := s(x)` under `X_{k-1}`'s frame),
+so every stable sequent's two keys were as long as the chain, written,
+hashed and looked up at every level although nothing ever repeats. A
+ground term is now one word of a key, an id in a table hash-consed for
+the whole search (`pumwkknm`, with a fast path for a variable,
+`ktvuvssx`). Pinned, the top before against the fix: `chain-fo` 6 to 11 %
+faster on every row, decided or not; what is left of the memo's cost
+there is 2.4 to 3.1 % (within noise by the rule), mostly the loop check's
+linear scan of the branch, the propositional engine's own code. Every
+gain of 42i's memo table holds, every decided row's counters equal.
+
+**First-order goals are searched on the pool** (`xqmlnzxo`, fixes
+`yuvuyuxt` and `qppnllux` after the panel): the race of the two biases
+and the cubes as for a propositional goal, a choice divided only where
+no rule around it may ask a premise for another answer, one memo shared
+through a pool-wide table of ground terms, the winning worker's zone and
+arena taken over by the engine that spawned it, and a cut last level
+searched once more alone. Verdicts at one, two and four threads are
+equal to one thread's on all 2 738 rows (42h's families, the 70 lifted
+rows, the 2 600 generated sequents, 42i's chosen ones), every proof
+checked; `--jobs 1` and `--deterministic` are the old search, counter
+for counter. The keep-or-revert table is below; **recommendation: keep**,
+with its reason.
+
+The panel found no wrong verdict; the integers and the argument found
+two holes in the memory account of the pool, both held, reproduced and
+fixed with a fresh-context differential. D17: both target sets equal
+their oracles at the last code commit, the ratchet within every ceiling
+with none raised, and the propositional engine's pinned time below.
+
+### The memo's cost on `chain-fo`: its cause and its removal
+
+- **Where the time went.** `chain-fo/512` #0 and #1 end at the recursion
+  limit of 2 048 (about five frames a copy, at a copy bound of 410), so
+  42i's pinned rows timed how fast the search gives up; the sizes that
+  decide are #0 up to about 408 (`chain-fo/384#0` proved in 1.4 s) and,
+  for #1, none (unprovable, no refuter applies; below 410 it ends at
+  its copy bound as the family designs). The cost was the same on
+  decided rows (`chain-fo/384` +11 %, unpinned). With equal search
+  counters (stable sequents, splits, unifications, bindings) the memo
+  did 12.3 M units of work against 7.1 M and, by perf, 10 % more
+  instructions. Callgrind on `chain-fo/256`, flat profiles, memo on
+  against `--memo-limit 0`: +684 M instructions of 7.0 G, all in the
+  keys: `write_member`'s term walk with `deref` and `app` 454 M, the
+  keys' assembly and hashing inside `prove_unkeyed` 176 M, `Memo::find`
+  63 M.
+- **The cause.** A key wrote every term reached through a binding out in
+  full. A `chain-fo` witness is a chain of bindings (`X_k := s(x)` read
+  under `X_{k-1}`'s frame), so each stable sequent's two keys were as
+  long as the chain, written, hashed and looked up at every level, where
+  no instance ever repeats.
+- **The fix** (`pumwkknm`, `framed.rs`): a ground term is one word of a
+  key, its id in a table hash-consed for the whole search (by head and
+  last argument, a constant as its symbol applied to nothing), seeded
+  with the arena's closed terms, so equal ground terms get one word
+  whether they came from the arena or through bindings; each bound
+  metavariable keeps its name (the term's id, or the variable that keeps
+  it open) on the trail (`Undone::Named`), so an undo takes it back
+  before any binding it rests on, and an open name is asked again once
+  its variable is bound. `ktvuvssx` answers a variable without the
+  naming walk (the walk had cost the lifted rows' keys about 2 % of their
+  instructions). Pinned by `a_deep_witness_is_one_word_of_a_key` (the
+  memo's work at most 15 % above the memo-free search's on
+  `chain-fo` #1 at 64, where it was 31 % above). After the fix callgrind
+  shows +139 M of 7.0 G (2.0 %), of which about 50 M is the loop check's
+  scan of the branch (`Run::repeated`, linear in the branch's stable
+  sequents, 2.83 M entries compared), the propositional engine's own
+  code, left alone (D17).
+- **Why two different sequents still never share a key**: every word is
+  tagged (ground, application, metavariable, eigenvariable); an
+  occurrence fixes how many frame terms follow and a symbol its arity, so
+  the words are prefix-free; a ground term is always one word (the walk
+  answers "open" only on reaching an unbound metavariable or an
+  eigenvariable), and the table's ids are injective (a new id is the
+  table's length at insertion, never reused, the keys `(Head, argument)`
+  with `Head::Symbol` and `Head::Applied` apart). The differential below
+  read it the same way from the code.
+- **Every gain of 42i's memo table, shown again** on the fix, against
+  42d's form (42i's base rows) and the top before the fix, by the
+  harness at a 10 s limit on one thread: the same 13 verdicts gained over
+  42d's form and none lost (`chosen-memo/loop-clause` and
+  `loop-vacuous` refuted, reachability unreachable on a 2-cycle refuted
+  in 1 269 stable sequents and reachable past an 8-cycle proved in
+  1.1 s with `--copies none`, `gen1/1797`, `gen2/2328`, the lifted
+  `additive/16`, `chain/64`, `/128`, `/256`, `mix/6`, `/8`,
+  `partition-no/9`; `additive/14` decided by both); every decided row's
+  counters (nodes, memo hits, unifications, bindings) equal to the
+  top's: the fix changes no search, only what a key costs.
+- **The differential** (`linlog-memo-differential`, Opus 5.5 at `high`,
+  fresh context): 8 500 entries in five configurations (the fix with the
+  memo on and off, the top, the fast path on and off), about 42 500
+  runs: 42i's generated set and a generator of its own (chains of
+  bindings, a ground term both in the arena and built through bindings,
+  edge rules on graphs, repeated `!` members, `∀`/`∃` with
+  eigenvariables), in every mode: no contradiction, every proof checked,
+  on every row decided alike `nodes` and `memo_hits` equal between the
+  builds; and from the code, the encoding injective and no cached name
+  ever stale.
+
+The pinned times (`bench/pinned-time.py`'s method: five rounds, cores 2
+and 3 swapped halfway; rule set before the run, 42i's: a change only
+where the medians differ by more than 5 % with every run on one side;
+`bench/targets/pinned-42j-*.csv`):
+
+| comparison | `chain-fo/384#0` (proved) | `/384#1` (copy bound) | `/408#0` (proved) | `/512#0` (ends at a limit) | `/512#1` (ends at a limit) | other rows |
+|---|---|---|---|---|---|---|
+| A. the top before → the fix | 1 080 → 990 ms, 0.917 | 970 → 870, 0.897 | 1 290 → 1 180, 0.915 | 1 300 → 1 220, 0.939 | 1 170 → 1 040, 0.889 | `lambek-fo/512#2` 0.995, `witness-fo/10#3` 0.996, `lifted-growing/1024` +4.8 % and `lifted-additive/14` +4.5 % (one tick of 10 ms on 0.2 s rows: noise by the rule; +2 % instructions, then +0.6 % after `ktvuvssx`) |
+| B. 42d's form → 42i's memo alone | 1.107 | 1.091 | 1.082 | 42i's run: 1.095 | 1.098 | |
+| C. 42d's form → 42i's resumption alone | 0.748 | 0.700 | 0.728 | 42i's run: 0.734 | 0.706 | |
+| D. resumption alone (no memo) → the fix (memo with the fix) | 1.031 | 1.024 | 1.026 | | | |
+
+So 42i's two effects hold where the search answers (B, C: the memo cost
+8 to 11 %, the resumption gains 25 to 30 %), the fix removes the cost
+(A: 6 to 11 % faster than the top), and what is left of the memo's cost
+on `chain-fo` is 2.4 to 3.1 % (D), within noise by the rule.
+
+### Parallel first-order search: what was built
+
+- **The dispatch** (`Focused::decide`): a first-order goal with more than
+  one thread takes `parallel::search_goal::<Framed>`, as a propositional
+  one takes `::<Ground>`: the two searches of the default bias side by
+  side on two pools (the race), and within each the cubes (`LEVELS` = 2
+  choices of a branch on the pool). `search::race` (one thread first,
+  the pool after `--pool-after`) needs nothing new. One thread
+  (`--jobs 1`, `--deterministic`) is the old search: on the 2 679 rows of
+  42i's sets decided alike, every counter equals the top's.
+- **The division** (decision 4, departing in its criterion, below): a
+  choice runs its alternatives on workers only where `Zone::divides`, no
+  rule around it may ask a premise for another answer
+  (`Framed::answers` empty); inside such a rule the choices are logged
+  and replayed in order and a failure may rest on an excluded answer, so
+  everything below one is sequential. The alternatives of a choice share
+  no metavariable among themselves, and a divided choice answers with any
+  proof, since nobody asks it again; the metavariables the sequent holds
+  are bound by the winner's search and come back with its zone.
+- **The memo, shared** (`Zone::share`, `Grounds::Shared`,
+  `Shared::new(entries, 0)`): one memo for the pool, made sound by one
+  table of ground terms for every engine (a key names a ground term by
+  its id); a canonical key then means the same sequent in every engine,
+  and an own key names variables by a worker's numbers, so two workers
+  may share it only for sequents equal up to those names, which holds a
+  cut failure for both (a cut never refutes). The table of zones keeps
+  none (each `Θ` a new id, which `ByClass` needs). The table's size is an
+  atomic read at each poll (`lsoqsuvn`).
+- **The hand-over** (`Collected::won`, `Zone::adopt`, `Run::adopted`):
+  every engine keeps its own arena; the worker whose alternative proves
+  the choice gives its zone (spans, frames, variables, bindings, trail,
+  names) to the spawning engine, which has not moved since the fork, and
+  its kept nodes become the engine's pending nodes, renamed, so the
+  proof's members name instances of the engine's zone and the root's
+  closing writes them (`schedule::closed`, shared with `Plan::search`).
+  Losers' zones and arenas are dropped, their arenas' charges given back
+  (`qppnllux`), their cut reasons joined (`Zone::cut_by`); the forks
+  share the sequent's tables (`yuvuyuxt`).
+- **A cut last level searched once more alone** (`Run::again_alone`):
+  where the root divided a choice in the last level and the level ended
+  cut, it is searched again on the root's thread, in a new generation of
+  the memo, reading every complete failure the workers recorded and none
+  of their cuts. Without it, a worker searched a sequent cut by its
+  budget while a sibling was still finding it unprovable, where one
+  thread reads the sibling's failure: `gen2/2328` was unknown on four
+  threads in two runs of three, and with per-worker memos `gen1/1797`
+  and `gen2/2328` always.
+- **The `&` rule stays sequential at first order** (`with_framed`): its
+  premises would extend one zone two ways, which no adoption merges.
+- **Tests**: `first_order_verdicts_agree` (`focus/parallel.rs`): 42h's
+  three families at two sizes each, every instance, at 1, 2 and 4
+  threads, verdicts equal; 240 generated one-sided sequents (Mix,
+  affine) and 160 two-sided ones, no contradiction across thread
+  counts; every proof checked. `reference_fo::tests::random_ill_text`
+  gives the two-sided generator's sequents as text.
+- **Docs**: README (the threads paragraph and "First-order sequents",
+  with a run on four threads), the guide (`reference.md`'s first-order
+  paragraph), the changelog, the rustdoc table of `search::DISPATCH`'s
+  rows, `.claude/rules/core-parallel.md` ("A first-order goal on the
+  pool", four differences and the reasons) and `core-focus.md`.
+
+### The commits, and how the parallel search is reverted
+
+| mechanism | commits | revert |
+|---|---|---|
+| the memo's keys | `pumwkknm` (code, its test and rules note), `ktvuvssx` (fast path) | not a mechanism: a fix of the memo, kept |
+| parallel first-order search | `xqmlnzxo` code, `qxyysoyq` docs, `pqnouqyo` tests, `yuvuyuxt` and `qppnllux` fixes (the panel's), `rvlrvutu` rules, `lsoqsuvn` fix, `ltrqzzkn` rules | `jj revert -r 'xqmlnzxo \| qxyysoyq \| pqnouqyo \| yuvuyuxt \| qppnllux \| rvlrvutu \| lsoqsuvn \| ltrqzzkn' --onto <top>`; its off switch without a revert is `--jobs 1` |
+
+### The keep-or-revert table: the pool against one thread
+
+Measured at the last code commit (`lsoqsuvn`), each row run alone by the
+harness at a 10 s limit, three rounds, medians; 1 thread on core 4, 2 on
+cores 4 and 5, 4 on cores 4 to 7 (cores of one speed; a timed run, the
+other project paused, `table.py` in the session's scratch); "decided"
+counts a verdict within the command's default time limit of 2 s (wall);
+peak memory is the largest resident set of the row's process tree. The
+generated sets and the chosen rows run in milliseconds and show only
+that the pool changes no verdict.
+
+| rows | decided ≤ 2 s at 1 / 2 / 4 | wall s, summed, 1 / 2 / 4 | CPU s, summed, 1 / 2 / 4 | peak MiB 1 / 2 / 4 | where it should pay or not |
+|---|---|---|---|---|---|
+| `witness-fo` #2, #3 at 4, 8, 10, 12 (8 rows) | 6 / 6 / 7 | 13.40 / 12.25 / 11.70 | 13.3 / 23.3 / 43.3 | 16 / 16 / 16 | pays: independent factors; `/10#3` 3.36 → 2.23 → 1.68 s at equal CPU (3.34 / 3.34 / 3.36 s), decided within 2 s on four threads; `/12#3` past 10 s at every count, its CPU spent four times |
+| `witness-fo` #0, #1 (8) | 8 / 8 / 8 | 0.00 | 0.00 | 16 | nothing to divide |
+| `lambek-fo` #0, #1, #2, #4 at 16 to 512 (16) | 14 / 14 / 14 | 6.71 / 6.60 / 6.61 | 6.6 / 6.7 / 6.8 | 28 / 26 / 26 | one long focus phase (`/512#2` at the recursion limit in 5.9 s at every count); `/512#1` 69 → 37 → 20 ms |
+| `lambek-fo` #3 (4) | 4 / 4 / 4 | 0.03 | 0.01 / 0.01 / 0.02 | 25 / 26 / 26 | should not pay: witnesses shared between factors, no division |
+| `chain-fo` 16 to 512, #0 and #1 (12) | 5 / 5 / 5 | 9.52 / 10.18 / 10.22 | 9.4 / 10.1 / 10.2 | 16 / 16 / 18 | should not pay: one choice per level; the pool costs 7 % (`/384#0` 1.40 → 1.49 s) |
+| lifted rows: `mix/8`, `/9`, `partition-no/9`, `additive/14`, `/16`, `chain/256` (6) | 3 / 4 / 4 | 15.33 / 14.21 / 14.26 | 15.3 / 21.8 / 28.9 | 159 / 167 / 186 | propositional choices under a vacuous `∀`: `additive/16` 2.03 → 1.41 s (decided within 2 s from two threads), `partition-no/9` 0.29 → 0.09 s, `mix/9` 9.5 → 9.2 s at twice the CPU, `mix/8` 1.16 → 1.24 s |
+| 42i's chosen rows (14) | 14 / 14 / 14 | 0.00 | 0.00 | 16 | milliseconds |
+| verdicts, 1 / 2 / 4 threads, all 2 738 rows (42h's families at every size, the 70 lifted rows, the 2 600 generated, 42i's 24 chosen) at a 10 s limit, at the last code commit | 2 680 decided at each count, equal on every row | | | | every proof checked |
+
+**Its cost in code.** About 330 lines of code outside tests and doc
+comments (`xqmlnzxo` 266 non-blank, non-comment lines added of 349, the
+fixes `yuvuyuxt` 31, `qppnllux` 15, `lsoqsuvn` about 20), in the pool
+(`parallel.rs`), the zone's fork, adoption and shared table
+(`framed.rs`), three hooks of `Zone`, and `Run::again_alone`. New
+invariants (`core-parallel.md`, "A first-order goal on the pool"): a
+choice is divided only outside every rule that may ask for another
+answer; a key's ground terms are the pool's ids, never a worker's; the
+fork copies every field of `Framed` that a branch changes and shares the
+sequent's tables, and the adoption takes the winner's zone whole (a
+field added to `Framed` must be placed in `fork` and `adopt`); a
+dropped worker's arena gives its charge back; a cut last level is
+searched again alone. The panel's findings against it: two holes in the
+memory account (the forks' copied tables, a dropped arena's charge) and,
+found by the session in the table, a lock read at every poll; all fixed.
+What it adds to every later change of the first-order engine: a field
+of `Framed` is forked and adopted, and a new state that a rule asks for
+again must make `Zone::divides` false.
+
+**Recommendation: keep.** The pool is what the command runs by default
+(one thread first, the machine's other cores after 100 ms), and on
+first-order goals it now pays where the search has independent choices
+near the root: a wide refutation (`witness-fo/10#3`) twice as fast on
+four cores at the same CPU time, decided within the default limit
+where one thread is not, and propositional choices under a vacuous
+quantifier up to three times as fast; it changes no verdict on any
+measured row, and one thread's search is unchanged counter for
+counter. Where it should not pay it costs about 7 % of wall time
+(`chain-fo`), and in the default mode the single thread that searches
+beside the pool bounds that loss. The code is moderate (about 330
+lines) and reuses the propositional pool's machinery; its subtle points
+(the division's criterion, the shared ids, the adoption) are written
+down and were attacked by the panel and three differentials. Revert if
+the author weighs the seven invariants above more than a twofold gain on
+wide first-order refutations: the commits above revert to the memo
+fix's tree exactly (checked: `jj revert` without conflict, the reverted
+tree equal to `ktvuvssx`'s, its tests passing).
+
+### The panel's findings and answers
+
+On the frozen tree `pqnouqyo` (the workspace `../linlog-step42j-panel`),
+each reviewer in a fresh context with its own scratch directory, runs on
+cores 4 to 7 in capped scopes, none during a timed run.
+
+- **The argument (Fable 5.1, `high`): no break.** It stated from the
+  code, before the notes, the invariants: division only where no rule
+  may ask for another answer (`answers` empty exactly when nothing logs
+  or excludes), fork fidelity, adoption exactness (the spawning engine
+  waits at the scope, the worker's tables extend its own, a spawner's
+  metavariable can never take a worker's eigenvariable by the levels,
+  kept ids dense and renamed below `PENDING`, nested levels compose),
+  canonical keys worker-independent with global ground ids, own-key
+  collisions only between sequents equal up to a renaming and read as
+  cuts, the shared table of zones keeping none right for `ByClass`,
+  `again_alone` at most once per level and only on the root, one
+  thread's path unchanged; 240 generated rows and 66 family rows at 1,
+  2, 4 threads equal, every proof checked. One point held: **a worker
+  that proves after another, or does not prove, is dropped with its own
+  arena still charged** (an over-count that could turn a pool verdict
+  into the memory limit). Answer: fixed (`qppnllux`, the charge given
+  back for every dropped arena).
+- **The counterexamples (Opus 5.5, `high`): no break.** About 320 000
+  runs of the widened references (one-sided in four classical modes, all
+  rule sets; two-sided linear and affine; Horn graphs with cycles and
+  self-loops against reachability; choices at the root whose
+  alternatives bind witnesses differently; witnesses shared between
+  premises) at 1, 2 and 4 threads, copies 0, 1, 2 and none, memo limits
+  0, 8 and the default, every proof checked; the generated file and the
+  families at 1, 2, 4 threads by the harness and the command; time,
+  work and memory limits honoured on the pool. Observations, no
+  findings: the pool decides some sequents one thread leaves at the copy
+  bound (21 of 1 600 Horn problems, all truly unprovable; the
+  `again_alone` pass reads more facts than one thread had), and a
+  propositional sequent's decision under `--copies 1` varies between
+  runs on the pool, the propositional pool's documented property
+  (`core-parallel.md`, "A parallel run may return another proof"),
+  outside this change.
+- **The integers and limits (Sonnet 5.5, `high`): two findings, both
+  held.** (1) **The forks copied the zone's per-term tables** (`closed`,
+  `depth`, `arena`, nine bytes a term) outside the memory account: a
+  sequent of three million constants held 654, 800 and 926 MB at 1, 2
+  and 4 threads under one bound. Reproduced (654 / 800 / 926 MB);
+  fixed (`yuvuyuxt`: the tables never change after `Framed::new`, so
+  the forks share them): 654 / 655 / 649 MB. (2) The dropped arena's
+  charge, the argument's point, fixed as above. Held at their limits:
+  `Run::adopted`'s ids, the ground ids past 2³⁰ giving no key, the
+  variable, frame and member ids under forks and adoptions, `u64`
+  counters; time limits met within 0.02 s at 1, 2, 4 threads, the work
+  limit overshot by one poll's granularity per worker (about 4 096
+  units), as on one thread. Observed, not findings: under bounds of a
+  few hundred KiB the pool's account, which counts the shared table once
+  per engine, ends some rows at the memory limit where one thread
+  decides, and the reverse where `Shared::insert` drops an entry the
+  memory cannot hold (the propositional pool's design); at the default
+  bounds every verdict is equal.
+- **Found by the session after the panel**: the shared ground-term
+  table's capacity was read under its lock at every poll (after every
+  unification), so four threads contended on it (`witness-fo/10#3`
+  2.5 s and 6.4 s CPU on four threads, against 1.7 s and 3.4 s with
+  per-worker memos); fixed (`lsoqsuvn`, an atomic beside the table).
+- **The fresh-context differentials of the later fixes**: of
+  `yuvuyuxt` and `qppnllux` (Opus 5.5, `high`): 5 200 generated and 44
+  family rows per build at 1 and 2 threads identical row for row, every
+  proof checked, memory limits of 4 and 16 MiB alike, the witness's peak
+  flat in the thread count; from the code, the tables never written
+  after `new`, each arena released exactly once (its one remark, an
+  `IndexLimit` return in `Run::adopted` before the release, ends the
+  search with that error, so the charge goes with it). Of `lsoqsuvn`
+  (Opus 5.5, `high`): 5 252 rows per build identical, memory limits of
+  1, 4 and 16 MiB alike; the ids unchanged, the stored size only
+  growing, a stale read missing one insertion for one poll at most.
+
+### The propositional case (D17)
+
+- **Target sets** at the last code commit (`lsoqsuvn`):
+  `bench/targets/42j.csv` against `42i.csv` and `net-42j.csv` against
+  `net-42i.csv` (`linlog-bench summary --against … --counters`): no
+  verdict differs; of the 145 focused and 64 net problems both decide
+  alike on one thread, none differs in `nodes`, `splits`, `memo_hits`,
+  `memo_entries`, `links` or `tests`.
+- **The ratchet** (every gate, none raised): within every ceiling; the
+  search journeys against the memo fix's gate moved by at most 653
+  instructions (`search-chain-128`, 0.00007 %), `derivation-chain-64`
+  unchanged.
+- **Pinned time of the propositional engine** (shared code changed: the
+  pool's `Collected`, `choose_parallel`, `cubes`, `Run::run`'s level
+  loop, `Focused::decide`): `bench/pinned-time.py`'s rows, the top
+  before the session (`zzlqvqmk`) against `qppnllux`, cores 2 and 3,
+  rule set before the run (42d's: the focused rows summed at most 3 %
+  above the base, no focused row's median more than 5 % above it): the
+  focused rows summed **1.0104**, the highest row `mix/9` at 1.0206, the
+  other group 1.0034 (`bench/targets/pinned-42j-d17.csv`). The last
+  commit, `lsoqsuvn`, changes `framed.rs` alone, the first-order zone,
+  which the propositional engine never instantiates.
+
+### The timed runs: done
+
+All with `linlog-orchestrator`'s word, the other project's heavy work
+paused, the session's own work and the panel held: the memo's fix and
+42i's mechanisms re-timed on decided rows (21:59 to 22:01, cores 2 and
+3); D17's pinned time and the first table (00:01 to 00:10); the table
+at the last code commit (cores 4 to 7). The rows, runs and summaries
+are committed under `bench/targets/pinned-42j-*.csv` and
+`bench/targets/table-42j.csv`.
+
+### The closed enums' new variants (for step 45)
+
+None, and no public item changed: everything is inside the focused
+engine. The private enums `Undone` (`Named`), `Named`, `Head`, `Naming`,
+`Name`, `Grounds` are the zone's own.
+
+### Departures from the design
+
+- **The division's criterion** (departs from the design, decision 4's
+  "dividing only work that shares no unbound metavariable"): a choice is
+  divided where no rule around it may ask for another answer, whatever
+  metavariables its sequent holds; the winner's bindings come back with
+  its zone (the adoption), so an unbound metavariable shared with the
+  continuation is no obstacle, while a rule that may ask for another
+  answer is, since its answers are enumerated in order by a log.
+- **The `&` premises stay sequential at first order** (departs from the
+  design's "the `&` premises … split only premises sharing no unbound
+  metavariable"): two premises extend one zone two ways, which no
+  adoption merges.
+- **The memo is shared through a pool-wide table of ground terms**
+  (an addition: 42i's note expected the instance keys to need the
+  metavariables a worker shares); per-worker memos lost two of 42i's
+  gained verdicts on the pool and tripled the lifted rows' CPU.
+- **A cut last level is searched once more alone** (an addition), so
+  that the pool answers "unknown" only where one thread with the
+  workers' facts does.
+- **The memo's fix names ground terms by ids of a table built during the
+  search** (departs from the zone's "terms are never built during the
+  search", `framed.rs`'s module doc): the table holds ids, not terms;
+  the search's terms are still read under frames, and the table only
+  names them for the keys.
+
+### What is not verified
+
+- The pool's gain on first-order problems larger than the families'
+  (`witness-fo/12#3` stays past 10 s at four threads; LinearOne takes
+  47 ms).
+- The memory bound on the pool is an over-count of the shared table
+  (once per engine), so a tight bound may end a pool's search where one
+  thread decides (seen only under bounds of a few hundred KiB).
+
+### Checklist
+
+- [x] The cause of the memo's cost on `chain-fo` named from a profile
+  (callgrind, function by function, against `--memo-limit 0`; perf's
+  instruction counts) and removed in commits of its own (`pumwkknm`,
+  `ktvuvssx`), gated, with a test and a fresh-context differential.
+- [x] Every gain of 42i's memo table shown again (the 13 verdicts over
+  42d's form, none lost, every decided row's counters equal).
+- [x] The pinned time of `chain-fo/512` #0 and #1 and the memo's rows
+  against the top before (A), and 42i's mechanisms re-timed on decided
+  rows (B, C, D), after the supervisor's yes.
+- [x] First-order goals searched on the pool (the race, the cubes,
+  `--jobs`), verdicts at 1, 2 and 4 threads equal to one thread's on
+  42h's families and the generated sequents, every proof checked;
+  `--jobs 1` and `--deterministic` one thread's old search.
+- [x] The parallel search in commits of its own (code, docs, tests,
+  fixes, rules), its revert one `jj revert` back to the memo fix's tree,
+  checked; its table (verdicts, wall and CPU time at 1, 2, 4 threads on
+  cores of one speed, peak memory, cost in code) and the recommendation,
+  the timed parts done.
+- [x] Both target sets at the last code commit against `42i.csv` and
+  `net-42i.csv`, every decided row's counters equal; the ratchet within
+  its ceilings, none raised; the propositional engine's pinned time done.
+- [x] The panel on a frozen tree, each finding answered; fresh-context
+  differentials of every later fix to the search or the memo.
+- [x] README, the guide (its tests pass in every gate) and the changelog
+  true; the rules amended (`core-parallel.md`, `core-focus.md`).
+- [x] Every code commit gated; `nix flake check` at the last commit: see
+  the last message to the supervisor for its exit status.
+- [x] `jj st` clean, the session's commits in `jj log`.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **`.claude/rules/core-parallel.md`, "A first-order goal on the pool"**,
+  holds the four differences from a propositional pool and why: the
+  division's criterion (`Zone::divides`), the shared memo through the
+  pool's table of ground terms (`Zone::share`, `Grounds::Shared`, the
+  atomic size), the hand-over of the winner's zone and arena
+  (`Zone::adopt`, `Run::adopted`, a dropped arena's charge given back,
+  the sequent's tables shared by the forks), and `Run::again_alone`.
+  **A field added to `Framed` must be placed in `fork` and `adopt`**, and
+  a state that a rule asks for again must make `divides` false.
+- **`core-focus.md`, "The first-order zone"**: a ground term is one word
+  of a key, an id of the search's table; the names on the trail; what is
+  left of the memo's cost (the loop check's linear scan).
+- **The keep-or-revert decision is the author's**: the revert is the
+  command in the table of commits; it leaves the memo fix in place.
+- **`chain-fo/512` ends at the recursion limit** (about five frames a
+  copy): the family's largest size cannot be proved within the default
+  limits; a follow-up (the size at most about 400, or the limit raised
+  for it). Decided timing rows: `chain-fo/384#0`, `/408#0`; `#1` is never
+  decided (it ends at its copy bound below 410).
+- **The pool's memory account counts the shared table once per engine**
+  (an over-count); a bound of a few hundred KiB can end a pool's search
+  where one thread decides.
+- **The memo's next gains** (42i's notes stand): keying a literal by
+  predicate and arguments; dropping vacuous quantifiers before the
+  search. With ground ids global, a key could now name a whole literal by
+  an id too.
+- **The `&` rule at first order stays sequential** on the pool; dividing
+  it would need two zones merged.
