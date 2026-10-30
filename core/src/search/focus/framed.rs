@@ -821,6 +821,8 @@ struct KeyScratch {
     words: Vec<u32>,
     /// Per member, where its words start, `Γ`'s first.
     starts: Vec<usize>,
+    /// Per member, how many copies of it the zone holds.
+    copies: Vec<u32>,
     /// The members' order in a key.
     order: Vec<usize>,
     /// The eigenvariables' numbers, sorted, each once.
@@ -892,16 +894,25 @@ impl Framed {
         let mut s = std::mem::take(&mut self.key);
         s.words.clear();
         s.starts.clear();
+        s.copies.clear();
         s.eigens.clear();
+        // A member present more than once is written once, with its number
+        // of copies: a clause copied a hundred times leaves a hundred
+        // copies of one instance, which written out made every key as long.
         let written = gamma
             .0
-            .iter()
-            .chain(&theta.0)
-            .all(|&m| self.write_member(fo, m, &mut s));
+            .chunk_by(|x, y| x == y)
+            .chain(theta.0.chunks(1))
+            .all(|copies| {
+                u32::try_from(copies.len()).is_ok_and(|n| {
+                    s.copies.push(n);
+                    self.write_member(fo, copies[0], &mut s)
+                })
+            });
         if written {
             s.eigens.sort_unstable();
             s.eigens.dedup();
-            let n = gamma.0.len();
+            let n = gamma.0.chunk_by(|x, y| x == y).count();
             self.own_key(&mut s, n, own);
             self.canonical_key(&mut s, n, canonical);
         }
@@ -960,9 +971,11 @@ impl Framed {
         }
     }
 
-    /// The instance's own key: the members of `Γ` (the first `n`) and of
-    /// `Θ`, each zone's sorted by their words, each zone after its size,
-    /// then the level of every metavariable in the order they appear.
+    /// The instance's own key: the members of `Γ` (the first `n`, each
+    /// once) and of `Θ`, each zone's sorted by their words, each member
+    /// after its number of copies and each zone after its number of
+    /// members, then the level of every metavariable in the order they
+    /// appear.
     fn own_key(&self, s: &mut KeyScratch, n: usize, key: &mut Vec<OccId>) {
         let total = s.starts.len();
         s.order.clear();
@@ -973,11 +986,12 @@ impl Framed {
         s.metas.clear();
         key.clear();
         for members in [&order[..n], &order[n..]] {
-            // A zone has fewer members than a word counts: a forest has
-            // fewer than 2³¹ occurrences and a span as many as its body.
+            // A zone's distinct members are fewer than a word counts: each
+            // is a member id, a `u32`.
             key.push(OccId::new(members.len() as u32));
             for &i in members {
                 let range = s.range(i);
+                key.push(OccId::new(s.copies[i]));
                 key.push(OccId::new(s.words[range.start]));
                 for &w in &s.words[range.start + 1..range.end] {
                     if w & TAG == META && !s.metas.contains(&(w & VALUE)) {
@@ -991,8 +1005,8 @@ impl Framed {
         s.order = order;
     }
 
-    /// The canonical key: the members of `Γ` (the first `n`) and of `Θ`,
-    /// each zone's sorted with every metavariable alike and every
+    /// The canonical key: the members of `Γ` (the first `n`, each once,
+    /// after its number of copies) and of `Θ`, each zone's sorted with every metavariable alike and every
     /// eigenvariable by its rank, the metavariables numbered as they
     /// first appear in that order, then per metavariable how many of the
     /// sequent's eigenvariables lie below its level.
@@ -1007,6 +1021,7 @@ impl Framed {
             key.push(OccId::new(members.len() as u32));
             for &i in members {
                 let range = s.range(i);
+                key.push(OccId::new(s.copies[i]));
                 key.push(OccId::new(s.words[range.start]));
                 for j in range.start + 1..range.end {
                     let w = s.words[j];
