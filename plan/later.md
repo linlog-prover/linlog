@@ -1612,6 +1612,16 @@ the next change to that path must first win back what it spends,
 profiled against the base by callgrind function by function, never by a
 raised ceiling. The size estimate's one case left open (42h): shadowing
 inside an instance can still lift the derivation's width.
+Found at the review of 42j (2026-10-31): `chain-fo/512` ends at the
+recursion limit (about five frames a copy, so a provable chain of more
+than about 400 cannot be proved within the default 2 048): the family's
+largest size wants to be at most 400, or the limit raised for it. The
+pool costs `chain-fo` about 7 % of wall time where nothing divides (the
+race's second phase on one branch): a pool that declines a goal whose
+first level offers no choice outside a rule that may ask for another
+answer would win it back. The pool's memory account counts the shared
+ground-term table once per engine, so a bound of a few hundred KiB can
+end a pool's search where one thread decides.
 
 ## Follow-ups: the exports
 

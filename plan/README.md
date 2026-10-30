@@ -4195,3 +4195,43 @@ client follows it (step 32).
   this log, and starts each next step after its review; the tags, the
   publications, the night baseline and every outward act stay the
   author's.
+- 2026-10-31: review of session 42j, the memo's cost and parallel
+  first-order search (Opus 5.5 at high, 2026-10-30 21:00 to 01:00,
+  unattended). The memo's cost on `chain-fo`: its keys wrote every term
+  reached through a binding in full (a witness of `k` bindings made each
+  key `k` words; callgrind +684 M of 7.0 G instructions), now a ground
+  term one id of a table hash-consed for the search; pinned on decided
+  sizes (`chain-fo/384`, `/408`; the `/512` rows end at the recursion
+  limit, a heads-up box found, so 42i's timings measured giving up): the
+  fix 8 to 11 % faster on `chain-fo`, the memo's remaining cost 2.4 to
+  3.1 % (noise by the rule), every one of the memo's 13 gained verdicts
+  kept, no search changed; and 42i's effects confirmed where the search
+  answers (memo alone +8 to 11 %, resumption alone −25 to −30 %). The
+  parallel search: first-order goals on the pool, dividing a choice only
+  outside a rule that may ask for another answer, the memo shared
+  through a pool-wide ground-term table; verdicts at 1, 2 and 4 threads
+  equal on 2 738 rows, `--jobs 1` and `--deterministic` the old search.
+  Its table (cores 4 to 7, one speed): `witness-fo/10#3` 3.36 to 1.68 s
+  at equal CPU, one more `witness-fo` and one more lifted verdict within
+  2 s, `chain-fo` 7 % slower where nothing divides, about 330 lines.
+  The panel: no wrong verdict; a dropped worker's arena left charged
+  and the forks' tables uncharged (654 to 926 MB), both fixed; the
+  session's own find, four threads contending on the shared table's
+  lock, fixed with an atomic; each later fix with a fresh-context
+  differential. D17: the focused rows summed 1.0104 of the base (highest
+  `mix/9` 1.0206), both target sets equal (0 of 145, 0 of 64). Checked
+  here: both target sets; six first-order sequents at 1 and 4 threads
+  (a `witness-fo`-like refutation and proof, a `⅋`/`⊗` proof, the Mix
+  case of 42i's panel, reachability past a cycle and its unreachable
+  twin), equal verdicts, every proof checked; the last commit's diff
+  confined to the first-order zone after the pinned D17. Decided by the
+  planning session (the author's mandate of 2026-10-30 22:07): the
+  pool is kept, since it halves wide first-order refutations at equal
+  CPU and changes no verdict for modest code; its 7 % on `chain-fo` is a
+  follow-up. Departures, decided accepted on the same mandate: the
+  division's criterion (no rule that may ask for another answer, rather
+  than shared metavariables), `&` premises sequential at first order,
+  the memo shared through the pool-wide table, a cut last level searched
+  again alone, ground terms named by ids of a search-wide table. Next:
+  42k, first order on the web page (linlog's part first: the undo fix,
+  cut at first order, the bindings).
