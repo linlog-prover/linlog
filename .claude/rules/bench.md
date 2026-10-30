@@ -638,10 +638,15 @@ serde_json, which the CLI and the core's tests already have.
   copies of the two binaries. Its rows are the focused engine's: the
   target set's rows over a second are the Horn engine's since Mix went
   to the inverse method, so the list forces the focused engines onto
-  families of a tenth of a second or more (`mix`, `chain` two-sided),
-  beside the search journeys and those two rows. A `cpu_ms` of 10 ms
-  ticks is coarse below a second: the journeys' nanoseconds and the
-  longer rows carry the comparison. The first run, the zone lift's, is
+  larger sizes of the families (`chain` one- and two-sided, `qbf`,
+  `mix`), beside the search journeys and those two rows. **Every focused
+  row runs about a second or more**: a `cpu_ms` counts 10 ms ticks, so a
+  row of 110 ms moved 9 % by one tick (42c's and 42d's rows were so), and
+  a journey of milliseconds is repeated (`journey NAME --repeat N`, the
+  row's number) and its measured parts summed. `growing` has no row: its
+  size is a copy bound and its search takes about 0.14 s at every size
+  from 2 048 to 16 384. Rows are compared with runs of the same list
+  only. The first run, the zone lift's, is
   `bench/targets/pinned-42c.csv`.
 
 ## Extension points

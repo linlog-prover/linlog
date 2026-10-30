@@ -11,9 +11,11 @@ BASE on core 2 and LIFT on core 3 for the first half of the runs and
 the cores swapped for the second, so that a core, a minute or the
 machine's load weighs on both alike. Each run is a process of its own:
 a target-set row through `linlog-bench run`, whose `cpu_ms` it takes,
-or a journey through `linlog-bench journey NAME --repeat 1`, whose
-measured part's time it takes (one thread on an idle core: its CPU
-time). Every run's row is appended to RUNS.csv as it ends, so a run
+or a journey through `linlog-bench journey NAME --repeat N`, whose
+measured parts' times it sums (one thread on an idle core: its CPU
+time). A focused row runs about a second or more: `cpu_ms` counts in
+ticks of 10 ms, so a row of a tenth of a second moves 9 % by one tick,
+and a journey of milliseconds is repeated until it sums to a second. Every run's row is appended to RUNS.csv as it ends, so a run
 started again skips what is there: it runs as a user unit that
 `systemctl --user stop` stops and a second start resumes.
 
@@ -36,28 +38,25 @@ RUNS = 5
 CORES = (2, 3)
 LLTP = "bench/lltp/ILL"
 
-# (name, group, arguments): a journey's name, or a row's arguments to
-# `linlog-bench run`. The groups: `focused` the focused engine's searches,
-# one- and two-sided (the families' rows forced onto it where the dispatch
-# sends them elsewhere, each a tenth of a second or more), `other` the
-# other engines' journeys, the end-to-end ones and the target set's rows
-# over a second, which the Horn engine decides.
+# (name, group, arguments): a journey's name with how many times it is
+# repeated, or a row's arguments to `linlog-bench run`. The groups:
+# `focused` the focused engine's searches, one- and two-sided (the
+# families' rows forced onto it where the dispatch sends them elsewhere),
+# each about a second or more, `other` the other engines' journeys, the
+# end-to-end ones and the target set's rows over a second, which the Horn
+# engine decides. The family `growing` has no focused row: its size is a
+# copy bound, and its search takes about 0.14 s at every size from 2 048
+# to 16 384.
 ROWS = [
-    ("search-qbf-20-2", "focused", None),
-    ("search-chain-128", "focused", None),
-    ("search-partition-no-5", "focused", None),
-    ("search-chain-64-intuitionistic", "focused", None),
-    ("chain/256", "focused", ["--family", "chain=256", "--timeout", "300"]),
-    ("growing/1024", "focused", ["--family", "growing=1024", "--timeout", "300"]),
+    ("search-qbf-20-2", "focused", 36),
+    ("search-chain-128", "focused", 30),
+    ("search-partition-no-5", "focused", 2400),
+    ("search-chain-64-intuitionistic", "focused", 200),
+    ("chain/512", "focused", ["--family", "chain=512", "--timeout", "300"]),
     (
-        "qbf/24#1",
+        "qbf/34#1",
         "focused",
-        ["--family", "qbf=24", "--only", "qbf/24#1", "--timeout", "300"],
-    ),
-    (
-        "mix/8",
-        "focused",
-        ["--family", "mix=8", "--engines", "focus", "--timeout", "300"],
+        ["--family", "qbf=34", "--only", "qbf/34#1", "--timeout", "300"],
     ),
     (
         "mix/9",
@@ -65,11 +64,11 @@ ROWS = [
         ["--family", "mix=9", "--engines", "focus", "--timeout", "300"],
     ),
     (
-        "chain/256-intuitionistic",
+        "chain/384-intuitionistic",
         "focused",
         [
             "--family",
-            "chain=256",
+            "chain=384",
             "--modes",
             "intuitionistic",
             "--engines",
@@ -92,11 +91,11 @@ ROWS = [
             "300",
         ],
     ),
-    ("search-wide-m2-256", "other", None),
-    ("search-spec-chain", "other", None),
-    ("search-additive-14", "other", None),
-    ("batch-families", "other", None),
-    ("ordinary-pigeons", "other", None),
+    ("search-wide-m2-256", "other", 1),
+    ("search-spec-chain", "other", 1),
+    ("search-additive-14", "other", 1),
+    ("batch-families", "other", 1),
+    ("ordinary-pigeons", "other", 1),
     (
         "Peterson-4_50_1",
         "other",
@@ -144,9 +143,9 @@ def start(binary, core, args, scratch):
     """Starts one run of a row on a core; returns the process and where its CSV goes."""
     name, _, run_args = args
     pinned = ["taskset", "-c", str(core), binary]
-    if run_args is None:
+    if isinstance(run_args, int):
         return subprocess.Popen(
-            [*pinned, "journey", name, "--repeat", "1"],
+            [*pinned, "journey", name, "--repeat", str(run_args)],
             stdout=subprocess.PIPE,
             text=True,
         ), None
@@ -163,7 +162,7 @@ def finish(process, out):
     if process.returncode != 0:
         raise SystemExit(f"a run failed with status {process.returncode}")
     if out is None:
-        return float(stdout.split()[-1]) / 1e6, "", ""
+        return sum(float(ns) for ns in stdout.split()) / 1e6, "", ""
     with open(out, newline="") as file:
         (row,) = list(csv.DictReader(file))
     return float(row["cpu_ms"]), row["verdict"], row["nodes"]
