@@ -555,8 +555,12 @@ Three generators with verdicts by construction:
   calculus; this plan relies on Moot's restatement and 42h cites the
   theorem from the 2001 paper before the family is committed).
 - `chain-fo`: `p(0), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(sⁿ(0))`, provable with
-  `n` copies, and the unprovable `⊢ p(sⁿ⁺¹(0))` variant: MELL1 under the
-  copy bound, the first-order Horn shape.
+  `n` copies, and an unprovable variant: MELL1 under the copy bound, the
+  first-order Horn shape. (Corrected 2026-10-30 at a heads-up box in
+  42h's pane: the variant `⊢ p(sⁿ⁺¹(0))` this plan named is provable with
+  `n + 1` copies; 42h chooses one unprovable by a stated invariant, its
+  expected verdict what linlog can answer, unprovable by a refuter or
+  unknown at the copy bound.)
 - `witness-fo`: `p(a₁) & … & p(aₙ), q(aₖ) ⊢ ∃x.(p(x) ⊗ q(x))` and its
   unprovable variant with `q(b)`: MALL1, the premise that must be asked
   for another answer (`api.md` 10.10 (e)), at sizes that measure the
