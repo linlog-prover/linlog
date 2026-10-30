@@ -493,6 +493,18 @@ fn the_first_order_bounds_stop_the_search() {
     assert!(matches!(reason, Reason::Instances { instances: 1, .. }));
     assert_eq!(reason.setting(), Some("search.instances"));
     assert!(matches!(outcome(two, &instances(2)), Verdict::Proved(_)));
+    // Every copy level cut at once by the instances, none bounding the
+    // copies: the levels are work, and the work bound ends them, in
+    // either mode.
+    let cut = "exists x. p(x), exists x. !p(x) |- q";
+    let limits = Limits::default().with_work(Some(1 << 20));
+    for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+        let options = instances(1).with_copies(None);
+        let outcome =
+            linlog::prove_within(&cut.parse().unwrap(), mode, &options, &limits, |_| false)
+                .unwrap();
+        assert!(matches!(outcome.verdict, Verdict::Unknown(_)), "{mode}");
+    }
 }
 
 /// The counts carry over to quantifiers: a predicate with an open atom is

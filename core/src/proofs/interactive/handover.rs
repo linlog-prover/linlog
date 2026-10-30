@@ -25,7 +25,7 @@ use crate::hash::HashMap;
 use crate::limits::{Limits, Progress};
 use crate::occurrences::instances::{Terms, binders, eigen_names};
 use crate::occurrences::{Forest, Member, OccId};
-use crate::proofs::derivation::{Compact, Derivation, InfId, Inference, ViewOptions};
+use crate::proofs::derivation::{Derivation, InfId, Inference, ViewOptions};
 use crate::proofs::{CheckError, Named, Node, Proof, Rule};
 use crate::search::{self, Options, Verdict};
 use crate::sequents::fo::{FirstOrder, Interner};
@@ -328,8 +328,11 @@ impl Interactive {
                 witnesses.push((k, w));
             }
         }
-        let view = view.with_compact(Compact::Never);
-        let derivation = Derivation::new(proof, &view, limits, stop)?;
+        // Unfolded as a graft of the propositional search is, two-sided in
+        // an intuitionistic mode, so that its steps are the ones `apply`
+        // and the reader take.
+        let roots: Vec<OccId> = found.roots().to_vec();
+        let inferences = Derivation::of_goal(proof, &roots, self.mode, view, limits, stop)?;
         // The reading by the fields, beside the first-order part borrowed
         // for the carrying.
         let reading = self.reading.as_ref().map(|(position, goal)| {
@@ -348,9 +351,9 @@ impl Interactive {
         // Each of the proof's members as the session's: one instance, or
         // for the prefix and the spine the goal's formulas they join.
         let mut carried: Vec<Inference> = Vec::new();
-        let mut at: Vec<Option<InfId>> = Vec::with_capacity(derivation.inferences().len());
+        let mut at: Vec<Option<InfId>> = Vec::with_capacity(inferences.len());
         let mut members_of: HashMap<Member, Vec<Member>> = HashMap::default();
-        for inference in derivation.inferences() {
+        for inference in &inferences {
             let mut map = |m: Member| -> Result<Vec<Member>, Error> {
                 if let Some(ms) = members_of.get(&m) {
                     return Ok(ms.clone());

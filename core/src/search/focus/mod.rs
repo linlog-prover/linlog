@@ -745,6 +745,12 @@ impl<'a, Z: Zone> Run<'a, Z> {
             self.statistics.copies = budget;
             self.waiting.clear();
             if Z::FIRST_ORDER {
+                // A level a first-order bound cuts at once reaches no stable
+                // sequent, where the stop is polled: each level is work.
+                if let Err(reason) = self.poll_with() {
+                    self.give_set(theta.set);
+                    return Err(reason);
+                }
                 self.zone.begin_level();
             }
             let (added, emptied) = (self.memo.added(), self.memo.emptied());

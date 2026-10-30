@@ -675,6 +675,11 @@ code relies on:
   witness opened once, a given witness free of open witnesses and in
   its scope). `a_session_proves_with_the_quantifier_rules` round-trips
   a session before and after its axiom bound a witness.
+- **`close` grafts `Derivation::of_goal` of the written sequent's root**,
+  two-sided in an intuitionistic mode as the propositional `close`
+  grafts, not the one-sided `Derivation::new`: the one-sided unfolding
+  placed structural steps where the reader's one-succedent check
+  refuses them, so a session `close` had grafted did not read back.
 - **A cut is refused in a first-order session** (`Error::Quantifiers`,
   "a cut in interactive proving"): it rebuilds the forest, which would
   renumber the members past it.

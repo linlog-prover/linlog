@@ -527,7 +527,10 @@ impl Session {
                 // The exit status answers for the session's sequent and
                 // mode, so a file of another question is refused, as
                 // `--state` beside a sequent is.
-                if state.sequent() != self.state.sequent() {
+                // By their JSON forms: a first-order sequent read from JSON
+                // numbers its argument lists apart from the parsed one.
+                let written = |s: &linlog::Sequent| serde_json::to_string(s).ok();
+                if written(state.sequent()) != written(self.state.sequent()) {
                     bail!(
                         "{path} holds a session of another sequent; `load` resumes one of this \
                          sequent, and `linlog interact --state {path}` starts that one"

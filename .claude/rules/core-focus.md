@@ -1230,6 +1230,12 @@ code it was. What a later session must keep:
   which the engine's closed proofs feed): a witness may be nested as
   deep as its bindings go, and a recursion per level overflowed the
   search's stack at 180 000 (`a_deep_witness_closes_without_recursion`).
+- **Each copy level of a first-order search is work and polls the
+  stop** (`Run::run`, `poll_with` behind `Z::FIRST_ORDER`): a level the
+  instances bound cuts at once reaches no stable sequent, the only other
+  poll, and with no copy bound `--instances 1` deepened past a million
+  levels a second, past `--timeout` and `--work-limit` (the panel of
+  42e).
 - **The first-order bounds** (`Options::witness_depth`,
   `Options::instances`) cut a branch like the copy budget
   (`Cuts::BUDGET`), and `Framed::cut` names the bound; `Run::run`

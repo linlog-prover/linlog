@@ -796,7 +796,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   with binders calls `Interactive::close`, which writes the goal as a
   sequent of its own (instances cannot go to `Goal::new`), not the
   race of `searched`; the goal lines print members by
-  `Interactive::formula`, instances with their terms.
+  `Interactive::formula`, instances with their terms. `load` compares
+  the saved sequent with the session's by their JSON forms: a
+  first-order sequent read from JSON numbers its argument lists apart
+  from the parsed one, so `==` called a text-started session's own file
+  another sequent's.
 - **An `interact` command**: an arm in `Session::command`, a line in
   `HELP`, and the session test in `cli/tests/cli.rs`, which pins the
   exact output of a scripted session.
