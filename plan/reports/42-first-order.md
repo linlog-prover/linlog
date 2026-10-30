@@ -1961,3 +1961,295 @@ change.
 - **A proof made by a step may name eigenvariables past the input's**:
   the renamed twins take fresh numbers, so the letters a derivation
   gives eigenvariables can shift between steps where a copy was renamed.
+
+## Session 42g: the Rocq development
+
+Opus 5.5 at `high`, unattended, 2026-10-30, in the jj workspace
+`../linlog-step42g` on `uyrwnyxt` (linlog's `main`); the reviewer of the
+statements in a scratch directory of its own, reading the committed
+revision `b01f9c83`.
+
+### Outcome
+
+The Rocq library has a first-order development beside the propositional
+one, and the exporter's linlog kernel writes certificates for first-order
+proofs that Rocq checks. Terms (`Terms.v`) have de Bruijn indices for
+bound variables and eigenvariables named by naturals; the one-sided
+calculus (`FirstOrderCalculus.v`) has `fall_r`, whose eigenvariable occurs
+in no formula of its conclusion (a `⊤`'s context is in the conclusion),
+and `fex_r`, whose witness is any closed term, so an eigenvariable no `∀`
+step introduces is a constant like any other and `∀x.p(x) ⊢ ∃y.p(y)` is
+derivable; Mix, weakening and cut are `Calculus.rules`' parameters. The
+two-sided calculus (`FirstOrderIntuitionistic.v`) has `∀R`, `∀L`, `∃R`
+and `∃L` over `Intuitionistic.irules`. The proof terms, one-sided and
+two-sided, are checked in two passes as linlog's checker does (the
+eigenvariables introduced; then the bottom-up pass carrying the
+eigenvariable set to the root), and the theorems `soundness`,
+`soundness_classical`, `soundness_mix`, `soundness_affine` and
+`soundness_ill` prove that a term the checker accepts proves its sequent,
+closed under the global context. The exporter writes every committed
+first-order proof the checker accepts, classical, affine, intuitionistic
+and with cuts, and the command's proofs, a session's open witness closed
+into a constant among them; the flake's `rocq-linlog` check compiles them
+all and requires a certificate with a planted wrong witness to be
+refused. The propositional files of the library are unchanged, and so is
+every propositional certificate.
+
+### What was built
+
+- **The trusted statements**: `rocq/theories/Terms.v` (the type `term`
+  over an abstract type of symbols: `bound n`, a de Bruijn index, the
+  innermost quantifier's `0`; `eigen a`, an eigenvariable named by a
+  natural; `tapp f ts`; `tsubst`, `toccurs`, `tclosed`),
+  `FirstOrderFormulas.v` (the one-sided formulas with `var p ts`, `covar
+  p ts`, `fall`, `fex`; `dual`, `subst k u`, `occurs`),
+  `FirstOrderCalculus.v` (`fresh a l`, and `ll R` over `Calculus.rules`:
+  the propositional rules over first-order formulas, `fall_r` with
+  `fresh a (fall A :: l)` and `fex_r` with `tclosed t`) and
+  `FirstOrderIntuitionistic.v` (the two-sided formulas with `iall` and
+  `iex`, `isubst`, `ioccurs`, `ifresh`, and `ill R` over
+  `Intuitionistic.irules` with `all_irr`, `all_ilr`, `ex_irr` and
+  `ex_ilr`, the goal in the freshness of `∃L`). They hold definitions
+  alone; nothing in them is derived or assumed.
+- **The proof terms and the checkers**: `FirstOrderProofs.v` (`proof`,
+  linlog's `Node` variants in their order, `Ax p ts` and the two new
+  nodes `Forall A a` and `Exists A t` naming the body `A` with its bound
+  variable `0`), `TermsCheck.v` (the equality of terms decided through
+  one of symbols, `term_ind'`, `teigens` and their lemmas),
+  `FirstOrderCheck.v` (`formula_eqb`, `feigens`, the multiset functions
+  over first-order formulas, `state` with the field `eigens`, the first
+  pass `introduced`, the second `derive`, and `check`), and in
+  `FirstOrderIntuitionisticCheck.v` the two-sided `iproof` with
+  `IAllR`, `IExL`, `IExR` and `IAllL` after `ICut`, `iintroduced`,
+  `iderive` (each node's exact sequent and its set) and `icheck`.
+- **The theorems**: `FirstOrderSoundness.soundness` (every
+  `Calculus.rules`, cut included), `soundness_classical`,
+  `soundness_mix`, `soundness_affine`, and
+  `FirstOrderIntuitionisticCheck.soundness_ill` (every `irules`:
+  intuitionistic, affine, with and without cut), each closed under the
+  global context (`tests/Assumptions.v`, now 23 lines, all "Closed").
+- **The certificates by hand**: `rocq/tests/FirstOrder.v` (a constant
+  witness, the swap of two `∀`, a `⊤` absorbing beside a `∀` step, Mix,
+  affine weakening, a cut on `∀z.p(z)`; refused: a wrong witness, an
+  eigenvariable escaping its step through witnesses below it, one
+  introduced again above its step, one the sequent names, a witness
+  with a bound variable) and `rocq/tests/FirstOrderTwoSided.v`
+  (`∃y.∀x.r(x,y) ⊢ ∀x.∃y.r(x,y)`, affine with a constant witness, a cut;
+  refused: an escaping eigenvariable and a wrong witness).
+- **The exporter** (`core/src/export/rocq/linlog.rs`, `mod.rs`): a
+  derivation of a sequent with a binder goes to the library by default
+  and is stated over the first-order development, `(symbol := string)`,
+  the optional rules by module (`Calculus.classical`, `{| Calculus.mix
+  := …; Calculus.weakening := …; Calculus.cut := … |}`,
+  `Intuitionistic.affine`, `{| Intuitionistic.iweakening := …;
+  Intuitionistic.icut := true |}`), with the new preludes
+  `rocq::LINLOG_FIRST_ORDER_PRELUDE` and
+  `rocq::LINLOG_FIRST_ORDER_TWO_SIDED_PRELUDE`; every formula is an
+  instance written with its frame's terms substituted (`Fo`), terms on an
+  explicit stack; a `∀` step names its body and eigenvariable, a `∃` step
+  its body and witness (`IAllR`/`IExL` and `IExR`/`IAllL` by the side).
+  An explicit NanoYalla answers `Unsupported::Quantifiers`, whose
+  message now says so; the disproof writer still refuses a sequent with
+  a binder. A forest without a binder keeps the propositional writer
+  byte for byte. `Framing::terms` and `Framing::list` (crate-private,
+  behind `rocq`) give the writer the proof's terms.
+- **Tests and checks**: `first_order_certificates` (`core/tests/export.rs`)
+  pins the certificates of the fifteen committed first-order proofs the
+  checker accepts as `core/tests/snapshots/linlog/first_order_*.v` (nine
+  one-sided, six two-sided, eight with cuts), asserts that no kernel named
+  gives the library and that NanoYalla refuses; `modules/rocq-linlog.nix`
+  compiles them, the command's `cli_fo.v` (`--kernel linlog`, the
+  constant witness), `cli_fo_ill.v`, `cli_fo_affine.v`,
+  `cli_fo_ill_affine.v` and `cli_fo_session.v` (a session's two open
+  witnesses closed into a constant, `proof --rocq`), and requires
+  `fault.v`, `cli_fo.v` with the second witness changed by `sed`, to be
+  refused.
+- **Docs**: README (the kernel's default, a first-order certificate with
+  its output, the built and planned lists, the library's entry),
+  `rocq/README.md`, the guide's reference (section 18 with the example,
+  the refusal line), the changelog, the `--kernel` help (its lock
+  reblessed in a commit of its own), `.claude/rules/rocq.md` and
+  `core-export.md`.
+
+### Decisions, and where they depart from the design
+
+- **The checker works on explicit formulas** (departs from the design's
+  frames): every formula a node names is an instance with its frame's
+  terms substituted, which the exporter does, so the Rocq checker has
+  no frame to derive and compares formulas as the propositional one
+  does. Its two passes mirror linlog's by what they decide: the first,
+  `introduced`, is the frame pass's introductions and its `Reintroduced`;
+  the second carries the eigenvariable set to the root as `flow` does
+  (an `∃` step adds its witness's, a cut its formula's, which is
+  linlog's "a cut on an instance adds its frame's", a `∀` step removes
+  its own), and the root refuses an introduced eigenvariable left in the
+  set, an unintroduced one being a constant (the author's decision of
+  2026-10-30).
+- **A second introduction is refused only above its own step**
+  (departs from the design's "exactly one `Forall` node"): the term is
+  the unfolded tree, in which the copies of a node read twice carry one
+  eigenvariable and are never on one path; linlog refuses by node,
+  anywhere. So the Rocq checker is the more permissive, accepts every
+  proof linlog accepts, and stays sound (two steps with one
+  eigenvariable in disjoint branches are a valid derivation of the
+  calculus). The root also refuses an introduced eigenvariable in the
+  sequent, which linlog's sequents cannot hold.
+- **The absorbed context of a `⊤` is not written in the term** (departs
+  from decision 8's "the absorbed context explicit, which the exporter
+  gives it from the checker's frames"): the calculus's `top_r` has its
+  context in the sequent, so `fall_r`'s freshness covers it, and the
+  proof shows that every context the rules hand to an absorbing premise
+  is fresh for the premise's eigenvariables (`sat` quantifies over fresh
+  contexts only, `good` hands the guarantee from the root to the
+  leaves). The term's `Top` stays a leaf, as in the propositional
+  library, and the exporter writes no context.
+- **Witnesses are closed terms** (`tclosed` in `fex_r`, `all_ilr`,
+  `ex_irr`, checked by `derive`): with locally nameless terms a free
+  variable is an eigenvariable, so these are the textbook's terms, and
+  substitution needs no shift and captures nothing.
+- **A signature is a type of symbols, its arities implicit**: one type
+  for predicate and function symbols, as linlog's sequents have one
+  namespace; a symbol applied to lists of different lengths is a
+  different term, which changes no derivability of a well-formed
+  sequent. The certificates instantiate it with `string`.
+- **Names**: the first-order files share the propositional names
+  (`formula`, `ll`, `proof`, `soundness_classical`, …) with file names
+  of their own (`FirstOrder*.v`, `Terms*.v`), so that `From Linlog
+  Require Formulas` stays unambiguous; they `Require` `Calculus` and
+  `Intuitionistic` without importing them, so a statement names the
+  optional rules by module. The library's version (`rocq-linlog.opam`,
+  `rocq::LINLOG`, 0.1.0) is not raised: that is the release's (step 45).
+
+### The closed enums' new variants and the Rocq library (for step 45)
+
+No variant of a closed enum. Additions: the constants
+`rocq::LINLOG_FIRST_ORDER_PRELUDE` and
+`rocq::LINLOG_FIRST_ORDER_TWO_SIDED_PRELUDE`; changed behaviour: a
+first-order derivation now has a certificate where it had
+`Unsupported::Quantifiers` (non-exhaustive, its message reworded), and
+the default kernel of a sequent with a quantifier is linlog's. No Rocq
+break: no file of the propositional development changed, so every 0.1.0
+certificate means what it meant; the library gains ten files (four of
+them trusted: `Terms.v`, `FirstOrderFormulas.v`, `FirstOrderCalculus.v`,
+`FirstOrderIntuitionistic.v`).
+
+### The reviewer's round
+
+`linlog-step42g-review` (Opus 5.5 at `high`, fresh context, cores 4 and
+5, its own scratch directory, the committed revision `b01f9c83`),
+briefed to read the four trusted files against a textbook presentation
+of first-order linear logic, one-sided and two-sided intuitionistic (the
+eigenvariable condition with the absorbed context and the goal,
+witnesses, substitution under de Bruijn binders, loose indices), each
+theorem's statement in every mode, and linlog's checker (whether every
+proof it accepts has a term the Rocq checker accepts), told to report
+only what makes a statement wrong or weaker than it claims, with a
+witness. **No finding.** It compared the rules one by one with the
+propositional ones and the textbook's, checked that `fall_r`, `all_irr`
+and `ex_ilr` take freshness over the whole conclusion, built the library
+and compiled the tests and `Assumptions.v` itself, and probed that one
+eigenvariable in both premises of a `⊗` is accepted. **One note, not a
+finding**: `tsubst` never shifts loose indices, so on formulas that are
+not locally closed `ll` derives some open sequents the de Bruijn reading
+would not (`⊢ ∃x.p(#1)⊥, p(#1)`); replacing every loose index by an
+unused eigenvariable maps any derivation to one over locally closed
+formulas, so the closed sequents derivable are the textbook's.
+**Answer**: agreed, no change; linlog writes no loose index (its readers
+refuse one), and `rocq.md` records the point.
+
+### The propositional case (D17)
+
+- **Target sets** at `tkyvysxk`, the session's last code commit,
+  against `bench/targets/42f.csv` and `bench/targets/net-42f.csv`
+  (`linlog-bench summary --against … --counters`): no verdict differs;
+  of the 145 focused problems both decide alike on one thread, 0 differ
+  in `nodes`, `splits`, `memo_hits`, `memo_entries`, `links` or `tests`;
+  of the 64 net problems, 0. The files are `bench/targets/42g.csv` and
+  `bench/targets/net-42g.csv`. No search changed: the exporter is the
+  only Rust code touched.
+- **The ratchet** (the gate at `lnqszlyr` and at `tkyvysxk`): every
+  journey within its ceiling, `bench/ceilings.csv` unchanged, the
+  figures the base's (`derivation-chain-64` +1.97 %, `check-qbf-20-2`
+  +0.61 %, `search-chain-128` −0.21 %); no journey exports Rocq.
+
+### What is not verified
+
+- No pinned-time run: no search changed (the brief's).
+- The web page's drawing and certificate of a first-order session is
+  42k's to test; the bindings call the same writer.
+
+### What is verified
+
+- The library and the tests in a scratch build (Rocq 9.1.1, the stdlib
+  nixpkgs ships): every file compiles, `tests/Assumptions.v` answers
+  "Closed under the global context" 23 times, the five one-sided and two
+  two-sided refused terms compute `false`.
+- The certificates of the fifteen committed first-order proofs, written
+  by `linlog check --format rocq --standalone` and by the snapshot test,
+  compile; the command's certificates of `∀x.p(x) ⊢ ∃y.p(y)` (classical,
+  `-i`, `--affine`, `-i --affine`), of `∃y.∀x.r(x,y) ⊢ ∀x.∃y.r(x,y)`, of
+  `!∀x.?p(x) ⊢ ?∃y.p(y)` and of a session that closed two open witnesses
+  compile; a certificate with its witness changed (`eigen 1` for `eigen
+  0`) and one with an eigenvariable introduced twice are refused by
+  Rocq (`Unable to unify "true" with "false"`).
+- `cargo clippy --workspace --all-targets -- --deny warnings`, `cargo
+  test --workspace` (README's and the guide's examples among them),
+  `cargo hack check --each-feature -p linlog`, and the gate at both code
+  commits.
+- `nix build .#checks.x86_64-linux.rocq-linlog
+  .#checks.x86_64-linux.rocq-bridges` under the machine lock at
+  `tnrzrpwo`'s tree: exit 0, the library, every certificate under
+  `rocq/tests/` and `core/tests/snapshots/linlog/` and the command's, the
+  planted fault refused, 27 lines "Closed under the global context" (23
+  of the library's theorems, 4 of the bridges'), the bridges unchanged.
+
+### Checklist
+
+- [x] The first-order formulas and terms, the one-sided calculus with
+  the quantifier rules and the eigenvariable condition, the two-sided
+  calculus with its four rules, in `rocq/theories/`.
+- [x] The proof terms, the checkers in two passes, the soundness
+  theorems in every mode the propositional ones cover, closed under the
+  global context.
+- [x] The exporter's `--kernel linlog` certificates of first-order
+  proofs (classical, intuitionistic, affine, with cuts, with a constant
+  no `∀` step introduces, a session's) compiled; a planted fault
+  refused.
+- [x] `nix build .#checks.x86_64-linux.rocq-linlog
+  .#checks.x86_64-linux.rocq-bridges`: exit 0.
+- [x] The fresh-context reviewer's reading of the statements, its note
+  answered above.
+- [x] Both target sets against `42f` and `net-42f`, every decided row's
+  counters equal; the ratchet within its ceilings, none raised.
+- [x] `rocq.md`, `core-export.md`, README, `rocq/README.md`, the guide
+  (its tests pass) and the changelog true.
+- [x] Every code commit gated; `nix flake check` at the last commit: see
+  the last message to the supervisor for its exit status.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **`.claude/rules/rocq.md`** holds the first-order development's
+  layout, its trusted files, the names it shares with the propositional
+  one and how a certificate names the optional rules, why its checker
+  is sound (`good`), and the proof-writing pitfalls met here;
+  **`core-export.md`** how the exporter writes instances.
+- **A new first-order rule** (a later step's) is a constructor of the
+  first-order `ll` and `proof`, arms of `introduced` and `derive`, and a
+  case of `derive_sound` with a `good` obligation per premise; the
+  two-sided files alike. The propositional files need not change.
+- **The Rocq checker is more permissive than linlog's on
+  reintroductions** (by path, not by node), on purpose: the unfolded
+  tree cannot tell copies of a shared node from two steps.
+- **Refutations of first-order sequents have no certificate**: the
+  disproof writer still answers `Unsupported::Quantifiers`, and the
+  library's invariants (`Refutations.v`) are propositional; the
+  per-symbol counts of 42d would need first-order versions of `balance`.
+- **42k (the web page)**: the bindings' Rocq output of a finished
+  first-order session now gives a certificate (the same writer); a
+  session's certificate needs its open witnesses closed, which
+  `Interactive::proof` does.
+- **Step 45 (the release)**: the library's version (`rocq-linlog.opam`,
+  `rocq::LINLOG`) is still 0.1.0 and should rise with the new modules;
+  no propositional statement changed.
