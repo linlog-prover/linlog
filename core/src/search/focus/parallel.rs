@@ -252,21 +252,31 @@ impl<Z: Zone> Collected<Z> {
 
     /// Takes a worker's result: a proof or an error settles the choice
     /// and raises its flag, a failure adds its cuts. The first proof's
-    /// worker gives up its zone and arena where they are its own.
+    /// worker gives up its zone and arena where they are its own; any
+    /// other's arena gives its charge back.
     fn take(&mut self, result: Step, worker: Run<'_, Z>, cancel: &AtomicBool) {
         self.statistics.add_run(&worker.report());
         if self.cut.is_none() {
             self.cut = worker.zone.cut();
         }
+        let won = matches!(result, Ok(Found::Proved(_))) && self.proof.is_none();
+        let Run {
+            zone,
+            nodes,
+            problem,
+            ..
+        } = worker;
+        if let Kept::Own(kept) = nodes.kept {
+            if won {
+                self.won = Some((zone, kept));
+            } else {
+                // Charged to the account as kept nodes, and dropped.
+                problem.account.resize(bytes_of(&kept), 0);
+            }
+        }
         match result {
             Ok(Found::Proved(node)) => {
-                if self.proof.is_none() {
-                    self.proof = Some(node);
-                    let Run { zone, nodes, .. } = worker;
-                    if let Kept::Own(kept) = nodes.kept {
-                        self.won = Some((zone, kept));
-                    }
-                }
+                self.proof.get_or_insert(node);
                 cancel.store(true, Ordering::Relaxed);
             }
             Ok(Found::Failed(failed)) => self.cuts = self.cuts.and(failed),
