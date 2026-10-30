@@ -272,7 +272,7 @@ impl Interactive {
             }
         }
         let parts = proxy.instances.map(Parts::from);
-        let mut state = State::from_parts(forest, proxy.mode, inferences, history, parts)?;
+        let mut state = State::from_parts(forest, proxy.mode, inferences, history, parts, limits)?;
         if let Some(written) = proxy.written {
             state.keep_writing(written.record(len)?)?;
         }

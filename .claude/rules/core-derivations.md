@@ -581,11 +581,31 @@ code relies on:
   runs the code it ran before; `expand` checks occurrences for both,
   and `framed_premises`/`mirror` make the member premises of a
   first-order one.
-- **The table only grows**: `undo` leaves the step's entries behind,
-  unused, and takes back what the trail (`(step, Bound | Lowered)`)
-  records under the step's number (`history.len()` before it was
-  pushed). Eigenvariable numbers are never reused, so names stay put
-  across undo (`eigen_names` over every eigenvariable of the table).
+- **`undo` goes back to the step's mark**: every step that makes
+  entries (`framed_premises`, `carry_back`) takes a `Mark` first (the
+  table's, metavariables', eigenvariables', constants' and trail's
+  lengths) and records it under the step's number (`history.len()`
+  before the push); `undo` takes back the trail past it and truncates
+  everything made since, the hash-consing maps with it; a step that
+  fails goes back to its mark at once. So a session's table holds the
+  live derivation's entries only, and 20 000 apply/undo cycles cost what
+  one does (the panel's integers reviewer measured them quadratic and
+  the table unbounded when undo left entries behind; `close`'s constants
+  outlived its undo). A session read from JSON has no marks for its
+  steps: their undo leaves their entries unused.
+- **Every term of a session unfolds to at most `limits.terms`** (the
+  session's start's, `Quantified::limit`, `Limits::DEFAULT_TERMS` for
+  `Interactive::new`): `show` counts the shown terms' unfolded sizes and
+  a step past it goes back to its mark (`StepError::Witness`, "would
+  unfold to more than …"), `close` refuses its graft
+  (`Refusal::Terms`), the reader refuses the document. A term of shared
+  halves is a few nodes and 2⁴⁰ terms written out; before the bound a
+  1 KB session file printed for minutes and `close` ran out of memory
+  building its atom's text.
+- **Shared terms are walked once**: `unify_pairs` and `same_atom` skip a
+  pair met before (unification of two DAGs was exponential), and
+  `same_atom` reads the shown table, where bindings are followed
+  already, so no chain of bindings is walked per comparison.
 - **Levels are the eigenvariable condition, as in the engine**: a
   metavariable's level is the eigenvariables made before it; a binding
   refuses an eigenvariable at or above it that is no constant and
@@ -629,6 +649,21 @@ code relies on:
   (`a_session_holds_deep_witnesses_and_bounds_its_table`, 100 000 deep).
   The reader bounds the table by `limits.terms` (members, frames and
   terms together), as the proof reader does.
+- **The reader refuses what no step makes**: a binding whose term's top
+  is a bound metavariable (unification follows bindings first; a chain
+  of such made reading quadratic), a binding made by a step that closes
+  no goal (only an axiom, `1`, `⊤` or a graft binds; `undo` of the named
+  step would otherwise leave a state no session reaches), an open
+  witness whose level admits an eigenvariable a `∀` step made at its
+  step or later (`later`, the suffix minimum of the steps' eigenvariable
+  numbers). A given witness's scope is read by intervals of a walk of
+  the tree (`replay_binders`), not by walking up per step, which made
+  100 000 `∃` steps take 38 s.
+- **`close` takes a goal without a binder or an open witness** (the
+  written sequent then has none, and its proof no table: an empty one
+  stands in) and the empty goal of a classical mode (the written
+  sequent has no formula); both broke at the panel's first round
+  (`GoalMismatch`, a panic).
 - **The JSON's `instances`** are read by `Quantified::from_parts` (every
   entry before its users, frames as long as their occurrence's binders,
   no entry twice, function symbols of the right arity, levels at most

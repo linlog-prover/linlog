@@ -8,6 +8,7 @@ use super::Interactive;
 use super::quantified::{Parts, Quantified};
 use crate::Error;
 use crate::fragment::Mode;
+use crate::hash::HashMap;
 use crate::occurrences::{Forest, Member, OccId, Reading};
 use crate::proofs::Rule;
 use crate::proofs::derivation::{InfId, Inference};
@@ -32,14 +33,19 @@ impl Interactive {
         inferences: Vec<Inference>,
         history: Vec<InfId>,
         parts: Option<Parts>,
+        limits: &crate::Limits,
     ) -> Result<Self, Error> {
         let mut state = Self::from_forest(forest, mode)?;
         match (state.fo.is_some(), parts) {
             (true, Some(parts)) => {
-                let q = Quantified::from_parts(&state.forest, parts, history.len())?;
+                let q = Quantified::from_parts(&state.forest, parts, history.len(), limits.terms)?;
                 state.fo = Some(Box::new(q));
             }
-            (true, None) => {}
+            (true, None) => {
+                if let Some(q) = state.fo.as_mut() {
+                    q.limit = limits.terms;
+                }
+            }
             (false, Some(_)) => {
                 return Err(Error::InconsistentSession {
                     reason: "a session of a sequent without quantifiers has instances",
@@ -133,6 +139,8 @@ impl Interactive {
         // suffix of the arena then.
         let mut len = n;
         let mut seen = vec![false; n];
+        // Per step, the inferences it added: `start..len`.
+        let mut added_by: Vec<(usize, usize)> = Vec::with_capacity(history.len());
         for &goal in history.iter().rev() {
             // Below `len`, the arena as this step left it: an entry inside
             // a later step's subtree would make `undo` index past it.
@@ -167,8 +175,10 @@ impl Interactive {
                     reason: "the history does not match the order of the inferences",
                 });
             }
+            added_by.push((start, len));
             len = start;
         }
+        added_by.reverse();
         // The cut formulas are those of the cuts, in the order they were
         // made, so that `undo` takes back the last one with its cut.
         let made = state
@@ -186,7 +196,7 @@ impl Interactive {
         }
         state.history = history;
         if state.fo.is_some() {
-            state.replay_binders()?;
+            state.replay_binders(&added_by)?;
         }
         Ok(state)
     }
@@ -195,10 +205,46 @@ impl Interactive {
     /// eigenvariable no constant and introduced by no other, each open
     /// witness opened by one step only, each witness term given free of
     /// open witnesses and of eigenvariables outside its goal's scope.
-    fn replay_binders(&self) -> Result<(), Error> {
+    fn replay_binders(&self, added_by: &[(usize, usize)]) -> Result<(), Error> {
         let bad = |reason: &'static str| Error::InconsistentSession { reason };
         let q = self.fo.as_ref().expect("a first-order session");
+        let n = self.inferences.len();
+        // The step that closed each inference: its own, or the graft's
+        // that added it.
+        let mut step_of = vec![None; n];
+        for (h, (&goal, &(start, end))) in self.history.iter().zip(added_by).enumerate() {
+            step_of[goal.index()] = Some(h);
+            for slot in &mut step_of[start..end] {
+                *slot = Some(h);
+            }
+        }
+        // Each inference's place in the tree: entered and left in a walk
+        // from the root, so that an inference lies below another exactly
+        // when its interval holds the other's.
+        let (mut enter, mut exit) = (vec![0usize; n], vec![0usize; n]);
+        let mut clock = 0;
+        let mut walk = vec![(InfId::new(0), false)];
+        while let Some((id, done)) = walk.pop() {
+            clock += 1;
+            if done {
+                exit[id.index()] = clock;
+            } else {
+                enter[id.index()] = clock;
+                walk.push((id, true));
+                walk.extend(
+                    self.inferences[id.index()]
+                        .premises
+                        .iter()
+                        .map(|&p| (p, false)),
+                );
+            }
+        }
         let (mut eigens, mut metas): (Vec<Eigen>, Vec<u32>) = (Vec::new(), Vec::new());
+        let mut introduced: HashMap<Eigen, InfId> = HashMap::default();
+        let mut opened: Vec<(u32, usize)> = Vec::new();
+        // The smallest eigenvariable a `∀` step made at each step or later.
+        let mut later = vec![u32::MAX; self.history.len() + 1];
+        let mut witnessed = Vec::new();
         for (i, inference) in self.inferences.iter().enumerate() {
             let id = InfId::new(i as u32);
             let rule = inference.rule.rule;
@@ -208,22 +254,63 @@ impl Interactive {
             let t = self
                 .opened_with(id)
                 .ok_or(bad("a quantifier step opens no body"))?;
+            let step = step_of[i].ok_or(bad("a closed inference no step closed"))?;
             let terms = q.terms(&self.forest);
             match (rule, terms.term(t)) {
-                (Rule::Forall, FoTerm::Eigen(a)) if !q.constants.contains(&a) => eigens.push(a),
+                (Rule::Forall, FoTerm::Eigen(a)) if !q.constants.contains(&a) => {
+                    eigens.push(a);
+                    introduced.insert(a, id);
+                    later[step] = later[step].min(a.get());
+                }
                 (Rule::Forall, _) => {
                     return Err(bad("a ∀ step's body is not opened with an eigenvariable"));
                 }
-                (_, FoTerm::Meta(k)) => metas.push(k),
-                _ => {
-                    let (inside, open) = q.variables(&self.forest, t);
-                    let scope = self.scope(id);
-                    if !open.is_empty() || !inside.iter().all(|a| scope.contains(a)) {
-                        return Err(bad(
-                            "an ∃ step's witness names an open witness or an eigenvariable out of its scope",
-                        ));
-                    }
+                (_, FoTerm::Meta(k)) => {
+                    metas.push(k);
+                    opened.push((k, step));
                 }
+                _ => witnessed.push((id, t)),
+            }
+        }
+        for h in (0..self.history.len()).rev() {
+            later[h] = later[h].min(later[h + 1]);
+        }
+        // An open witness admits no eigenvariable made at its step or later.
+        if opened
+            .iter()
+            .any(|&(k, step)| q.metas[k as usize].made > later[step])
+        {
+            return Err(bad(
+                "an open witness's level admits an eigenvariable made after it",
+            ));
+        }
+        for (id, t) in witnessed {
+            let (inside, open) = q.variables(&self.forest, t);
+            let in_scope = |a: &Eigen| {
+                q.constants.contains(a)
+                    || introduced.get(a).is_some_and(|&by| {
+                        enter[by.index()] < enter[id.index()] && exit[id.index()] < exit[by.index()]
+                    })
+            };
+            if !open.is_empty() || !inside.iter().all(in_scope) {
+                return Err(bad(
+                    "an ∃ step's witness names an open witness or an eigenvariable out of its scope",
+                ));
+            }
+        }
+        // A binding is made by an axiom, a `1` or `⊤` closing its goal, or a
+        // graft of the search, never by a step that only opens goals.
+        for (_, _, step) in q.bindings() {
+            let h = step as usize;
+            let goal = &self.inferences[self.history[h].index()];
+            let (start, end) = added_by[h];
+            // A graft added closed inferences; a rule's own premises are
+            // open until a later step closes them.
+            let closes = matches!(goal.rule.rule, Rule::Ax | Rule::One | Rule::Top)
+                || (start..end)
+                    .any(|i| step_of[i] == Some(h) && self.inferences[i].rule.rule != Rule::Open);
+            if !closes {
+                return Err(bad("a binding is made by a step that closes no goal"));
             }
         }
         eigens.sort_unstable();

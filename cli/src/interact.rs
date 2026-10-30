@@ -152,7 +152,7 @@ fn words(line: &str) -> Result<Vec<String>> {
 }
 
 /// Reads a session from a JSON file, its sequent within
-/// `limits.occurrences`.
+/// `limits.occurrences` and its first-order terms within `limits.terms`.
 fn load(path: &Path, limits: &Limits) -> Result<Interactive> {
     let text = io::read(Some(path), "session", limits.memory_bytes)?;
     let mut document = serde_json::Deserializer::from_str(&text);
@@ -161,6 +161,9 @@ fn load(path: &Path, limits: &Limits) -> Result<Interactive> {
         Ok(session) => {
             document.end().with_context(not)?;
             Ok(session)
+        }
+        Err(e) if e.setting() == Some("limits.terms") => {
+            bail!("{e}; raise it with --term-limit")
         }
         Err(e) if e.kind() == linlog::ErrorKind::Limit => {
             bail!("{e}; raise it with --occurrence-limit")

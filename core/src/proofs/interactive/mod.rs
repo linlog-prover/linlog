@@ -583,7 +583,11 @@ impl Interactive {
             return Self::within(&conclusion, mode, limits);
         }
         let forest = Forest::within(sequent, limits)?;
-        Self::from_forest(forest, mode)
+        let mut state = Self::from_forest(forest, mode)?;
+        if let Some(q) = state.fo.as_mut() {
+            q.limit = limits.terms;
+        }
+        Ok(state)
     }
 
     /// Starts a proof over a forest built already.

@@ -149,6 +149,45 @@ impl Interactive {
         left: &[usize],
         witness: &Witness,
     ) -> Result<Vec<Vec<Member>>, StepError> {
+        // The number the step will have: fewer steps than inferences,
+        // which an `InfId` numbers.
+        let step = self.history.len() as u32;
+        let mark = self.fo.as_ref().expect("a first-order session").mark();
+        let made = self
+            .make_premises(goal, position, rule, left, witness)
+            .and_then(|premises| {
+                let q = self.fo.as_ref().expect("a first-order session");
+                match q.limit {
+                    Some(limit) if q.too_large() => Err(StepError::Witness {
+                        reason: format!("a witness would unfold to more than {limit} terms"),
+                    }),
+                    _ => Ok(premises),
+                }
+            });
+        let q = self.fo.as_mut().expect("a first-order session");
+        match made {
+            Ok(premises) => {
+                q.made(step, mark);
+                Ok(premises)
+            }
+            // A step that fails leaves the session as it found it.
+            Err(error) => {
+                q.back_to(mark);
+                self.show();
+                Err(error)
+            }
+        }
+    }
+
+    /// Makes the premises of [`framed_premises`](Self::framed_premises).
+    fn make_premises(
+        &mut self,
+        goal: GoalId,
+        position: usize,
+        rule: Rule,
+        left: &[usize],
+        witness: &Witness,
+    ) -> Result<Vec<Vec<Member>>, StepError> {
         use Rule::*;
         let members = self.goal(goal)?.to_vec();
         let m = members[position];

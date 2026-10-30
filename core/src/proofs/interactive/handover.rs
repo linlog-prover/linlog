@@ -195,31 +195,33 @@ impl Interactive {
             closed: HashMap::default(),
         };
         let mut formulas: Vec<TermId> = order.iter().map(|&m| copy.formula(m)).collect();
-        // The spine: the hypotheses' `⅋` the goal's formula last.
-        let mut spine = formulas.pop().expect("a goal has a formula");
-        while let Some(f) = formulas.pop() {
-            spine = copy.push(Term::Par(f, spine));
-        }
-        let mut root = spine;
-        for (j, p) in prefix.iter().enumerate().rev() {
-            root = copy.push(match p {
-                Ok(_) => Term::Exists(root),
-                Err(_) => Term::Forall(root),
-            });
-            let name = match p {
-                Ok(k) => format!("w_{k}"),
-                Err(a) => names[a].clone(),
-            };
-            let _ = j;
-            copy.binders.push((root, name));
-        }
+        // The spine: the hypotheses' `⅋`, the goal's formula last; none
+        // for the empty goal of a classical mode, which holds no variable.
+        let root = formulas.pop().map(|last| {
+            let mut root = last;
+            while let Some(f) = formulas.pop() {
+                root = copy.push(Term::Par(f, root));
+            }
+            for p in prefix.iter().rev() {
+                root = copy.push(match p {
+                    Ok(_) => Term::Exists(root),
+                    Err(_) => Term::Forall(root),
+                });
+                let name = match p {
+                    Ok(k) => format!("w_{k}"),
+                    Err(a) => names[a].clone(),
+                };
+                copy.binders.push((root, name));
+            }
+            root
+        });
         copy.binders.sort_unstable_by_key(|&(t, _)| t);
         let mut tables: FirstOrder = copy.interner.tables;
         tables.atoms = copy.fo_atoms;
         tables.binders = copy.binders;
         let sequent = Sequent {
             terms: copy.terms,
-            roots: vec![root],
+            roots: root.into_iter().collect(),
             atoms: copy.atoms,
             antecedents: Some(0),
             cuts: vec![],
@@ -249,9 +251,51 @@ impl Interactive {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<(), Error> {
+        // Fewer steps than inferences, which an `InfId` numbers.
+        let step = self.history.len() as u32;
+        let mark = self.fo.as_ref().expect("a first-order session").mark();
+        let carried =
+            self.carry_back_from(goal, members, written, proof, view, limits, &mut stop, step);
+        let q = self.fo.as_mut().expect("a first-order session");
+        match carried {
+            Ok(()) => {
+                q.made(step, mark);
+                Ok(())
+            }
+            // A graft that fails leaves the session as it found it.
+            Err(error) => {
+                q.back_to(mark);
+                self.show();
+                Err(error)
+            }
+        }
+    }
+
+    /// Carries the proof back as [`carry_back`](Self::carry_back) does,
+    /// leaving what it made where it fails.
+    #[expect(clippy::too_many_arguments, reason = "close's own, and what it wrote")]
+    fn carry_back_from(
+        &mut self,
+        goal: GoalId,
+        members: &[Member],
+        written: &Written,
+        proof: &Proof,
+        view: &ViewOptions,
+        limits: &Limits,
+        stop: &mut dyn FnMut(Progress) -> bool,
+        step: u32,
+    ) -> Result<(), Error> {
         let bad = || Error::GoalMismatch;
         let found = proof.forest();
-        let table = proof.instances().ok_or_else(bad)?;
+        // A goal written without a binder is proved without a table.
+        let empty;
+        let table = match proof.instances() {
+            Some(table) => table,
+            None => {
+                empty = crate::Instances::new(found);
+                &empty
+            }
+        };
         let terms = Terms {
             fo: &found.sequent().fo,
             table,
@@ -285,7 +329,7 @@ impl Interactive {
             }
         }
         let view = view.with_compact(Compact::Never);
-        let derivation = Derivation::new(proof, &view, limits, &mut stop)?;
+        let derivation = Derivation::new(proof, &view, limits, stop)?;
         // The reading by the fields, beside the first-order part borrowed
         // for the carrying.
         let reading = self.reading.as_ref().map(|(position, goal)| {
@@ -394,18 +438,24 @@ impl Interactive {
         for (k, w) in witnesses {
             bindings.push((k, back.term(forest, w)?));
         }
-        // Fewer steps than inferences, which an `InfId` numbers.
-        let step = self.history.len() as u32;
         let q = self.fo.as_mut().expect("a first-order session");
         for (k, t) in bindings {
             if q.bind(forest, k, t, step).is_err() {
-                q.undo(step);
                 return Err(bad());
             }
         }
+        self.show();
+        let q = self.fo.as_ref().expect("a first-order session");
+        if let Some(limit) = q.limit
+            && q.too_large()
+        {
+            return Err(Error::Refused(crate::Refusal::Terms {
+                terms: q.largest,
+                limit,
+            }));
+        }
         self.graft(goal.inf(), carried);
         self.history.push(goal.inf());
-        self.show();
         Ok(())
     }
 }
@@ -710,7 +760,13 @@ impl Back<'_> {
                     let e = match self.eigen_at.get(&a) {
                         Some(&e) => e,
                         None => {
-                            let (e, _) = self.q.fresh_eigen().ok_or(Error::GoalMismatch)?;
+                            let Some((e, _)) = self.q.fresh_eigen() else {
+                                return Err(Error::Refused(crate::Refusal::Index {
+                                    what: crate::limits::Space::Term,
+                                    count: u64::from(u32::MAX) + 1,
+                                    most: u64::from(u32::MAX),
+                                }));
+                            };
                             if !self.introduced.contains(&a) {
                                 self.q.constants.push(e);
                             }

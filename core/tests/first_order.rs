@@ -817,8 +817,27 @@ fn the_search_closes_a_session_goal() {
         closed.outcome.verdict
     );
     assert!(!state.is_complete());
-}
 
+    // A goal without a binder or an open witness left, and the empty goal
+    // of a classical mode, are searched as sequents of their own too.
+    let sequent: Sequent = "forall x. p(x) |- p(c)".parse().unwrap();
+    let mut state = Interactive::new(&sequent, mode).unwrap();
+    step(&mut state, "∀x. p(x)", Rule::Exists, Some("c"));
+    let goal = state.goals().next().unwrap();
+    let closed = state
+        .close(goal, &options, &view, &limits, |_| false)
+        .unwrap();
+    assert!(matches!(closed.outcome.verdict, Verdict::Proved(_)));
+    assert_eq!(state.proof(&limits, |_| false).unwrap().check(mode), Ok(()));
+    let sequent: Sequent = "|- (exists x. p(x)) * bot".parse().unwrap();
+    let mut state = Interactive::new(&sequent, Mode::CLASSICAL).unwrap();
+    let goals = step(&mut state, "(∃x. p(x)) ⊗ ⊥", Rule::Tensor, None);
+    let bot = state.apply(goals[1], &Step::new(0, Rule::Bot)).unwrap();
+    let closed = state
+        .close(bot[0], &options, &view, &limits, |_| false)
+        .unwrap();
+    assert!(matches!(closed.outcome.verdict, Verdict::Unprovable(_)));
+}
 /// A witness nested 100 000 deep goes through a session without
 /// recursion: built flat, printed, written for the search and decided;
 /// and a session read from JSON holds no more table entries than
@@ -861,11 +880,103 @@ fn a_session_holds_deep_witnesses_and_bounds_its_table() {
     assert_eq!(state.undo(), Some(root));
     step(&mut state, "∀x. p(x)", Rule::Exists, Some("f(c)"));
     let json = serde_json::to_string(&state).unwrap();
-    let limits = Limits::default().with_terms(Some(2));
+    // A member and a frame: undo dropped the deep witness's entries.
+    let limits = Limits::default().with_terms(Some(1));
     let error = <Interactive as linlog::wire::Readable>::read(
         &mut serde_json::Deserializer::from_str(&json),
         &limits,
     )
     .unwrap_err();
     assert!(error.to_string().contains("terms"), "{error}");
+}
+
+/// `undo` takes back what its step made: the open witnesses `close`
+/// bound, and the eigenvariables, constants and entries the step added,
+/// so that the session reads as it did before the step.
+#[test]
+fn undo_drops_what_its_step_made() {
+    let sequent: Sequent = "|- exists x. exists y. (p(x) -o p(y))".parse().unwrap();
+    let mut state = Interactive::new(&sequent, Mode::CLASSICAL).unwrap();
+    step(&mut state, "∃x. (∃y. (~p(x) ⅋ p(y)))", Rule::Exists, None);
+    let before = serde_json::to_string(&state).unwrap();
+    let goal = state.goals().next().unwrap();
+    let (options, view, limits) = (
+        Options::default(),
+        linlog::ViewOptions::default(),
+        Limits::default(),
+    );
+    for _ in 0..3 {
+        let closed = state
+            .close(goal, &options, &view, &limits, |_| false)
+            .unwrap();
+        assert!(matches!(closed.outcome.verdict, Verdict::Proved(_)));
+        assert_eq!(state.undo(), Some(goal));
+    }
+    assert_eq!(serde_json::to_string(&state).unwrap(), before);
+    assert!(matches!(state.witness("a"), Err(StepError::Witness { .. })));
+}
+
+/// A session refuses what none of its steps could make: a witness that
+/// unfolds past `limits.terms` (a term of shared halves, a hundred
+/// thousand nodes written out to 2⁴⁰), and in its JSON a binding at a
+/// step that closes no goal and an open witness whose level admits an
+/// eigenvariable made after it.
+#[test]
+fn a_session_refuses_what_no_step_could_make() {
+    let sequent: Sequent = "forall x. p(x) |- p(g(c, c))".parse().unwrap();
+    let index = |name: &str| {
+        let i = sequent
+            .symbols()
+            .iter()
+            .position(|(n, _)| n == name)
+            .unwrap();
+        linlog::sequents::Symbol::new(u32::try_from(i).unwrap())
+    };
+    let mut nodes = vec![TermNode::App(index("c"), vec![])];
+    for i in 0..40u32 {
+        nodes.push(TermNode::App(index("g"), vec![i, i]));
+    }
+    let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
+    let root = state.goals().next().unwrap();
+    let position = at(&state, root, "∀x. p(x)");
+    let error = state
+        .apply(
+            root,
+            &Step::new(position, Rule::Exists).with_witness(Witness::Term(nodes)),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(&error, StepError::Witness { reason, .. } if reason.contains("unfold")),
+        "{error}"
+    );
+    assert_eq!(state.steps(), 0);
+
+    // A binding moved onto the `∀L` step that opened its witness.
+    let sequent: Sequent = "forall x. p(x) |- p(c)".parse().unwrap();
+    let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
+    let goals = step(&mut state, "∀x. p(x)", Rule::Exists, None);
+    state.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
+    let json = serde_json::to_string(&state).unwrap();
+    let forged = json.replace(r#""bindings":[[0,1,1]]"#, r#""bindings":[[0,1,0]]"#);
+    assert_ne!(forged, json, "{json}");
+    assert!(serde_json::from_str::<Interactive>(&json).is_ok());
+    let error = serde_json::from_str::<Interactive>(&forged).unwrap_err();
+    assert!(error.to_string().contains("binding"), "{error}");
+
+    // An open witness made before the eigenvariables `a` and `b`, given
+    // a level that admits them.
+    let sequent: Sequent = "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)"
+        .parse()
+        .unwrap();
+    let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
+    step(&mut state, "∃y. (∀x. r(x, y))", Rule::Exists, None);
+    step(&mut state, "∀x. r(x, $1)", Rule::Forall, None);
+    step(&mut state, "∀x. (∃y. r(x, y))", Rule::Exists, Some("a"));
+    step(&mut state, "∃y. r(a, y)", Rule::Forall, None);
+    let json = serde_json::to_string(&state).unwrap();
+    let forged = json.replace(r#""metas":[0]"#, r#""metas":[2]"#);
+    assert_ne!(forged, json, "{json}");
+    assert!(serde_json::from_str::<Interactive>(&json).is_ok());
+    let error = serde_json::from_str::<Interactive>(&forged).unwrap_err();
+    assert!(error.to_string().contains("level"), "{error}");
 }

@@ -96,6 +96,40 @@ pub(super) struct Quantified {
     /// The bindings and lowerings made, in order, each with the number of
     /// the step that made it.
     trail: Vec<(u32, Trailed)>,
+    /// Where the table, the metavariables, the eigenvariables and the
+    /// constants stood before each step that made entries, with the step's
+    /// number: what its undo truncates to. A session read from JSON has
+    /// none for its steps, whose undo leaves their entries unused.
+    marks: Vec<(u32, Mark)>,
+    /// The most terms a term of the session may unfold to: `limits.terms`
+    /// of the session's start.
+    pub(super) limit: Option<u64>,
+    /// The most terms a shown term unfolds to, as [`show`](Self::show)
+    /// last counted.
+    pub(super) largest: u64,
+}
+
+/// Where a session's first-order part stood before a step.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct Mark {
+    /// The members.
+    members: usize,
+    /// The frames.
+    frames: usize,
+    /// The terms past the sequent's.
+    terms: usize,
+    /// The arguments of the table's lists.
+    args: usize,
+    /// The table's lists.
+    lists: usize,
+    /// The metavariables.
+    metas: usize,
+    /// The eigenvariables made.
+    eigens: u32,
+    /// The constants.
+    constants: usize,
+    /// The trail.
+    trail: usize,
 }
 
 impl Quantified {
@@ -124,7 +158,53 @@ impl Quantified {
             eigens: 0,
             constants: Vec::new(),
             trail: Vec::new(),
+            marks: Vec::new(),
+            limit: Some(crate::Limits::DEFAULT_TERMS),
+            largest: 0,
         }
+    }
+
+    /// Returns where everything stands now, for a step to go back to.
+    pub(super) fn mark(&self) -> Mark {
+        Mark {
+            members: self.table.members.len(),
+            frames: self.table.frames.len(),
+            terms: self.table.terms.len(),
+            args: self.table.args.len(),
+            lists: self.table.lists.len(),
+            metas: self.metas.len(),
+            eigens: self.eigens,
+            constants: self.constants.len(),
+            trail: self.trail.len(),
+        }
+    }
+
+    /// Goes back to `mark`: what the trail holds past it taken back, and
+    /// every entry, metavariable, eigenvariable and constant made since
+    /// dropped, none of which a member, frame or term before it names.
+    pub(super) fn back_to(&mut self, mark: Mark) {
+        self.undo_to(mark.trail);
+        let (occurrences, base) = (self.table.occurrences, self.table.base_terms);
+        self.table.members.truncate(mark.members);
+        self.table.frames.truncate(mark.frames);
+        self.table.terms.truncate(mark.terms);
+        self.table.args.truncate(mark.args);
+        self.table.lists.truncate(mark.lists);
+        self.metas.truncate(mark.metas);
+        self.eigens = mark.eigens;
+        self.constants.truncate(mark.constants);
+        // The ids below the mark fit a `u32`, as the table made them.
+        self.members
+            .retain(|_, m| (m.get() - occurrences) < mark.members as u32);
+        self.frames.retain(|_, f| f.get() < mark.frames as u32);
+        self.terms
+            .retain(|_, t| t.get() < base || t.get() - base < mark.terms as u32);
+    }
+
+    /// Records that the step numbered `step` made entries from `mark` on,
+    /// for its undo.
+    pub(super) fn made(&mut self, step: u32, mark: Mark) {
+        self.marks.push((step, mark));
     }
 
     /// Returns the occurrence and frame a member stands for: no frame for
@@ -342,9 +422,12 @@ impl Quantified {
         mut pairs: Vec<(FoTermId, FoTermId)>,
         step: u32,
     ) -> Result<(), Clash> {
+        // A pair met before is unified already: shared terms are walked
+        // once, not once per path to them.
+        let mut met: std::collections::HashSet<(FoTermId, FoTermId)> = Default::default();
         while let Some((x, y)) = pairs.pop() {
             let (x, y) = (self.resolve(forest, x), self.resolve(forest, y));
-            if x == y {
+            if x == y || !met.insert((x, y)) {
                 continue;
             }
             let terms = self.terms(forest);
@@ -418,10 +501,16 @@ impl Quantified {
     }
 
     /// Takes back what the steps numbered `step` and later bound and
-    /// lowered.
+    /// lowered, and drops what they made where their marks say.
     pub(super) fn undo(&mut self, step: u32) {
         let keep = self.trail.partition_point(|&(s, _)| s < step);
         self.undo_to(keep);
+        while let Some(&(s, mark)) = self.marks.last()
+            && s >= step
+        {
+            self.marks.pop();
+            self.back_to(mark);
+        }
     }
 
     /// Takes back the trail past its first `len` entries, last first.
@@ -467,10 +556,12 @@ impl Quantified {
         forest: &Forest,
         parts: Parts,
         steps: usize,
+        limit: Option<u64>,
     ) -> Result<Self, crate::Error> {
         let bad = |reason: &'static str| crate::Error::InconsistentSession { reason };
         let mut q = Self::new(forest);
         q.eigens = parts.eigens;
+        q.limit = limit;
         let fo = &forest.sequent().fo;
         let loose = fo.loose();
         let predicates: Vec<Symbol> = fo.atoms.iter().map(|&(p, _)| p).collect();
@@ -572,10 +663,13 @@ impl Quantified {
         }
         let mut last = 0;
         for &(k, t, step) in &parts.bindings {
+            // A step binds a metavariable to a term whose top is no bound
+            // metavariable: unification follows the bindings first.
             let ok = step >= last
                 && (step as usize) < steps
                 && q.metas.get(k as usize).is_some_and(|m| m.bound.is_none())
-                && closed(t, all);
+                && closed(t, all)
+                && q.resolve(forest, FoTermId::new(t)) == FoTermId::new(t);
             if !ok || q.bind(forest, k, FoTermId::new(t), step).is_err() {
                 return Err(bad(
                     "a binding is out of order, of no open metavariable, or one the occurs check or the levels refuse",
@@ -584,6 +678,14 @@ impl Quantified {
             last = step;
         }
         q.show(forest);
+        if let Some(limit) = q.limit
+            && q.too_large()
+        {
+            return Err(crate::Error::Refused(crate::Refusal::Terms {
+                terms: q.largest,
+                limit,
+            }));
+        }
         Ok(q)
     }
 
@@ -628,11 +730,17 @@ impl Quantified {
     }
 
     /// Returns whether two literals stand for the same atom under the
-    /// bindings, as instances: one predicate, equal arguments; building
+    /// bindings, as instances: one predicate, equal arguments; read in the
+    /// shown table, where the bindings are followed already, building
     /// nothing, binding nothing.
     pub(super) fn same_atom(&self, forest: &Forest, x: Member, y: Member) -> bool {
         let fo = &forest.sequent().fo;
-        let ((ox, fx), (oy, fy)) = (self.instance(x), self.instance(y));
+        let shown = |m: Member| {
+            self.shown
+                .instance(m)
+                .map_or((m.occ(), None), |(o, f)| (o, Some(f)))
+        };
+        let ((ox, fx), (oy, fy)) = (shown(x), shown(y));
         let (ax, ay) = (forest.atom(ox), forest.atom(oy));
         let (Some(&(p, a)), Some(&(r, b))) = (
             ax.and_then(|a| fo.atoms.get(a.index())),
@@ -643,14 +751,32 @@ impl Quantified {
         if p != r {
             return false;
         }
-        let (fx, fy) = (self.frame_terms(fx), self.frame_terms(fy));
+        let frame = |f: Option<FrameId>| f.map_or_else(Vec::new, |f| self.shown.frame_terms(f));
+        let (fx, fy) = (frame(fx), frame(fy));
         let loose = fo.loose();
-        let terms = self.terms(forest);
+        let terms = Terms {
+            fo,
+            table: &self.shown,
+        };
         // A term is the sequent's under its side's frame, or closed.
         let side = |t: FoTermId, frame: &[FoTermId], open: bool| match fo.terms.get(t.index()) {
             Some(&FoTerm::Bound(i)) if open => (frame[i as usize], false),
             _ if open && loose[t.index()] == 0 => (t, false),
             _ => (t, open),
+        };
+        let term = |u: FoTermId, open: bool| {
+            if open {
+                fo.terms[u.index()]
+            } else {
+                terms.term(u)
+            }
+        };
+        let list = |args, open: bool| {
+            if open {
+                fo.list(args)
+            } else {
+                terms.list(args)
+            }
         };
         let mut pairs: Vec<((FoTermId, bool), (FoTermId, bool))> = fo
             .list(a)
@@ -658,34 +784,21 @@ impl Quantified {
             .zip(fo.list(b))
             .map(|(&s, &t)| ((s, true), (t, true)))
             .collect();
+        // A pair met before is equal already: shared terms are compared
+        // once, not once per path to them.
+        let mut met: std::collections::HashSet<((FoTermId, bool), (FoTermId, bool))> =
+            Default::default();
         while let Some(((s, so), (t, to))) = pairs.pop() {
-            let (s, so) = side(s, &fx, so);
-            let (t, to) = side(t, &fy, to);
-            let s = if so { s } else { self.resolve(forest, s) };
-            let t = if to { t } else { self.resolve(forest, t) };
-            if !so && !to && s == t {
+            let (s, t) = (side(s, &fx, so), side(t, &fy, to));
+            if (!s.1 && !t.1 && s.0 == t.0) || !met.insert((s, t)) {
                 continue;
             }
-            let term = |u: FoTermId, open: bool| {
-                if open {
-                    fo.terms[u.index()]
-                } else {
-                    terms.term(u)
-                }
-            };
-            let list = |args, open: bool| {
-                if open {
-                    fo.list(args)
-                } else {
-                    terms.list(args)
-                }
-            };
-            match (term(s, so), term(t, to)) {
+            match (term(s.0, s.1), term(t.0, t.1)) {
                 (FoTerm::App(f, a), FoTerm::App(g, b)) if f == g => pairs.extend(
-                    list(a, so)
+                    list(a, s.1)
                         .iter()
-                        .zip(list(b, to))
-                        .map(|(&u, &v)| ((u, so), (v, to))),
+                        .zip(list(b, t.1))
+                        .map(|(&u, &v)| ((u, s.1), (v, t.1))),
                 ),
                 _ => return false,
             }
@@ -770,7 +883,36 @@ impl Quantified {
             .map(|&(parent, t)| (parent, self.mapped(t, &at)))
             .collect();
         shown.members.clone_from(&self.table.members);
+        // How many terms each shown term unfolds to, arguments first.
+        let unfolded = forest.sequent().fo.unfolded();
+        let mut sizes: Vec<u64> = Vec::with_capacity(shown.terms.len());
+        let size = |sizes: &[u64], t: FoTermId| {
+            if t.get() < base {
+                unfolded[t.index()]
+            } else {
+                sizes[(t.get() - base) as usize]
+            }
+        };
+        for &term in &shown.terms {
+            let n = match term {
+                FoTerm::App(_, args) => {
+                    let start = (args.get() - shown.base_lists) as usize;
+                    let (from, len) = shown.lists[start];
+                    shown.args[from as usize..(from + len) as usize]
+                        .iter()
+                        .fold(1u64, |sum, &a| sum.saturating_add(size(&sizes, a)))
+                }
+                FoTerm::Eigen(_) | FoTerm::Meta(_) | FoTerm::Bound(_) => 1,
+            };
+            sizes.push(n);
+        }
+        self.largest = sizes.iter().copied().max().unwrap_or(0);
         self.shown = shown;
+    }
+
+    /// Returns whether a shown term unfolds past the session's limit.
+    pub(super) fn too_large(&self) -> bool {
+        self.limit.is_some_and(|limit| self.largest > limit)
     }
 
     /// Returns the shown term of a term of either arena: the sequent's own
