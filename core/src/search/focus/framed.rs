@@ -69,6 +69,7 @@ use crate::sequents::fo::FirstOrder;
 use crate::sequents::{Eigen, FoTerm, FoTermId, Symbol};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// The frame of no binder: an occurrence outside every binder, or a
@@ -181,7 +182,7 @@ enum Grounds {
     Own(HashMap<(Head, u32), u32>),
     /// The pool's.
     #[cfg(feature = "parallel")]
-    Shared(std::sync::Arc<std::sync::Mutex<HashMap<(Head, u32), u32>>>),
+    Shared(Arc<std::sync::Mutex<HashMap<(Head, u32), u32>>>),
 }
 
 impl Grounds {
@@ -344,10 +345,11 @@ pub(super) struct Framed {
     /// The bound that cut a branch of the level, if one did.
     cut: Option<Reason>,
     /// Per term of the sequent's arena, whether no bound variable lies
-    /// below it.
-    closed: Box<[bool]>,
+    /// below it. This table and the two below never change once the zone
+    /// is made: the forks of a pool share them.
+    closed: Arc<[bool]>,
     /// Per term of the sequent's arena, its depth: a constant's is 0.
-    depth: Box<[u32]>,
+    depth: Arc<[u32]>,
     /// Per predicate and sign, the stamp of the marking that last found
     /// a literal of it among the members.
     marks: Vec<u64>,
@@ -381,7 +383,7 @@ pub(super) struct Framed {
     ground: Grounds,
     /// Per term of the sequent's arena, its id in `ground` if it is
     /// closed and its id below a key word's value, else [`NONE`].
-    arena: Box<[u32]>,
+    arena: Arc<[u32]>,
     /// Per variable, what it was found to stand for, on the trail.
     named: Vec<Named>,
     /// Scratch: the steps of a naming walk.
@@ -1351,7 +1353,25 @@ impl Zone for Framed {
         // A forest has fewer than 2³² occurrences and a sequent fewer
         // terms than its text or document.
         let occurrences = forest.len() as u32;
-        let mut framed = Self {
+        let mut ground = Grounds::Own(HashMap::default());
+        let mut arena = vec![NONE; fo.terms.len()];
+        // Every term names only terms before it.
+        let mut names = Vec::new();
+        for (i, term) in fo.terms.iter().enumerate() {
+            if let FoTerm::App(symbol, args) = *term
+                && closed[i]
+            {
+                names.clear();
+                names.extend(fo.list(args).iter().map(|a| match arena[a.index()] {
+                    NONE => Name::Past,
+                    id => Name::Ground(id),
+                }));
+                if let Name::Ground(id) = ground.apply(symbol, &names) {
+                    arena[i] = id;
+                }
+            }
+        }
+        Self {
             occurrences,
             base: fo.terms.len() as u32,
             spans: Vec::new(),
@@ -1365,8 +1385,8 @@ impl Zone for Framed {
             witness_depth: options.witness_depth,
             instances: options.instances,
             cut: None,
-            closed: closed.into_boxed_slice(),
-            depth: depth.into_boxed_slice(),
+            closed: closed.into(),
+            depth: depth.into(),
             marks: Vec::new(),
             stamp: 0,
             steps: AtomicU64::new(0),
@@ -1378,33 +1398,17 @@ impl Zone for Framed {
             walk: Vec::new(),
             depths: HashMap::default(),
             key: KeyScratch::default(),
-            ground: Grounds::Own(HashMap::default()),
-            arena: vec![NONE; fo.terms.len()].into_boxed_slice(),
+            ground,
+            arena: arena.into(),
             named: Vec::new(),
             naming: Vec::new(),
             names: Vec::new(),
-        };
-        // Every term names only terms before it.
-        let mut names = Vec::new();
-        for (i, term) in fo.terms.iter().enumerate() {
-            if let FoTerm::App(symbol, args) = *term
-                && framed.closed[i]
-            {
-                names.clear();
-                names.extend(fo.list(args).iter().map(|a| match framed.arena[a.index()] {
-                    NONE => Name::Past,
-                    id => Name::Ground(id),
-                }));
-                if let Name::Ground(id) = framed.ground.apply(symbol, &names) {
-                    framed.arena[i] = id;
-                }
-            }
         }
-        framed
     }
 
     /// A copy of the spans, frames, variables, bindings and trail, with
-    /// the table of ground terms the pool shares ([`Zone::share`]), so
+    /// the sequent's tables and the table of ground terms the pool shares
+    /// ([`Zone::share`]), so
     /// that the worker's keys name what every engine's do; the counters
     /// at zero and the scratch empty. No rule
     /// is open that asks for another answer ([`Zone::divides`]), so there
@@ -1425,8 +1429,8 @@ impl Zone for Framed {
             witness_depth: self.witness_depth,
             instances: self.instances,
             cut: None,
-            closed: self.closed.clone(),
-            depth: self.depth.clone(),
+            closed: Arc::clone(&self.closed),
+            depth: Arc::clone(&self.depth),
             marks: Vec::new(),
             stamp: 0,
             steps: AtomicU64::new(0),
@@ -1439,7 +1443,7 @@ impl Zone for Framed {
             depths: HashMap::default(),
             key: KeyScratch::default(),
             ground: self.ground.clone(),
-            arena: self.arena.clone(),
+            arena: Arc::clone(&self.arena),
             named: self.named.clone(),
             naming: Vec::new(),
             names: Vec::new(),
@@ -1450,7 +1454,7 @@ impl Zone for Framed {
     fn share(&mut self) {
         if let Grounds::Own(table) = &mut self.ground {
             let table = std::mem::take(table);
-            self.ground = Grounds::Shared(std::sync::Arc::new(std::sync::Mutex::new(table)));
+            self.ground = Grounds::Shared(Arc::new(std::sync::Mutex::new(table)));
         }
     }
 
