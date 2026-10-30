@@ -602,7 +602,7 @@ impl<'a> Writer<'a> {
     }
 
     /// Writes the start of a quantifier step's node: its constructor, the
-    /// body of its principal formula (its bound variable [0]) and the
+    /// body of its principal formula (its bound variable `0`) and the
     /// eigenvariable or the witness its body is opened with, opening a
     /// bracket that its premise fills.
     fn quantifier(&mut self, id: InfId, constructor: &str, principal: Instance, two_sided: bool) {
