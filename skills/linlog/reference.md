@@ -595,9 +595,15 @@ no goal is open: `proof` checks the proof
 step: it checks the proof in the flags' mode (`check`'s flags and
 formats), reduces the cut with no cut above it, prints each step's case
 (`the axiom case`, `the key case of ⊗ and ⅋`, `of 1 and ⊥`, `of & and
-⊕`, `a commutative case`, `weakening`, `dereliction`, `contraction`, `a
-box entering a box`) and cut formula, checks every proof reached, and
-draws the last. `--steps N` (`cut.steps`) bounds the steps, 10 000 by
+⊕`, `of ∀ and ∃`, `a commutative case`, `weakening`, `dereliction`,
+`contraction`, `a box entering a box`) and cut formula, checks every
+proof reached, and draws the last. A first-order proof is eliminated
+alike, its cuts on quantified formulas or on instances: the key case
+of ∀ and ∃ puts the ∃ step's witness for the ∀ step's eigenvariable
+throughout the ∀ premise (copied where another cut still reads it, the
+copy's own ∀ steps given fresh eigenvariables, the copy counted against
+`--node-limit` before it is made), and each step's line writes the
+instance it cut. `--steps N` (`cut.steps`) bounds the steps, 10 000 by
 default, and `--node-limit N` (`cut.nodes`) the nodes of a proof a step
 makes, 100 000; a bound prints the proof reached with its cuts. One
 step is `--steps 1`. Exit 0 when no cut is
@@ -605,7 +611,8 @@ left or the steps asked for with `--steps` were taken, 1 for an invalid
 proof, 3 when the default bound on steps, another bound or the time
 limit stopped it with cuts left. `--format json` writes `{"version",
 "proof", "steps": [{"cut", "formula", "case", "above"}], "end"}`, `end`
-`cut_free` or `refused` with `reason`, at wire level 6.
+`cut_free` or `refused` with `reason`, at its proof's wire level (6 with
+cuts, 7 at first order).
 
 `--net` eliminates on the proof's net instead (for the sequents `--net`
 takes): the cuts are cut links, each step reduces the first cut link
@@ -643,6 +650,11 @@ $ linlog eliminate -q -i --net c.json
 4. dereliction on the cut of !a
 5. the axiom case on the cut of a
 cut-free proof net of !a ⊢ a ⊗ a (intuitionistic) after 5 steps
+$ echo '{"version":7,"sequent":{"terms":[{"D":0},{"∃":0},{"V":1},{"V":0},{"∀":3}],"roots":[1,2],"atoms":[{"P":[0,[0]]},{"P":[0,[1]]}],"symbols":[["p",1],["a",0]],"fo":[{"B":0},{"F":[1,[]]}],"binders":["x","x"],"antecedents":1,"cuts":[4]},"nodes":[{"ax":[7,8]},{"∃":[0,2,0]},{"∀":[3,0,1]},{"ax":[9,2]},{"∃":[5,1,3]},{"cut":[3,2,4]}],"mode":"classical","instances":{"members":[[1,0],[4,0],[6,1]],"frames":[[null,2],[null,1]],"terms":[{"E":0}]}}' > cut.json
+$ linlog eliminate -q -i cut.json
+1. the key case of ∀ and ∃ on the cut of ∀x. p(x)
+2. the axiom case on the cut of p(a)
+cut-free proof of ∀x. p(x) ⊢ p(a) (intuitionistic) after 2 steps
 ```
 
 ## 11. A sequent alone: `seq`
@@ -832,7 +844,9 @@ checked proof and the `Step` (`cut`, `formula`, `case`);
 `proofs::cut::eliminate(&proof, mode, &options, &limits, stop, each)`
 runs to the end within `cut::Options` (`each` sees every step and the
 proof it was taken on) and returns the proof reached, the steps and the
-`End`. On nets,
+`End`; at first order a `Step`'s `formula` is a member of the proof the
+step was taken on, whose `Proof::formula` writes it as the instance it
+is. On nets,
 `nets::cut::step(&net, at, &options, &limits, stop)` (a `ProofStructure`
 or a `MellStructure`, `at` a vertex of a cut link) and
 `nets::cut::eliminate(&net, &options, &limits, stop, each)` (`each` sees

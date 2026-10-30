@@ -343,17 +343,15 @@ pub enum Error {
     /// A sequent with a quantifier reached an entry that takes
     /// propositional sequents alone, which is every one but the parsers,
     /// the printers, the JSON forms and the views of a sequent: the
-    /// engines refuse a first-order goal by its fragment, and the checker,
-    /// interactive proving, the proof structures, cut elimination and the
-    /// Rocq export by this error, until a later version teaches them.
+    /// engines and the proof structures refuse a first-order goal by its
+    /// fragment, and a cut in a first-order session of interactive proving
+    /// by this error, until a later version teaches them.
     #[error(
         "{what} takes no quantifiers yet: a sequent with ∀ or ∃ is read, printed and written as JSON, and nothing else"
     )]
     #[non_exhaustive]
     Quantifiers {
-        /// The entry reached, in words: `the checker`, `interactive
-        /// proving`, `a proof structure`, `cut elimination` or `the Rocq
-        /// export`.
+        /// The entry reached, in words: `a cut in interactive proving`.
         what: &'static str,
     },
     /// A sequent searched in an ordered mode lies beyond unit-free MLL,

@@ -1405,6 +1405,7 @@ impl Marks {
                 | crate::proofs::cut::Case::Dereliction
                 | crate::proofs::cut::Case::Contraction
                 | crate::proofs::cut::Case::BoxIntoBox
+                | crate::proofs::cut::Case::ForallExists
                 | crate::proofs::cut::Case::Commutative => {
                     pairs.extend(net.partner(v).map(|p| (v.get(), p.get())));
                 }
@@ -1446,6 +1447,7 @@ impl Marks {
             | Case::Contraction
             | Case::OneBot
             | Case::WithPlus
+            | Case::ForallExists
             | Case::Commutative => {
                 boxes.push(b.get());
                 pairs.extend(step.above.map(|c| (q.get(), c.get())));

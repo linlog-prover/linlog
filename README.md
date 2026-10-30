@@ -1785,6 +1785,40 @@ valid proof of ⊢ ∃x. ~p(x), p(f(a)) (classical)
 ⊢ ∃x. ~p(x), p(f(a))
 ```
 
+`eliminate` eliminates the cuts of a first-order proof as it does a
+propositional one, in every mode that has the cut. A cut may be on a
+formula with quantifiers or on an instance of one, and the key case of
+`∀` and `∃` cuts the instance of the `∀` formula's body at the `∃`
+step's witness: the witness takes the eigenvariable's place throughout
+the `∀` step's premise (its instances and the witnesses above), in a
+copy where another cut still reads that premise, a copied `∀` step
+taking an eigenvariable of its own. Every step's line writes the
+instance it cut with its terms. A copy is counted against
+`--node-limit` before it is made. Here `cut.json` proves `∀x. p(x) ⊢
+p(a)` through the cut formula `∀x. p(x)`, by a `∀` step against a `∃`
+step with the witness `a`:
+
+```console
+$ echo '{"version":7,"sequent":{"terms":[{"D":0},{"∃":0},{"V":1},{"V":0},{"∀":3}],"roots":[1,2],"atoms":[{"P":[0,[0]]},{"P":[0,[1]]}],"symbols":[["p",1],["a",0]],"fo":[{"B":0},{"F":[1,[]]}],"binders":["x","x"],"antecedents":1,"cuts":[4]},"nodes":[{"ax":[7,8]},{"∃":[0,2,0]},{"∀":[3,0,1]},{"ax":[9,2]},{"∃":[5,1,3]},{"cut":[3,2,4]}],"mode":"classical","instances":{"members":[[1,0],[4,0],[6,1]],"frames":[[null,2],[null,1]],"terms":[{"E":0}]}}' > cut.json
+$ linlog eliminate cut.json
+1. the key case of ∀ and ∃ on the cut of ∀x. p(x)
+2. the axiom case on the cut of p(a)
+cut-free proof of ⊢ ∃x. ~p(x), p(a) (classical) after 2 steps
+  ───────────── ax
+  ⊢ p(a), ~p(a)
+───────────────── ∃
+⊢ ∃x. ~p(x), p(a)
+$ linlog eliminate -i --steps=1 cut.json
+1. the key case of ∀ and ∃ on the cut of ∀x. p(x)
+proof of ∀x. p(x) ⊢ p(a) (intuitionistic) with 1 cut left after 1 step: the elimination took the most steps allowed, 1; --steps N allows more
+  ─────────── ax
+  p(a) ⊢ p(a)
+─────────────── ∀L   ─────────── ax
+∀x. p(x) ⊢ p(a)      p(a) ⊢ p(a)
+──────────────────────────────── cut
+        ∀x. p(x) ⊢ p(a)
+```
+
 ### Ordinary logic
 
 `--logic classical`, `intuitionistic` or `minimal` reads a formula or a
@@ -2355,7 +2389,9 @@ Built:
   (classical, affine, with Mix, intuitionistic): one step at a time, on
   the cut the caller names or the one with no cut above it, each step
   named by its case and checked, and to the end within a bound on steps
-  and on the proof's size, which stops with the proof reached.
+  and on the proof's size, which stops with the proof reached; at first
+  order too, with the key case of `∀` and `∃` substituting the witness
+  for the eigenvariable.
 - Cut elimination on proof nets, with and without boxes (classical, with
   Mix, intuitionistic): a proof's cuts become cut links of its net, which
   the correctness criteria accept and sequentialization gives back as
@@ -2495,7 +2531,8 @@ Planned, in roughly this order:
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
 - First-order linear logic beyond its syntax, its proofs, the
-  search and interactive proving: cut elimination at first order, certificates in the Rocq library, first-order problem families
+  search, interactive proving and cut elimination on proof terms:
+  certificates in the Rocq library, first-order problem families
   and the comparison with LinearOne.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).

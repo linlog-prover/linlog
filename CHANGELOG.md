@@ -125,6 +125,21 @@ second number (0.1.x to 0.2.0), anything else the third.
   rules `ClassicalRule::{ForallLeft, ForallRight, ExistsLeft,
   ExistsRight}` (`∀L`, `∀R`, `∃L`, `∃R`) and every instance written
   out; `prove --classical-sides two` prints it, in every format.
+- Cut elimination on first-order proofs: `proofs::cut::step` and
+  `eliminate` take proofs with instances in every mode that has the cut,
+  the cut on a quantified formula or on an instance of one, every case
+  reading members through the proof's instance table; the new key case
+  `Case::ForallExists` (`forall_exists`, "the key case of ∀ and ∃")
+  cuts the `∀` formula's body at the `∃` step's witness, the witness put
+  for the eigenvariable throughout the `∀` premise, in a copy where
+  another cut still reads it, every `∀` step a step remakes while the
+  proof still reads the original given an eigenvariable of its own. A
+  copy is charged against `cut::Options::nodes` (and
+  `limits.memory_bytes`) before it is made, the step refused past it
+  with the last checked proof. `Proof::formula` writes an instance with
+  its frame's terms, and `linlog eliminate` writes each step's instance.
+  The proof structures still refuse a quantifier, and so does
+  `eliminate --net`.
 - `IllSequent`, a sequent of intuitionistic linear logic as written: its
   hypotheses in the order written and exactly one goal, every formula
   built from `⊗`, `⊸`, `&`, `⊕`, `!`, `1`, `⊤`, `0` and atoms. It is

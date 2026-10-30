@@ -84,6 +84,15 @@ impl Build {
             .map_or_else(|| panic!("no term {text}"), |t| FoTermId::new(t as u32))
     }
 
+    /// The term `name(args…)` the proof writes anew, `name` a function
+    /// symbol of the sequent.
+    fn apply(&mut self, name: &str, args: &[FoTermId]) -> FoTermId {
+        let symbols = self.forest.sequent().symbols();
+        let f = symbols.iter().position(|(s, _)| s == name).unwrap();
+        self.table
+            .apply(crate::sequents::Symbol::new(f as u32), args)
+    }
+
     /// The term of eigenvariable `a`.
     fn eigen(&mut self, a: u32) -> FoTermId {
         self.table.eigen(Eigen::new(a))
@@ -390,6 +399,149 @@ pub(crate) fn cases() -> Vec<Case> {
             fault: None,
         });
     }
+    // `∀x. ∀y. p(x, y) ⊢ (∀y. p(a, y)) & (∀y. p(a, y))` with the cut
+    // formula `∀x. ∀y. p(x, y)`, whose dual both branches of the `&` use:
+    // the cut moves into both, which then share its first premise, two
+    // `∀` steps; the key case of `∀` and `∃` substitutes `a` into a copy
+    // of that shared subproof, whose inner `∀` step the other cut still
+    // reads.
+    let cut_shared = |mode| {
+        let mut b = Build::new(
+            "forall x. forall y. p(x, y) |- (forall y. p(a, y)) & (forall y. p(a, y))",
+            &["forall x. forall y. p(x, y)"],
+        );
+        let (h, g, c, d) = (b.root(0), b.root(1), b.root(2), b.root(3));
+        let a = b.term("a");
+        let (e0, e1, e2, e3) = (b.eigen(0), b.eigen(1), b.eigen(2), b.eigen(3));
+        let (f0, f01) = (b.frame(&[e0]), b.frame(&[e0, e1]));
+        let (fa, fa2, fa3) = (b.frame(&[a]), b.frame(&[a, e2]), b.frame(&[a, e3]));
+        let (f2, f3) = (b.frame(&[e2]), b.frame(&[e3]));
+        let nodes = vec![
+            Ax(b.at(below(h, 2), f01), b.at(below(c, 2), f01)),
+            Exists(b.at(below(h, 1), f0), e1, n(0)),
+            Exists(bare(h), e0, n(1)),
+            Forall(b.at(below(c, 1), f0), Eigen::new(1), n(2)),
+            Forall(bare(c), Eigen::new(0), n(3)),
+            Ax(b.at(below(d, 2), fa2), b.at(below(g, 2), f2)),
+            Exists(b.at(below(d, 1), fa), e2, n(5)),
+            Exists(bare(d), a, n(6)),
+            Forall(bare(below(g, 1)), Eigen::new(2), n(7)),
+            Ax(b.at(below(d, 2), fa3), b.at(below(g, 4), f3)),
+            Exists(b.at(below(d, 1), fa), e3, n(9)),
+            Exists(bare(d), a, n(10)),
+            Forall(bare(below(g, 3)), Eigen::new(3), n(11)),
+            With(bare(g), n(8), n(12)),
+            Cut(bare(c), n(4), n(13)),
+        ];
+        b.proof(nodes).with_mode(mode)
+    };
+    cases.push(Case {
+        name: "cut_shared",
+        proof: cut_shared(classical),
+        mode: classical,
+        fault: None,
+    });
+    cases.push(Case {
+        name: "cut_shared_ill",
+        proof: cut_shared(ill),
+        mode: ill,
+        fault: None,
+    });
+    // `∀x. (p(x) ⊗ q(x)) ⊢ ∀x. (p(x) ⊗ q(x))` with the cut formula
+    // `∀x. (p(x) ⊗ q(x))`, cut on its instance `p(a) ⊗ q(a)` of the
+    // eigenvariable the goal's `∀` step introduces below the cut.
+    let cut_tensor = |mode| {
+        let mut b = Build::new(
+            "forall x. p(x) * q(x) |- forall x. p(x) * q(x)",
+            &["forall x. p(x) * q(x)"],
+        );
+        let (h, g, c, d) = (b.root(0), b.root(1), b.root(2), b.root(3));
+        let e0 = b.eigen(0);
+        let f0 = b.frame(&[e0]);
+        let [h1, h2, h3, c1, c2, c3, d1, d2, d3, g1, g2, g3] = [
+            (h, 1),
+            (h, 2),
+            (h, 3),
+            (c, 1),
+            (c, 2),
+            (c, 3),
+            (d, 1),
+            (d, 2),
+            (d, 3),
+            (g, 1),
+            (g, 2),
+            (g, 3),
+        ]
+        .map(|(o, k)| b.at(below(o, k), f0));
+        let nodes = vec![
+            Ax(h2, c2),
+            Ax(h3, c3),
+            Tensor(c1, n(0), n(1)),
+            Par(h1, n(2)),
+            Exists(bare(h), e0, n(3)),
+            Ax(d2, g2),
+            Ax(d3, g3),
+            Tensor(g1, n(5), n(6)),
+            Par(d1, n(7)),
+            Cut(c1, n(4), n(8)),
+            Forall(bare(g), Eigen::new(0), n(9)),
+        ];
+        b.proof(nodes).with_mode(mode)
+    };
+    cases.push(Case {
+        name: "cut_tensor",
+        proof: cut_tensor(classical),
+        mode: classical,
+        fault: None,
+    });
+    cases.push(Case {
+        name: "cut_tensor_ill",
+        proof: cut_tensor(ill),
+        mode: ill,
+        fault: None,
+    });
+    // `∀z. p(z), q ⊢ p(f(g(a))) ⊗ q` with the cut formula
+    // `∀x. (p(f(g(x))) ⊗ q)`: the `∀` premise's eigenvariable `b` stands
+    // in the witness `f(g(b))` of a `∃` step two rules up, which the key
+    // case of `∀` and `∃` replaces by `f(g(a))`.
+    let cut_deep = |mode| {
+        let mut b = Build::new(
+            "forall z. p(z), q |- p(f(g(a))) * q",
+            &["forall x. p(f(g(x))) * q"],
+        );
+        let (h, nq, goal, c, d) = (b.root(0), b.root(1), b.root(2), b.root(3), b.root(4));
+        let a = b.term("a");
+        let e0 = b.eigen(0);
+        let ge0 = b.apply("g", &[e0]);
+        let w = b.apply("f", &[ge0]);
+        let (f0, fw, fa) = (b.frame(&[e0]), b.frame(&[w]), b.frame(&[a]));
+        let nodes = vec![
+            Ax(b.at(below(h, 1), fw), b.at(below(c, 2), f0)),
+            Exists(bare(h), w, n(0)),
+            Ax(bare(nq), b.at(below(c, 3), f0)),
+            Tensor(b.at(below(c, 1), f0), n(1), n(2)),
+            Forall(bare(c), Eigen::new(0), n(3)),
+            Ax(b.at(below(d, 2), fa), bare(below(goal, 1))),
+            Ax(b.at(below(d, 3), fa), bare(below(goal, 2))),
+            Tensor(bare(goal), n(5), n(6)),
+            Par(b.at(below(d, 1), fa), n(7)),
+            Exists(bare(d), a, n(8)),
+            Cut(bare(c), n(4), n(9)),
+        ];
+        b.proof(nodes).with_mode(mode)
+    };
+    cases.push(Case {
+        name: "cut_deep",
+        proof: cut_deep(classical),
+        mode: classical,
+        fault: None,
+    });
+    cases.push(Case {
+        name: "cut_deep_ill",
+        proof: cut_deep(ill),
+        mode: ill,
+        fault: None,
+    });
     // `⊢ ∀x. p(x), ⊤` with the cut formula `∀x. p(x)`: a cut on the
     // instance `p(a)` of an eigenvariable, its second premise a `∀` step
     // introducing `a` beside `~p(a)`, which the cut's frame brings to the
@@ -558,6 +710,211 @@ mod tests {
         assert!(
             rejected > mutants,
             "{rejected} of {mutants} mutants rejected"
+        );
+    }
+
+    /// Every written proof with a cut is eliminated by the strategy, step
+    /// by step, in its mode and in every mode beside it that takes it
+    /// (affine, Mix): every step's proof passes the checker, over the same
+    /// sequent with the same conclusion, the last is cut-free, and
+    /// `eliminate` takes the same steps; the key case of `∀` and `∃` is
+    /// met, and where it substitutes into a copy of a subproof another cut
+    /// still reads, the copy's `∀` step has an eigenvariable of its own.
+    #[test]
+    fn the_cuts_are_eliminated() {
+        use crate::proofs::cut::{self, End};
+        let (options, limits) = (cut::Options::default(), Limits::default());
+        let mut met: std::collections::BTreeMap<&str, usize> = Default::default();
+        let mut eliminated = 0;
+        for case in cases()
+            .into_iter()
+            .filter(|c| c.fault.is_none() && !c.proof.is_cut_free())
+        {
+            let modes = if case.mode.is_intuitionistic() {
+                vec![Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine()]
+            } else {
+                vec![
+                    Mode::CLASSICAL,
+                    Mode::CLASSICAL.with_mix(),
+                    Mode::CLASSICAL.with_affine(),
+                    Mode::CLASSICAL.with_affine().with_mix(),
+                ]
+            };
+            for mode in modes {
+                case.proof.check(mode).unwrap();
+                let mut current = case.proof.clone();
+                let (mut steps, mut renamed) = (Vec::new(), false);
+                while !current.is_cut_free() {
+                    assert!(steps.len() < 100, "{} in {mode:?}", case.name);
+                    let reduction = cut::step(&current, mode, None, &options, &limits, |_| false)
+                        .unwrap_or_else(|e| panic!("{} in {mode:?}: {e}", case.name));
+                    let made = &reduction.proof;
+                    made.check(mode).unwrap_or_else(|e| {
+                        panic!("{} in {mode:?}: {}", case.name, e.describe(made))
+                    });
+                    assert_eq!(made.sequent(), case.proof.sequent(), "{}", case.name);
+                    assert_eq!(made.conclusion(), case.proof.conclusion(), "{}", case.name);
+                    *met.entry(reduction.step.case.name()).or_default() += 1;
+                    renamed |= made
+                        .nodes()
+                        .iter()
+                        .any(|node| matches!(node, Node::Forall(_, a, _) if a.get() > 3));
+                    steps.push(reduction.step);
+                    current = reduction.proof;
+                }
+                let elimination =
+                    cut::eliminate(&case.proof, mode, &options, &limits, |_| false, |_, _| {})
+                        .unwrap();
+                assert_eq!(elimination.end, End::CutFree, "{}", case.name);
+                assert_eq!(elimination.steps, steps, "{} in {mode:?}", case.name);
+                elimination.proof.check(mode).unwrap();
+                // The proofs name the eigenvariables 0 to 3.
+                assert_eq!(
+                    renamed,
+                    case.name.starts_with("cut_shared"),
+                    "{}",
+                    case.name
+                );
+                eliminated += 1;
+            }
+        }
+        assert_eq!(eliminated, 28);
+        for case in [
+            "the key case of ∀ and ∃",
+            "the key case of ⊗ and ⅋",
+            "the axiom case",
+            "a commutative case",
+        ] {
+            assert!(met.contains_key(case), "{case} not met: {met:?}");
+        }
+    }
+
+    /// `∀x. ∀y. ∀z. p(x, y, z) ⊢ G`, `G` eight `∀y. ∀z. p(a, y, z)` under
+    /// three levels of `&`, with the cut formula `∀x. ∀y. ∀z. p(x, y, z)`:
+    /// the cut moves into every branch, the eight cuts share their first
+    /// premise, and each key case of `∀` and `∃` copies it while the
+    /// others still read it.
+    fn shared_eight() -> Proof {
+        use Node::*;
+        let leaf = "(forall y. forall z. p(a, y, z))";
+        let mut goal = leaf.to_owned();
+        for _ in 0..3 {
+            goal = format!("({goal} & {goal})");
+        }
+        let mut b = Build::new(
+            &format!("forall x. forall y. forall z. p(x, y, z) |- {goal}"),
+            &["forall x. forall y. forall z. p(x, y, z)"],
+        );
+        let (h, g, c, d) = (b.root(0), b.root(1), b.root(2), b.root(3));
+        let a = b.term("a");
+        let mut nodes: Vec<Node> = Vec::new();
+        let push = |nodes: &mut Vec<Node>, node| {
+            nodes.push(node);
+            NodeId::new(nodes.len() as u32 - 1)
+        };
+        let (e0, e1, e2) = (b.eigen(0), b.eigen(1), b.eigen(2));
+        let (f0, f01, f012) = (b.frame(&[e0]), b.frame(&[e0, e1]), b.frame(&[e0, e1, e2]));
+        let (hx, cx) = (b.at(below(h, 3), f012), b.at(below(c, 3), f012));
+        let mut top = push(&mut nodes, Ax(hx, cx));
+        top = push(&mut nodes, Exists(b.at(below(h, 2), f01), e2, top));
+        top = push(&mut nodes, Exists(b.at(below(h, 1), f0), e1, top));
+        top = push(&mut nodes, Exists(bare(h), e0, top));
+        top = push(
+            &mut nodes,
+            Forall(b.at(below(c, 2), f01), Eigen::new(2), top),
+        );
+        top = push(
+            &mut nodes,
+            Forall(b.at(below(c, 1), f0), Eigen::new(1), top),
+        );
+        let shared = push(&mut nodes, Forall(bare(c), Eigen::new(0), top));
+        // The goal's tree: a `&` above two subtrees, or a leaf, each
+        // closed by its own two eigenvariables.
+        let mut next = 3;
+        let mut stack = vec![(g, false)];
+        let mut made: Vec<NodeId> = Vec::new();
+        while let Some((o, expanded)) = stack.pop() {
+            if b.forest.kind(o) == crate::Kind::With {
+                if expanded {
+                    let right = made.pop().unwrap();
+                    let left = made.pop().unwrap();
+                    made.push(push(&mut nodes, With(bare(o), left, right)));
+                } else {
+                    let (l, r) = (b.forest.left(o).unwrap(), b.forest.right(o).unwrap());
+                    stack.extend([(o, true), (r, false), (l, false)]);
+                }
+                continue;
+            }
+            let (ey, ez) = (b.eigen(next), b.eigen(next + 1));
+            let (fy, fyz) = (b.frame(&[ey]), b.frame(&[ey, ez]));
+            let (fa, fay, fayz) = (b.frame(&[a]), b.frame(&[a, ey]), b.frame(&[a, ey, ez]));
+            let (dx, gx) = (b.at(below(d, 3), fayz), b.at(below(o, 2), fyz));
+            let mut top = push(&mut nodes, Ax(dx, gx));
+            top = push(&mut nodes, Exists(b.at(below(d, 2), fay), ez, top));
+            top = push(&mut nodes, Exists(b.at(below(d, 1), fa), ey, top));
+            top = push(&mut nodes, Exists(bare(d), a, top));
+            top = push(
+                &mut nodes,
+                Forall(b.at(below(o, 1), fy), Eigen::new(next + 1), top),
+            );
+            made.push(push(&mut nodes, Forall(bare(o), Eigen::new(next), top)));
+            next += 2;
+        }
+        let right = made.pop().unwrap();
+        push(&mut nodes, Cut(bare(c), shared, right));
+        b.proof(nodes)
+    }
+
+    /// The copies a step makes of a subproof are charged against the bound
+    /// on nodes before they are made: the proof of
+    /// [`shared_eight`] grows by copies alone, and under a bound between its
+    /// nodes and the most the elimination reaches, the elimination stops
+    /// with its last checked proof, cuts and all, and the bound's refusal;
+    /// the step it stops at is a key case of `∀` and `∃`.
+    #[test]
+    fn copies_are_charged_against_the_bounds() {
+        use crate::limits::{Bound, Refusal};
+        use crate::proofs::cut::{self, End, Strategy};
+        let proof = shared_eight();
+        let mode = Mode::CLASSICAL;
+        proof.check(mode).unwrap();
+        let unbounded = cut::Options::default().with_nodes(None);
+        let mut largest = proof.nodes().len();
+        let elimination =
+            cut::eliminate(&proof, mode, &unbounded, &Limits::default(), |_| false, {
+                |before, _| largest = largest.max(before.nodes().len())
+            })
+            .unwrap();
+        assert_eq!(elimination.end, End::CutFree);
+        assert!(
+            largest >= proof.nodes().len() + 40,
+            "{largest} of {}",
+            proof.nodes().len()
+        );
+        let bound = (proof.nodes().len() + largest) / 2;
+        let at_bound = |options: &cut::Options, limits: &Limits| {
+            let ended =
+                cut::eliminate(&proof, mode, options, limits, |_| false, |_, _| {}).unwrap();
+            ended.proof.check(mode).unwrap();
+            assert!(!ended.proof.is_cut_free());
+            let cut = Strategy::Topmost.pick(&ended.proof).unwrap();
+            let Node::Cut(_, l, r) = ended.proof.node(cut) else {
+                unreachable!("a cut")
+            };
+            assert!(matches!(
+                (ended.proof.node(l), ended.proof.node(r)),
+                (Forall(..), Exists(..)) | (Exists(..), Forall(..))
+            ));
+            ended.end
+        };
+        use Node::{Exists, Forall};
+        let options = cut::Options::default().with_nodes(Some(bound as u64));
+        assert_eq!(
+            at_bound(&options, &Limits::default()),
+            End::Refused(Refusal::Elimination {
+                what: Bound::Nodes,
+                limit: bound as u64
+            })
         );
     }
 

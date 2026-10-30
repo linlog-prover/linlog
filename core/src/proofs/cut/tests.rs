@@ -2,8 +2,9 @@
 // Licensed under the EUPL
 
 use super::*;
+use crate::occurrences::Instances;
 use crate::proofs::{CutFormula, Interactive};
-use crate::{InputOptions, Sequent, ViewOptions};
+use crate::{Forest, InputOptions, Sequent, ViewOptions};
 use std::collections::BTreeMap;
 
 /// The most steps a test takes on one proof before it calls the
@@ -147,7 +148,9 @@ fn every_step_keeps_the_conclusion() {
         assert_eq!(seen, taken.into_iter().zip(steps).collect::<Vec<_>>());
         assert_eq!(elimination.proof.nodes(), current.nodes());
     }
-    for &case in Case::ALL {
+    // These proofs are propositional: the key case of `∀` and `∃` is met
+    // by the first-order ones (`first_order_cuts_are_eliminated`).
+    for &case in Case::ALL.iter().filter(|&&c| c != Case::ForallExists) {
         assert!(
             cases.contains_key(case.name()),
             "{} never met: {cases:?}",
@@ -503,4 +506,314 @@ fn a_specialized_erasure_is_bounded_inside_the_step() {
     );
     let made = step(&proof, mode, None, &unbounded, &Limits::default(), never).unwrap();
     assert!(made.proof.is_cut_free());
+}
+
+/// Returns the members of the subformulas of `m`, an instance of a
+/// connective (not a binder) under its frame, in `table`.
+fn children_of(forest: &Forest, table: &mut Instances, m: Member) -> Vec<Member> {
+    let (o, frame) = match table.instance(m) {
+        Some((o, frame)) => (o, Some(frame)),
+        None => (m.occ(), None),
+    };
+    forest
+        .children(o)
+        .map(|c| match frame {
+            Some(frame) => table.member(c, frame),
+            None => Member::from(c),
+        })
+        .collect()
+}
+
+/// Appends to `nodes` a proof of `⊢ x, y`, two members of dual formulas
+/// under equal frames, by the identity expanded rule by rule, each
+/// `∀` step's eigenvariable the next of `eigen`, and returns its root.
+fn identity(
+    nodes: &mut Vec<Node>,
+    table: &mut Instances,
+    forest: &Forest,
+    (x, y): (Member, Member),
+    eigen: &mut u32,
+) -> NodeId {
+    use crate::Kind;
+    let push = |nodes: &mut Vec<Node>, node| {
+        nodes.push(node);
+        NodeId::new(nodes.len() as u32 - 1)
+    };
+    let occurrence = |table: &Instances, m: Member| table.instance(m).map_or(m.occ(), |(o, _)| o);
+    let kind = forest.kind(occurrence(table, x));
+    let (cx, cy) = (children_of(forest, table, x), children_of(forest, table, y));
+    match kind {
+        Kind::Atom | Kind::DualAtom => push(nodes, Node::Ax(x, y)),
+        Kind::Tensor => {
+            let l = identity(nodes, table, forest, (cx[0], cy[0]), eigen);
+            let r = identity(nodes, table, forest, (cx[1], cy[1]), eigen);
+            let t = push(nodes, Node::Tensor(x, l, r));
+            push(nodes, Node::Par(y, t))
+        }
+        Kind::One => {
+            let one = push(nodes, Node::One(x));
+            push(nodes, Node::Bot(y, one))
+        }
+        Kind::Top => push(nodes, Node::Top(x)),
+        Kind::With => {
+            let l = identity(nodes, table, forest, (cx[0], cy[0]), eigen);
+            let l = push(nodes, Node::Plus(y, Branch::Left, l));
+            let r = identity(nodes, table, forest, (cx[1], cy[1]), eigen);
+            let r = push(nodes, Node::Plus(y, Branch::Right, r));
+            push(nodes, Node::With(x, l, r))
+        }
+        Kind::Bang => {
+            let inner = identity(nodes, table, forest, (cx[0], cy[0]), eigen);
+            let copy = push(nodes, Node::Copy(cy[0], inner));
+            let bang = push(nodes, Node::Bang(x, copy));
+            push(nodes, Node::Quest(y, bang))
+        }
+        Kind::Forall => {
+            let a = crate::sequents::Eigen::new(*eigen);
+            *eigen += 1;
+            let term = table.eigen(a);
+            let mut body = |m: Member| {
+                let (o, frame) = match table.instance(m) {
+                    Some((o, frame)) => (o, Some(frame)),
+                    None => (m.occ(), None),
+                };
+                let frame = table.frame(frame, term);
+                table.member(OccId::new(o.get() + 1), frame)
+            };
+            let (bx, by) = (body(x), body(y));
+            let inner = identity(nodes, table, forest, (bx, by), eigen);
+            let exists = push(nodes, Node::Exists(y, term, inner));
+            push(nodes, Node::Forall(x, a, exists))
+        }
+        Kind::Par | Kind::Bot | Kind::Zero | Kind::Plus | Kind::Quest | Kind::Exists => {
+            identity(nodes, table, forest, (y, x), eigen)
+        }
+    }
+}
+
+/// Returns `proof`, a first-order proof of a sequent's roots, cut on its
+/// root `root`: the sequent with that root's formula `A` as a cut
+/// formula, the proof with `A` moved onto the cut formula's tree, cut
+/// against the identity of `A` (`⊢ A⊥, A`, expanded rule by rule) on the
+/// root itself; `None` where the sequent's tables or roots move with the
+/// cut formula.
+fn identity_cut(proof: &Proof, root: usize) -> Option<Proof> {
+    let forest = proof.forest();
+    let table = proof.instances()?;
+    let r = forest.roots()[root];
+    let mut sequent = proof.sequent().clone();
+    sequent
+        .add_cut(format!("|- {}", forest.formula(r)).parse().ok()?)
+        .ok()?;
+    let cut_forest = Forest::new(&sequent).ok()?;
+    let made_for = Instances::new(&cut_forest);
+    if cut_forest.roots() != forest.roots()
+        || (made_for.base_terms, made_for.base_lists) != (table.base_terms, table.base_lists)
+    {
+        return None;
+    }
+    let (c, d) = cut_forest.cut_pairs().next()?;
+    let size = forest.size(r);
+    let moved = |o: OccId| {
+        if (r.get()..r.get() + size).contains(&o.get()) {
+            OccId::new(c.get() + o.get() - r.get())
+        } else {
+            o
+        }
+    };
+    let shift = (cut_forest.len() - forest.len()) as u32;
+    let mut instances = Instances {
+        occurrences: made_for.occurrences,
+        members: table.members.iter().map(|&(o, f)| (moved(o), f)).collect(),
+        ..table.clone()
+    };
+    let mut nodes: Vec<Node> = proof
+        .nodes()
+        .iter()
+        .map(|node| {
+            node.renamed(|m| {
+                Ok::<_, std::convert::Infallible>(if m.index() < forest.len() {
+                    Member::from(moved(m.occ()))
+                } else {
+                    Member::new(m.get() + shift)
+                })
+            })
+            .unwrap_or_else(|never| match never {})
+        })
+        .collect();
+    let left = NodeId::new(nodes.len() as u32 - 1);
+    let mut eigen = proof
+        .nodes()
+        .iter()
+        .filter_map(|n| match n {
+            Node::Forall(_, a, _) => Some(a.get() + 1),
+            _ => None,
+        })
+        .chain(instances.eigenvariables().iter().map(|a| a.get() + 1))
+        .max()
+        .unwrap_or(0);
+    let right = identity(
+        &mut nodes,
+        &mut instances,
+        &cut_forest,
+        (Member::from(d), Member::from(r)),
+        &mut eigen,
+    );
+    nodes.push(Node::Cut(Member::from(c), left, right));
+    let root = NodeId::new(nodes.len() as u32 - 1);
+    Proof::with_instances(cut_forest, instances, nodes, root).ok()
+}
+
+/// First-order proofs with a cut, from the search's proofs of generated
+/// sequents (classical) and of written ones (intuitionistic), each root
+/// cut against its identity, with every mode beside the search's that
+/// takes it: affine, Mix.
+fn first_order_cuts() -> Vec<(Proof, Mode)> {
+    use crate::search::generate::Rng;
+    use crate::search::reference_fo::tests::random_sequent;
+    let options = crate::Options::default().with_copies(Some(1));
+    let mut texts: Vec<(String, Mode)> = Vec::new();
+    for (seed, rules) in [
+        [false, false, false],
+        [true, true, false],
+        [false, true, true],
+        [true, true, true],
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut rng = Rng::new(4400 + seed as u64);
+        for _ in 0..150 {
+            texts.push((random_sequent(&mut rng, rules), Mode::CLASSICAL));
+        }
+    }
+    for text in [
+        "forall x. p(x) |- exists y. p(y)",
+        "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)",
+        "exists x. (p(x) * q(x)) |- exists y. (q(y) * p(y))",
+        "forall x. (p(x) -o q(x)), p(a) |- q(a)",
+        "p(a) & p(b), q(b) |- exists x. (p(x) * q(x))",
+        "p(z), !forall x. (p(x) -o p(s(x))) |- p(s(s(z)))",
+        "exists x. (p(x) -o q) |- (forall x. p(x)) -o q",
+        "forall x. (p(x) & q(x)) |- forall y. (q(y) & p(y))",
+        "!forall x. p(x) |- p(a) * p(b)",
+        "forall x. forall y. r(x, y) |- forall y. forall x. r(x, y)",
+    ] {
+        texts.push((text.to_owned(), Mode::INTUITIONISTIC));
+    }
+    let mut proofs = Vec::new();
+    for (text, mode) in texts {
+        let Ok(sequent) = text.parse::<Sequent>() else {
+            continue;
+        };
+        let Ok(outcome) = crate::prove(&sequent, mode, &options) else {
+            continue;
+        };
+        let crate::Verdict::Proved(proof) = outcome.verdict else {
+            continue;
+        };
+        let modes = if mode.is_intuitionistic() {
+            vec![mode, mode.with_affine()]
+        } else {
+            vec![mode, mode.with_mix(), mode.with_affine()]
+        };
+        for root in 0..proof.forest().roots().len() {
+            let Some(cut) = identity_cut(&proof, root) else {
+                continue;
+            };
+            for &mode in &modes {
+                if cut.check(mode).is_ok() {
+                    proofs.push((cut.clone().with_mode(mode), mode));
+                }
+            }
+        }
+    }
+    proofs
+}
+
+/// Every step of the elimination of first-order proofs with cuts, each
+/// a search's proof cut against an identity, makes a proof over the same
+/// sequent with the same conclusion that the checker accepts, every cut
+/// of it on a cut formula's tree, and ends cut-free as `eliminate` does;
+/// any cut of a proof on the way may be reduced first;
+/// in the classical modes and the intuitionistic ones; the key case of
+/// `∀` and `∃` is met on both sides of `⊢`.
+#[test]
+fn first_order_cuts_are_eliminated() {
+    let proofs = first_order_cuts();
+    let mut cases: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut modes: BTreeMap<String, usize> = BTreeMap::new();
+    let mut steps_taken = 0;
+    for (proof, mode) in &proofs {
+        *modes.entry(format!("{mode:?}")).or_default() += 1;
+        let mut current = proof.clone();
+        let mut steps = Vec::new();
+        while !current.is_cut_free() {
+            assert!(steps.len() < MOST_STEPS, "no end in {mode:?}: {proof:?}");
+            // Any cut may be reduced, not only the strategy's.
+            for id in current
+                .ids()
+                .filter(|&id| matches!(current.node(id), Node::Cut(..)))
+            {
+                let options = Options::default();
+                let reduction = step(
+                    &current,
+                    *mode,
+                    Some(id),
+                    &options,
+                    &Limits::default(),
+                    never,
+                )
+                .unwrap_or_else(|e| panic!("{e} at {id:?} in {mode:?} of {current:?}"));
+                reduction.proof.check(*mode).unwrap();
+            }
+            let reduction = step(
+                &current,
+                *mode,
+                None,
+                &Options::default(),
+                &Limits::default(),
+                never,
+            )
+            .unwrap_or_else(|e| panic!("{e} in {mode:?} at {current:?}"));
+            let made = &reduction.proof;
+            made.check(*mode).unwrap();
+            assert_eq!(made.sequent(), proof.sequent());
+            assert_eq!(made.conclusion(), proof.conclusion());
+            for node in made.nodes() {
+                if let Node::Cut(a, ..) = node {
+                    assert!(made.forest().is_cut_formula(made.occurrence(*a)));
+                }
+            }
+            *cases.entry(reduction.step.case.name()).or_default() += 1;
+            steps.push(reduction.step);
+            current = reduction.proof;
+        }
+        steps_taken += steps.len();
+        let elimination = eliminate(
+            proof,
+            *mode,
+            &Options::default(),
+            &Limits::default(),
+            never,
+            |_, _| {},
+        )
+        .unwrap();
+        assert_eq!(elimination.end, End::CutFree);
+        assert_eq!(elimination.steps, steps);
+    }
+    println!(
+        "{} proofs, {steps_taken} steps, {cases:?}, {modes:?}",
+        proofs.len()
+    );
+    assert!(
+        cases
+            .get("the key case of ∀ and ∃")
+            .is_some_and(|&n| n >= 100)
+    );
+    let intuitionistic = proofs.iter().filter(|(_, m)| m.is_intuitionistic()).count();
+    assert!(
+        intuitionistic >= 10 && proofs.len() - intuitionistic >= 200,
+        "{modes:?}"
+    );
 }

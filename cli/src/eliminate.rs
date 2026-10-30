@@ -14,7 +14,7 @@ use crate::show::{
 use crate::{Status, exit_on_interrupt, interrupted};
 use anyhow::{Result, bail};
 use linlog::proofs::cut::{self, Elimination, End};
-use linlog::{CheckError, Error, Forest, Mode, Node, Proof, Reading, Refusal, Settings};
+use linlog::{CheckError, Error, Forest, Member, Mode, Node, Proof, Reading, Refusal, Settings};
 use std::fmt::Write as _;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -144,13 +144,19 @@ fn eliminate_into(
     out: &mut io::Output,
 ) -> Result<(Status, bool)> {
     let over = || interrupted() || deadline.passed() || io::closed();
+    // The formula each step cut, in the proof it was taken on, which
+    // numbers its instances.
+    let reading = Reading::of_mode(proof.forest(), mode)
+        .ok()
+        .filter(|_| mode.is_intuitionistic());
+    let mut formulas: Vec<String> = Vec::new();
     let result = cut::eliminate(
         proof,
         mode,
         &settings.cut,
         &settings.limits,
         |_| over(),
-        |_, _| {},
+        |before, step| formulas.push(cut_formula(before, step.formula, mode, reading.as_ref())),
     );
     let sequent = |proof: &Proof| {
         let formulas = proof.sequent().roots().len();
@@ -216,7 +222,13 @@ fn eliminate_into(
         serde_json::to_writer(out.stream(), &elimination)?;
         return Ok((status, true));
     }
-    let line = report(&elimination, mode, &sequent(&elimination.proof), deadline);
+    let line = report(
+        &elimination,
+        mode,
+        &formulas,
+        &sequent(&elimination.proof),
+        deadline,
+    );
     let prefix = show.open(out, show.verdict.then_some(line.as_str()))?;
     if quiet {
         let keep = show.close(out, Shown::Nothing, Some(&line))?;
@@ -648,20 +660,20 @@ fn counted(count: usize, one: &str, many: &str) -> String {
 
 /// Returns the lines that say what the elimination did: a numbered line
 /// per step with its case and the cut formula, then how it ended.
-fn report(elimination: &Elimination, mode: Mode, sequent: &str, deadline: &Deadline) -> String {
+fn report(
+    elimination: &Elimination,
+    mode: Mode,
+    formulas: &[String],
+    sequent: &str,
+    deadline: &Deadline,
+) -> String {
     let proof = &elimination.proof;
-    let reading = Reading::of_mode(proof.forest(), mode)
-        .ok()
-        .filter(|_| mode.is_intuitionistic());
     let mut lines: Vec<String> = elimination
         .steps
         .iter()
+        .zip(formulas)
         .enumerate()
-        .map(|(k, step)| {
-            let formula = match &reading {
-                Some(reading) => reading.formula(proof.occurrence(step.formula)).to_string(),
-                None => proof.formula(step.formula).to_string(),
-            };
+        .map(|(k, (step, formula))| {
             format!("{}. {} on the cut of {formula}", k + 1, step.case.name())
         })
         .collect();
@@ -685,6 +697,26 @@ fn report(elimination: &Elimination, mode: Mode, sequent: &str, deadline: &Deadl
         }
     });
     lines.join("\n")
+}
+
+/// Returns the formula of the member `cut` of `before`, the proof a step
+/// was taken on, as the verdict lines write it: two-sided by `reading` in
+/// an intuitionistic mode, an instance with the terms of its frame.
+fn cut_formula(before: &Proof, cut: Member, mode: Mode, reading: Option<&Reading>) -> String {
+    if cut.index() < before.forest().len() {
+        let o = before.occurrence(cut);
+        return match reading {
+            Some(reading) => reading.formula(o).to_string(),
+            None => before.forest().formula(o).to_string(),
+        };
+    }
+    // An instance is written by the proof that numbers it, in the mode it
+    // records: every proof a step made records the elimination's.
+    if before.mode() == Some(mode) {
+        before.formula(cut).to_string()
+    } else {
+        before.clone().with_mode(mode).formula(cut).to_string()
+    }
 }
 
 /// Returns how to lift the bound that refused the elimination, or why

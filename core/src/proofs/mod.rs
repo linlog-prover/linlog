@@ -641,12 +641,35 @@ impl Proof {
     /// Returns the formula a member of the proof stands for: of a proof
     /// that records an intuitionistic mode as the sequent's reading writes
     /// it, two-sided (a pass over the forest each call), else as the
-    /// one-sided sequent writes it.
+    /// one-sided sequent writes it; an instance with the terms of its
+    /// frame for its loose bound variables, each cut after a few thousand
+    /// characters (a term of shared subterms can unfold past any memory).
+    ///
+    /// # Panics
+    ///
+    /// For a member the proof does not number.
     pub fn formula(&self, member: Member) -> impl Display + '_ {
         let reading = self
             .mode
             .filter(|mode| mode.is_intuitionistic())
             .and_then(|mode| Reading::of_mode(&self.forest, mode.with_empty_antecedents()).ok());
+        if let Some(table) = self.instances.as_deref()
+            && member.index() >= self.forest.len()
+        {
+            let framing = instances::Framing::new(&self.forest.sequent().fo, table);
+            let mut text = String::new();
+            crate::sequents::notation::TEXT
+                .instance(
+                    &mut text,
+                    &self.forest,
+                    reading.as_ref(),
+                    &framing,
+                    member,
+                    Some(crate::errors::describe::TERM),
+                )
+                .expect("writing into a string cannot fail");
+            return text;
+        }
         match reading {
             Some(reading) => reading.formula(member.occ()).to_string(),
             None => self.forest.formula(member.occ()).to_string(),

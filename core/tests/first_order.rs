@@ -173,8 +173,14 @@ fn the_written_proofs_read_back_and_are_judged() {
     let accepted = [
         "apart",
         "cut",
+        "cut_deep",
+        "cut_deep_ill",
         "cut_ill",
         "cut_instance",
+        "cut_shared",
+        "cut_shared_ill",
+        "cut_tensor",
+        "cut_tensor_ill",
         "swap",
         "swap_ill",
         "unintroduced",
@@ -205,7 +211,7 @@ fn the_written_proofs_read_back_and_are_judged() {
         }
         read += 1;
     }
-    assert_eq!(read, 16);
+    assert_eq!(read, 22);
     // The eigenvariable a `∃` step below its `∀` step names, by name.
     let json = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/first-order/swap_back.json"),
@@ -218,6 +224,70 @@ fn the_written_proofs_read_back_and_are_judged() {
         "node 4 (∃ on ∃x. (∀y. p(x, y)) from 3) with premises ⊢ ∃y. (∀x. ~p(x, y)), \
          ∀y. p(a, y): eigenvariable a occurs outside the ∀ step that introduces it"
     );
+}
+
+/// The proofs with cuts written by hand under `tests/first-order/`, read
+/// through the wire, are eliminated in the mode they record (classical
+/// where they record none): every step's
+/// proof passes the checker and the last is cut-free; among them a cut on
+/// a first-order formula (`cut`, `cut_deep`), one on an instance
+/// (`cut_instance`, `cut_tensor`), a subproof shared under two cuts on a
+/// `∀` formula (`cut_shared`), and an eigenvariable in a witness two rules
+/// up its `∀` premise (`cut_deep`). The proof structures refuse them.
+#[test]
+fn the_written_cuts_are_eliminated() {
+    use linlog::proofs::cut::{self, Case, End};
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/first-order");
+    let mut cases: Vec<Case> = Vec::new();
+    for name in [
+        "cut",
+        "cut_ill",
+        "cut_instance",
+        "cut_shared",
+        "cut_shared_ill",
+        "cut_tensor",
+        "cut_tensor_ill",
+        "cut_deep",
+        "cut_deep_ill",
+    ] {
+        let json = std::fs::read_to_string(dir.join(format!("{name}.json"))).unwrap();
+        let proof: Proof = serde_json::from_str(&json).unwrap();
+        assert!(!proof.is_cut_free(), "{name}");
+        let mode = proof.mode().unwrap_or(Mode::CLASSICAL);
+        let mut taken = 0;
+        let elimination = cut::eliminate(
+            &proof,
+            mode,
+            &cut::Options::default(),
+            &Limits::default(),
+            |_| false,
+            |before, step| {
+                assert!(before.check(mode).is_ok(), "{name}: step {taken}");
+                cases.push(step.case);
+                taken += 1;
+            },
+        )
+        .unwrap();
+        assert_eq!(elimination.end, End::CutFree, "{name}");
+        assert_eq!(elimination.steps.len(), taken, "{name}");
+        assert!(elimination.proof.is_cut_free(), "{name}");
+        assert_eq!(elimination.proof.check(mode), Ok(()), "{name}");
+        assert_eq!(
+            elimination.proof.sequent().to_string(),
+            proof.sequent().to_string()
+        );
+        let net =
+            ProofStructure::from_proof(&proof, Criterion::default(), &Limits::default(), |_| false);
+        assert!(net.is_err(), "{name}");
+    }
+    for case in [
+        Case::ForallExists,
+        Case::TensorPar,
+        Case::Axiom,
+        Case::Commutative,
+    ] {
+        assert!(cases.contains(&case), "{case:?} not met");
+    }
 }
 
 /// The first-order terms a sequent's atoms unfold to are bounded on every

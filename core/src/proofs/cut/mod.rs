@@ -22,6 +22,16 @@
 //! the box kept for the uses above); a box it meets it enters; a
 //! subproof that does not use `A⊥` *weakens* the box away.
 //!
+//! At first order a member is an instance, an occurrence under binders
+//! with the terms they were opened with; the cases read members through
+//! the proof's instance table and are the propositional ones, with one
+//! more key case: `∀x.A` against `∃x.A⊥` with the witness `t` cuts `A`
+//! with `t` for `x`, the witness substituted for the eigenvariable
+//! throughout the `∀` premise. A subproof shared under the cut is
+//! substituted in a copy, and a `∀` step a step remakes while the proof
+//! still reads the original elsewhere is given an eigenvariable of its
+//! own, so that every eigenvariable stays introduced by one step.
+//!
 //! A step is checked, not trusted: [`step`] returns a proof the checker
 //! accepts for the same conclusion in the mode it was given, and
 //! [`eliminate`] checks every proof it reaches before its next step and
@@ -35,6 +45,7 @@ use crate::occurrences::{Forest, Member, OccId, Reading, Side};
 use crate::proofs::check::{self, Allowance, CheckError, Facts, Observer, State};
 use crate::proofs::multiset::Multiset;
 use crate::proofs::{Branch, Node, NodeId, Proof};
+use crate::sequents::{Eigen, FoTermId};
 
 /// How an elimination proceeds and when it stops.
 ///
@@ -188,6 +199,10 @@ pub enum Case {
     /// A box cut against a box whose content uses `A⊥`: the cut enters
     /// that box.
     BoxIntoBox,
+    /// `∀x.A` against `∃x.A⊥` with the witness `t`: one cut, on `A` with
+    /// `t` for `x`, the witness substituted for the `∀` step's
+    /// eigenvariable throughout its premise.
+    ForallExists,
     /// The cut moves above a rule of one premise that does not act on the
     /// cut formula, into the premise of it that holds the formula, or into
     /// both premises of `&`; above `⊤`, which absorbs the cut formula, the
@@ -206,11 +221,13 @@ impl Case {
         Self::Dereliction,
         Self::Contraction,
         Self::BoxIntoBox,
+        Self::ForallExists,
         Self::Commutative,
     ];
 
     /// Returns the case's name as a phrase: `the axiom case`, `the key
-    /// case of ⊗ and ⅋`, `weakening`, `a box entering a box`, …
+    /// case of ⊗ and ⅋`, `weakening`, `a box entering a box`, `the key
+    /// case of ∀ and ∃`, …
     pub const fn name(self) -> &'static str {
         match self {
             Self::Axiom => "the axiom case",
@@ -221,6 +238,7 @@ impl Case {
             Self::Dereliction => "dereliction",
             Self::Contraction => "contraction",
             Self::BoxIntoBox => "a box entering a box",
+            Self::ForallExists => "the key case of ∀ and ∃",
             Self::Commutative => "a commutative case",
         }
     }
@@ -311,11 +329,6 @@ pub fn step(
     limits: &Limits,
     mut stop: impl FnMut(Progress) -> bool,
 ) -> Result<Reduction, Error> {
-    if proof.forest().has_binders() {
-        return Err(Error::Quantifiers {
-            what: "cut elimination",
-        });
-    }
     let record = Record::of(proof, mode, limits, &mut stop).map_err(Error::Check)?;
     let cut = match at {
         Some(at) if matches!(proof.nodes().get(at.index()), Some(Node::Cut(..))) => at,
@@ -370,11 +383,6 @@ pub fn eliminate(
     mut stop: impl FnMut(Progress) -> bool,
     mut each: impl FnMut(&Proof, &Step),
 ) -> Result<Elimination, Error> {
-    if proof.forest().has_binders() {
-        return Err(Error::Quantifiers {
-            what: "cut elimination",
-        });
-    }
     let mut steps: Vec<Step> = Vec::new();
     // The proof reached last and the one before it, which is the last one
     // checked while the latest waits for its check.
@@ -444,7 +452,7 @@ struct Record {
     /// Whether a node is a premise of a `⊗`, a Mix or a cut.
     kept: Vec<bool>,
     /// The linear zones of the kept nodes.
-    zones: HashMap<NodeId, Multiset>,
+    zones: HashMap<NodeId, Multiset<Member>>,
     /// The bytes of the zones kept so far; it saturates.
     held: u64,
 }
@@ -490,7 +498,7 @@ impl Record {
 
     /// Returns the linear zone the checker derived for a premise of a
     /// `⊗`, a Mix or a cut.
-    fn zone(&self, id: NodeId) -> &Multiset {
+    fn zone(&self, id: NodeId) -> &Multiset<Member> {
         &self.zones[&id]
     }
 }
@@ -507,9 +515,7 @@ impl Observer for Record {
             let zone = Multiset::of(
                 state
                     .linear()
-                    // Cut elimination takes no proof with binders, whose
-                    // members are its occurrences.
-                    .flat_map(|(o, n)| std::iter::repeat_n(o.occ(), n as usize)),
+                    .flat_map(|(m, n)| std::iter::repeat_n(m, n as usize)),
             );
             let bytes = (zone.as_slice().len() as u64).saturating_mul(4);
             self.held = self.held.saturating_add(Self::ENTRY).saturating_add(bytes);
@@ -533,6 +539,9 @@ fn reduce(
 ) -> Result<(Proof, Step), Refusal> {
     // The proof was checked in `mode`, so it has a reading there.
     let reading = check::reading(proof, mode).unwrap_or_default();
+    let most = options
+        .nodes
+        .map_or(usize::MAX, |n| usize::try_from(n).unwrap_or(usize::MAX));
     let mut rewrite = Rewrite {
         proof,
         forest: proof.forest(),
@@ -540,32 +549,37 @@ fn reduce(
         reading,
         nodes: proof.nodes().to_vec(),
         overflowed: false,
+        table: framed::Table::of(proof),
+        most,
+        memory: limits.memory_bytes,
     };
-    // Every rewrite but the specialized erasure adds fewer nodes than the
-    // proof has for each of its passes, so only that one is bounded on the
-    // way, by the nodes, the memory and the stop; the proof made is
-    // measured after.
-    let most = options
-        .nodes
-        .map_or(usize::MAX, |n| usize::try_from(n).unwrap_or(usize::MAX));
-    let (made, step) = rewrite.reduce(cut, mode);
-    let root = match made {
-        Made::Subproof(replacement) => rewrite.replace(cut, replacement),
+    // Every propositional rewrite but the specialized erasure adds fewer
+    // nodes than the proof has for each of its passes, so only that one is
+    // bounded on the way, by the nodes, the memory and the stop; a copy of
+    // a subproof at first order is charged before it is made
+    // (`Rewrite::afford`); the proof made is measured after.
+    let (made, step) = rewrite.reduce(cut, mode)?;
+    let mut root = match made {
+        Made::Subproof(replacement) => rewrite.replace(cut, replacement, proof.root()),
         Made::Erasure { kept, proved } => {
             rewrite.specialize(cut, kept, &proved, most, limits.memory_bytes, stop)?
         }
     };
-    if rewrite.overflowed {
-        return Err(Refusal::Index {
-            what: crate::limits::Space::Node,
-            count: rewrite.nodes.len() as u64,
-            most: u64::from(u32::MAX),
-        });
+    rewrite.within_ids()?;
+    let mut instances = None;
+    if rewrite.table.is_some() {
+        root = rewrite.apart(root, stop)?;
+        instances = Some(rewrite.compact(root));
     }
     let nodes = rewrite.nodes;
-    let made = Proof::new(proof.forest.clone(), nodes, root).map_err(|error| match error {
+    let forest = proof.forest.clone();
+    let made = match instances {
+        None => Proof::new(forest, nodes, root),
+        Some(instances) => Proof::with_instances(forest, instances, nodes, root),
+    }
+    .map_err(|error| match error {
         Error::Refused(refusal) => refusal,
-        error => unreachable!("a rewrite keeps the arena's order: {error}"),
+        error => unreachable!("a rewrite keeps the arena's order and the table: {error}"),
     })?;
     let count = made.nodes().len() as u64;
     if let Some(limit) = options.nodes
@@ -605,7 +619,7 @@ enum Made {
         /// The subproof kept.
         kept: NodeId,
         /// What it proves.
-        proved: Multiset,
+        proved: Multiset<Member>,
     },
 }
 
@@ -626,6 +640,14 @@ struct Rewrite<'a> {
     /// Whether the arena passed what a node id names, so that the step is
     /// refused rather than made of ids that alias.
     overflowed: bool,
+    /// The proof's instance table and what the step adds to it, for a
+    /// proof with one.
+    table: Option<framed::Table>,
+    /// The most nodes the step may add to the proof's arena by copies of
+    /// subproofs: the bound on a proof's nodes.
+    most: usize,
+    /// The most bytes the arena may take.
+    memory: Option<u64>,
 }
 
 impl Rewrite<'_> {
@@ -645,20 +667,85 @@ impl Rewrite<'_> {
         NodeId::new(id)
     }
 
+    /// Returns the refusal of an arena past what a node id names.
+    fn within_ids(&self) -> Result<(), Refusal> {
+        if self.overflowed {
+            return Err(Refusal::Index {
+                what: crate::limits::Space::Node,
+                count: self.nodes.len() as u64,
+                most: u64::from(u32::MAX),
+            });
+        }
+        Ok(())
+    }
+
     /// Returns the node at `id`.
     fn node(&self, id: NodeId) -> Node {
         self.nodes[id.index()]
     }
 
     /// Adds the cut of `a` from `first` and `second`.
-    fn cut(&mut self, a: OccId, first: NodeId, second: NodeId) -> NodeId {
-        self.push(Node::Cut(a.into(), first, second))
+    fn cut(&mut self, a: Member, first: NodeId, second: NodeId) -> NodeId {
+        self.push(Node::Cut(a, first, second))
+    }
+
+    /// Returns the occurrence a member stands for.
+    fn occ(&self, m: Member) -> OccId {
+        match &self.table {
+            Some(table) => table.resolve(m).0,
+            None => m.occ(),
+        }
+    }
+
+    /// Returns the member that is the occurrence `o` under the frame of
+    /// `like`, a member of an occurrence under as many binders.
+    fn beside(&mut self, o: OccId, like: Member) -> Member {
+        match &mut self.table {
+            Some(table) => table.beside(o, like),
+            None => Member::from(o),
+        }
+    }
+
+    /// Returns the member of the left subformula of a connective's member.
+    fn left(&mut self, m: Member) -> Member {
+        let o = self.forest.left(self.occ(m)).expect("a connective");
+        self.beside(o, m)
+    }
+
+    /// Returns the member of the right subformula of a binary
+    /// connective's member.
+    fn right(&mut self, m: Member) -> Member {
+        let o = self.forest.right(self.occ(m)).expect("a binary connective");
+        self.beside(o, m)
+    }
+
+    /// Returns the member of a binary connective's subformula on `side`.
+    fn child(&mut self, m: Member, side: Branch) -> Member {
+        match side {
+            Branch::Left => self.left(m),
+            Branch::Right => self.right(m),
+        }
+    }
+
+    /// Returns the member of the dual of a member of a cut formula's tree.
+    fn dual(&mut self, m: Member) -> Member {
+        let o = self.forest.dual(self.occ(m)).expect("a cut formula's tree");
+        self.beside(o, m)
+    }
+
+    /// Returns the member of the body of a binder's member, with `term`
+    /// for its variable.
+    fn body(&mut self, m: Member, term: FoTermId) -> Member {
+        self.table
+            .as_mut()
+            .expect("a binder's proof has instances")
+            .body(m, term)
     }
 
     /// Returns whether the derived zone of `id`, a premise of a `⊗`, a Mix
     /// or a cut, holds `x` beyond the occurrence `consumed` its rule takes
     /// from it.
-    fn holds(&self, id: NodeId, x: OccId, consumed: Option<OccId>) -> bool {
+    fn holds(&self, id: NodeId, x: Member, consumed: Option<Member>) -> bool {
         let zone = self.record.zone(id).as_slice();
         let count = zone.partition_point(|&o| o <= x) - zone.partition_point(|&o| o < x);
         count > usize::from(consumed == Some(x))
@@ -670,9 +757,9 @@ impl Rewrite<'_> {
     /// absorbs it ([`absorber`](Self::absorber)).
     fn holder(
         &self,
-        x: OccId,
-        first: (NodeId, Option<OccId>),
-        second: (NodeId, Option<OccId>),
+        x: Member,
+        first: (NodeId, Option<Member>),
+        second: (NodeId, Option<Member>),
     ) -> Branch {
         if self.holds(first.0, x, first.1) {
             Branch::Left
@@ -690,10 +777,10 @@ impl Rewrite<'_> {
     fn absorber(
         &self,
         output: bool,
-        first: (NodeId, Option<OccId>),
-        second: (NodeId, Option<OccId>),
+        first: (NodeId, Option<Member>),
+        second: (NodeId, Option<Member>),
     ) -> Branch {
-        let takes = |(id, taken): (NodeId, Option<OccId>)| {
+        let takes = |(id, taken): (NodeId, Option<Member>)| {
             self.record.absorbs[id.index()] && !(output && self.has_output(id, taken))
         };
         if takes(first) || !takes(second) {
@@ -704,17 +791,17 @@ impl Rewrite<'_> {
     }
 
     /// Returns whether an occurrence stands right of `⊢` under the reading.
-    fn is_output(&self, x: OccId) -> bool {
+    fn is_output(&self, x: Member) -> bool {
         self.reading
             .as_ref()
-            .is_some_and(|reading| reading.position(x) == Side::Output)
+            .is_some_and(|reading| reading.position(self.occ(x)) == Side::Output)
     }
 
     /// Returns whether the sequent of `id`, a premise of a `⊗`, a Mix or a
     /// cut whose rule takes `taken` from it, has its formula right of `⊢`:
     /// in its derived zone, or as the formula taken where a `⊤` absorbed
     /// it.
-    fn has_output(&self, id: NodeId, taken: Option<OccId>) -> bool {
+    fn has_output(&self, id: NodeId, taken: Option<Member>) -> bool {
         self.reading.is_some()
             && (self
                 .record
@@ -727,88 +814,88 @@ impl Rewrite<'_> {
 
     /// Returns the two premises of a two-premise node and what its rule
     /// takes from each: `None` for any other node.
-    fn split(&self, node: Node) -> Option<[(NodeId, Option<OccId>); 2]> {
-        let f = self.forest;
+    fn split(&mut self, node: Node) -> Option<[(NodeId, Option<Member>); 2]> {
         match node {
-            Node::Tensor(o, p, q) => Some([(p, f.left(o.occ())), (q, f.right(o.occ()))]),
-            Node::Cut(b, p, q) => Some([(p, Some(b.occ())), (q, f.dual(b.occ()))]),
+            Node::Tensor(o, p, q) => {
+                let (l, r) = (self.left(o), self.right(o));
+                Some([(p, Some(l)), (q, Some(r))])
+            }
+            Node::Cut(b, p, q) => {
+                let d = self.dual(b);
+                Some([(p, Some(b)), (q, Some(d))])
+            }
             Node::Mix(p, q) => Some([(p, None), (q, None)]),
             _ => None,
         }
     }
 
-    /// Reduces the cut at `cut` and returns what it makes and the step.
-    fn reduce(&mut self, cut: NodeId, mode: Mode) -> (Made, Step) {
-        let Node::Cut(member, l, r) = self.node(cut) else {
+    /// Reduces the cut at `cut` and returns what it makes and the step,
+    /// or the refusal of a copy past the bounds.
+    fn reduce(&mut self, cut: NodeId, mode: Mode) -> Result<(Made, Step), Refusal> {
+        let Node::Cut(a, l, r) = self.node(cut) else {
             unreachable!("the node reduced is a cut")
         };
-        let f = self.forest;
-        let a = member.occ();
-        let da = f.dual(a).expect("a cut is on a cut formula's tree");
+        let da = self.dual(a);
         let (nl, nr) = (self.node(l), self.node(r));
         let step = |case, above| Step {
             cut,
-            formula: member,
+            formula: a,
             case,
             above,
         };
         if let Node::Ax(x, y) = nl {
-            let other = if x.occ() == a { y } else { x };
-            let made = self.rename(r, da, other.occ());
-            return (Made::Subproof(made), step(Case::Axiom, None));
+            let other = if x == a { y } else { x };
+            let made = self.rename(r, da, other);
+            return Ok((Made::Subproof(made), step(Case::Axiom, None)));
         }
         if let Node::Ax(x, y) = nr {
-            let other = if x.occ() == da { y } else { x };
-            let made = self.rename(l, a, other.occ());
-            return (Made::Subproof(made), step(Case::Axiom, None));
+            let other = if x == da { y } else { x };
+            let made = self.rename(l, a, other);
+            return Ok((Made::Subproof(made), step(Case::Axiom, None)));
         }
         if mode.affine {
             if let Node::Weaken(w, k) = nl
-                && w.occ() == a
+                && w == a
             {
-                return (self.erase(k, l, a, r, da), step(Case::Weakening, None));
+                return Ok((self.erase(k, l, a, r, da), step(Case::Weakening, None)));
             }
             if let Node::Weaken(w, k) = nr
-                && w.occ() == da
+                && w == da
             {
-                return (self.erase(k, r, da, l, a), step(Case::Weakening, None));
+                return Ok((self.erase(k, r, da, l, a), step(Case::Weakening, None)));
             }
         }
         if !principal(nl, a) {
             let made = self.commute(cut, Branch::Left);
-            return (Made::Subproof(made), step(Case::Commutative, Some(l)));
+            return Ok((Made::Subproof(made), step(Case::Commutative, Some(l))));
         }
         if !principal(nr, da) {
             let made = self.commute(cut, Branch::Right);
-            return (Made::Subproof(made), step(Case::Commutative, Some(r)));
+            return Ok((Made::Subproof(made), step(Case::Commutative, Some(r))));
         }
-        let (left, right) = (
-            |o: OccId| f.left(o).unwrap(),
-            |o: OccId| f.right(o).unwrap(),
-        );
-        let child = |o: OccId, side: Branch| match side {
-            Branch::Left => left(o),
-            Branch::Right => right(o),
-        };
         let key = |made, case| (Made::Subproof(made), step(case, None));
-        match (nl, nr) {
+        Ok(match (nl, nr) {
             (Node::Tensor(_, l1, l2), Node::Par(_, r1)) => {
-                let inner = self.cut(right(a), l2, r1);
-                key(self.cut(left(a), l1, inner), Case::TensorPar)
+                let (left, right) = (self.left(a), self.right(a));
+                let inner = self.cut(right, l2, r1);
+                key(self.cut(left, l1, inner), Case::TensorPar)
             }
             (Node::Par(_, l1), Node::Tensor(_, r1, r2)) => {
-                let inner = self.cut(right(a), l1, r2);
-                key(self.cut(left(a), inner, r1), Case::TensorPar)
+                let (left, right) = (self.left(a), self.right(a));
+                let inner = self.cut(right, l1, r2);
+                key(self.cut(left, inner, r1), Case::TensorPar)
             }
             (Node::One(_), Node::Bot(_, r1)) => key(r1, Case::OneBot),
             (Node::Bot(_, l1), Node::One(_)) => key(l1, Case::OneBot),
             (Node::With(_, l1, l2), Node::Plus(_, side, r1)) => {
                 let premise = if side == Branch::Left { l1 } else { l2 };
-                key(self.cut(child(a, side), premise, r1), Case::WithPlus)
+                let child = self.child(a, side);
+                key(self.cut(child, premise, r1), Case::WithPlus)
             }
             (Node::Plus(_, side, l1), Node::With(_, r1, r2)) => {
                 let premise = if side == Branch::Left { r1 } else { r2 };
-                key(self.cut(child(a, side), l1, premise), Case::WithPlus)
+                let child = self.child(a, side);
+                key(self.cut(child, l1, premise), Case::WithPlus)
             }
             (Node::Bang(..), Node::Weaken(_, r1)) => key(r1, Case::Weakening),
             (Node::Weaken(_, l1), Node::Bang(..)) => key(l1, Case::Weakening),
@@ -820,8 +907,18 @@ impl Rewrite<'_> {
                 let (made, case, above) = self.exponential(cut, Branch::Right, r1, l1);
                 (Made::Subproof(made), step(case, above))
             }
+            (Node::Forall(_, e, l1), Node::Exists(_, w, r1)) => {
+                let body = self.body(a, w);
+                let l1 = self.substitute(l1, &witness(e, w))?;
+                key(self.cut(body, l1, r1), Case::ForallExists)
+            }
+            (Node::Exists(_, w, l1), Node::Forall(_, e, r1)) => {
+                let body = self.body(a, w);
+                let r1 = self.substitute(r1, &witness(e, w))?;
+                key(self.cut(body, l1, r1), Case::ForallExists)
+            }
             (nl, nr) => unreachable!("no rule of a checked proof gives {nl} against {nr}"),
-        }
+        })
     }
 
     /// Moves the cut at `cut` above the last rule of its premise `side`,
@@ -832,12 +929,12 @@ impl Rewrite<'_> {
             unreachable!("the node reduced is a cut")
         };
         let (premise, x) = match side {
-            Branch::Left => (l, a.occ()),
-            Branch::Right => (r, self.forest.dual(a.occ()).unwrap()),
+            Branch::Left => (l, a),
+            Branch::Right => (r, self.dual(a)),
         };
         let cut_with = |this: &mut Self, p: NodeId| match side {
-            Branch::Left => this.cut(a.occ(), p, r),
-            Branch::Right => this.cut(a.occ(), l, p),
+            Branch::Left => this.cut(a, p, r),
+            Branch::Right => this.cut(a, l, p),
         };
         let node = self.node(premise);
         if let Node::Top(_) = node {
@@ -883,13 +980,11 @@ impl Rewrite<'_> {
         let Node::Cut(a, l, r) = self.node(cut) else {
             unreachable!("the node reduced is a cut")
         };
-        let f = self.forest;
-        let a = a.occ();
         // The box's content proves `inside`; the other premise uses its
         // dual `x` from the unrestricted zone.
-        let inside = f.left(a).unwrap();
+        let inside = self.left(a);
         let x = match boxed {
-            Branch::Left => f.dual(inside).unwrap(),
+            Branch::Left => self.dual(inside),
             Branch::Right => inside,
         };
         let uses = self.uses(quest, x);
@@ -926,7 +1021,7 @@ impl Rewrite<'_> {
         }
         let node = self.node(quest);
         match node {
-            Node::Copy(o, p) if o.occ() == x => {
+            Node::Copy(o, p) if o == x => {
                 if uses[p.index()] {
                     let kept = wrap(self, p);
                     (open(self, kept), Case::Contraction, Some(quest))
@@ -973,13 +1068,13 @@ impl Rewrite<'_> {
     /// unrestricted occurrence `x`: a copy of it that no `?` step of its
     /// formula below discharges, as the checker's least unrestricted zone
     /// holds it.
-    fn uses(&self, top: NodeId, x: OccId) -> Vec<bool> {
-        let quest = self.forest.parent(x);
+    fn uses(&mut self, top: NodeId, x: Member) -> Vec<bool> {
+        let quest = self.forest.parent(self.occ(x)).map(|q| self.beside(q, x));
         let mut uses = vec![false; top.index() + 1];
         for i in 0..=top.index() {
             uses[i] = match self.nodes[i] {
-                Node::Copy(o, p) => o.occ() == x || uses[p.index()],
-                Node::Quest(o, p) => Some(o.occ()) != quest && uses[p.index()],
+                Node::Copy(o, p) => o == x || uses[p.index()],
+                Node::Quest(o, p) => Some(o) != quest && uses[p.index()],
                 node => node.premises().any(|p| uses[p.index()]),
             };
         }
@@ -991,7 +1086,7 @@ impl Rewrite<'_> {
     /// atom and sign: the occurrence is followed up to the axiom (or the
     /// affine weakening) that introduces it, or the `⊤` that absorbs it,
     /// and every node on the way is made anew.
-    fn rename(&mut self, top: NodeId, from: OccId, to: OccId) -> NodeId {
+    fn rename(&mut self, top: NodeId, from: Member, to: Member) -> NodeId {
         let mut seen: HashSet<NodeId> = HashSet::default();
         // The nodes on the way, and for a `⊗`, a Mix or a cut the premise
         // the occurrence comes from: only that one is made anew, even
@@ -1006,7 +1101,7 @@ impl Rewrite<'_> {
             let mut entered = None;
             match node {
                 Node::Ax(..) | Node::One(_) | Node::Top(_) => {}
-                Node::Weaken(o, _) if o.occ() == from => {}
+                Node::Weaken(o, _) if o == from => {}
                 Node::With(_, p, q) => stack.extend([p, q]),
                 node => match self.split(node) {
                     Some([first, second]) => {
@@ -1024,16 +1119,16 @@ impl Rewrite<'_> {
         }
         on.sort_unstable_by_key(|&(id, _)| id);
         let mut made: HashMap<NodeId, NodeId> = HashMap::default();
-        let to = Member::from(to);
         for (id, entered) in on {
             let old = self.node(id);
+            let split = entered.and_then(|_| self.split(old));
             let new = |p: NodeId| made.get(&p).copied().unwrap_or(p);
             let node = match (old, entered) {
-                (Node::Ax(x, y), _) if x.occ() == from => Node::Ax(to, y),
-                (Node::Ax(x, y), _) if y.occ() == from => Node::Ax(x, to),
-                (Node::Weaken(o, p), _) if o.occ() == from => Node::Weaken(to, p),
+                (Node::Ax(x, y), _) if x == from => Node::Ax(to, y),
+                (Node::Ax(x, y), _) if y == from => Node::Ax(x, to),
+                (Node::Weaken(o, p), _) if o == from => Node::Weaken(to, p),
                 (node, Some(side)) => {
-                    let [first, second] = self.split(node).expect("a rule of two premises");
+                    let [first, second] = split.expect("a rule of two premises");
                     match side {
                         Branch::Left => node.with_premises(new(first.0), second.0),
                         Branch::Right => node.with_premises(first.0, new(second.0)),
@@ -1059,9 +1154,9 @@ impl Rewrite<'_> {
         &mut self,
         kept: NodeId,
         weakened: NodeId,
-        ours: OccId,
+        ours: Member,
         erased: NodeId,
-        theirs: OccId,
+        theirs: Member,
     ) -> Made {
         let mut proved = self.record.zone(weakened).clone();
         proved.remove(ours);
@@ -1075,21 +1170,20 @@ impl Rewrite<'_> {
 
     /// Returns the subproof that weakens every member of `context` over
     /// the one at `kept`.
-    fn weaken(&mut self, kept: NodeId, context: &Multiset) -> NodeId {
+    fn weaken(&mut self, kept: NodeId, context: &Multiset<Member>) -> NodeId {
         context
             .as_slice()
             .iter()
-            .fold(kept, |p, &o| self.push(Node::Weaken(o.into(), p)))
+            .fold(kept, |p, &o| self.push(Node::Weaken(o, p)))
     }
 
-    /// Puts `replacement` in the place of the node at `cut` wherever the
-    /// proof reads it, making anew every node below it, and returns the
-    /// root.
-    fn replace(&mut self, cut: NodeId, replacement: NodeId) -> NodeId {
-        let root = self.proof.root();
+    /// Puts `replacement` in the place of the node at `at` wherever the
+    /// proof at `root` reads it, making anew every node below it, and
+    /// returns the root.
+    fn replace(&mut self, at: NodeId, replacement: NodeId, root: NodeId) -> NodeId {
         let mut made: Vec<Option<NodeId>> = vec![None; root.index() + 1];
-        made[cut.index()] = Some(replacement);
-        for i in cut.index() + 1..=root.index() {
+        made[at.index()] = Some(replacement);
+        for i in at.index() + 1..=root.index() {
             let node = self.nodes[i];
             if node.premises().any(|p| made[p.index()].is_some()) {
                 let node = node.map_premises(|p| made[p.index()].unwrap_or(p));
@@ -1111,7 +1205,7 @@ impl Rewrite<'_> {
         &mut self,
         cut: NodeId,
         kept: NodeId,
-        proved: &Multiset,
+        proved: &Multiset<Member>,
         most: usize,
         memory: Option<u64>,
         stop: &mut dyn FnMut(Progress) -> bool,
@@ -1124,7 +1218,7 @@ impl Rewrite<'_> {
             /// The node.
             id: NodeId,
             /// Its exact conclusion.
-            zone: Multiset,
+            zone: Multiset<Member>,
             /// The pairs of its premises, in the rule's order, where they
             /// lead to the cut.
             premises: [Option<usize>; 2],
@@ -1137,10 +1231,10 @@ impl Rewrite<'_> {
         }
         let mut pairs = vec![Pair {
             id: root,
-            zone: Multiset::of(self.proof.conclusion()),
+            zone: Multiset::of(self.proof.conclusion().into_iter().map(Member::from)),
             premises: [None; 2],
         }];
-        let mut index: HashMap<(NodeId, Multiset), usize> = HashMap::default();
+        let mut index: HashMap<(NodeId, Multiset<Member>), usize> = HashMap::default();
         let mut stack = vec![0];
         let refused = || Refusal::Elimination {
             what: crate::limits::Bound::Nodes,
@@ -1179,7 +1273,8 @@ impl Rewrite<'_> {
                 continue;
             }
             let node = self.nodes[id.index()];
-            let above = self.above(node, &pairs[k].zone);
+            let zone = pairs[k].zone.clone();
+            let above = self.above(node, &zone);
             for (j, (p, zone)) in node.premises().zip(above).enumerate() {
                 if !reaches[p.index()] {
                     continue;
@@ -1244,9 +1339,8 @@ impl Rewrite<'_> {
     /// and adds, and for a rule of two premises each premise's derived
     /// zone, the formula the rule takes from it where a `⊤` absorbed it,
     /// and the rest of `zone` given to a premise that absorbs it.
-    fn above(&self, node: Node, zone: &Multiset) -> Vec<Multiset> {
-        let f = self.forest;
-        let change = |removed: Option<OccId>, added: &[OccId]| {
+    fn above(&mut self, node: Node, zone: &Multiset<Member>) -> Vec<Multiset<Member>> {
+        let change = |removed: Option<Member>, added: &[Member]| {
             let mut up = zone.clone();
             if let Some(o) = removed {
                 up.remove(o);
@@ -1258,11 +1352,11 @@ impl Rewrite<'_> {
         };
         if let Some([(p, tp), (q, tq)]) = self.split(node) {
             let removed = match node {
-                Node::Tensor(o, ..) => Some(o.occ()),
+                Node::Tensor(o, ..) => Some(o),
                 _ => None,
             };
             let mut rest = change(removed, &[]);
-            let derived = |id: NodeId, taken: Option<OccId>| {
+            let derived = |id: NodeId, taken: Option<Member>| {
                 let mut up = self.record.zone(id).clone();
                 if let Some(t) = taken
                     && !up.contains(t)
@@ -1286,22 +1380,38 @@ impl Rewrite<'_> {
             }
             return vec![up_p, up_q];
         }
-        let o = node.principal().map(Member::occ);
-        let children: Vec<OccId> = o.map(|o| f.children(o).collect()).unwrap_or_default();
         match node {
-            Node::Par(..) => vec![change(o, &children)],
-            Node::Bot(..) | Node::Quest(..) | Node::Weaken(..) => vec![change(o, &[])],
-            Node::Bang(..) => vec![change(o, &children)],
-            Node::Plus(_, side, _) => {
-                let child = if side == Branch::Left {
-                    children[0]
-                } else {
-                    children[1]
-                };
-                vec![change(o, &[child])]
+            Node::Par(o, _) => {
+                let (l, r) = (self.left(o), self.right(o));
+                vec![change(Some(o), &[l, r])]
             }
-            Node::With(..) => vec![change(o, &children[..1]), change(o, &children[1..])],
-            Node::Copy(..) => vec![change(None, &[o.unwrap()])],
+            Node::Bang(o, _) => {
+                let content = self.left(o);
+                vec![change(Some(o), &[content])]
+            }
+            Node::Bot(o, _) | Node::Quest(o, _) | Node::Weaken(o, _) => vec![change(Some(o), &[])],
+            Node::Plus(o, side, _) => {
+                let child = self.child(o, side);
+                vec![change(Some(o), &[child])]
+            }
+            Node::With(o, ..) => {
+                let (l, r) = (self.left(o), self.right(o));
+                vec![change(Some(o), &[l]), change(Some(o), &[r])]
+            }
+            Node::Copy(o, _) => vec![change(None, &[o])],
+            Node::Forall(o, a, _) => {
+                let term = self
+                    .table
+                    .as_mut()
+                    .expect("a binder's proof has instances")
+                    .eigen(a);
+                let body = self.body(o, term);
+                vec![change(Some(o), &[body])]
+            }
+            Node::Exists(o, w, _) => {
+                let body = self.body(o, w);
+                vec![change(Some(o), &[body])]
+            }
             _ => vec![],
         }
     }
@@ -1311,12 +1421,19 @@ impl Rewrite<'_> {
 /// of the cut formula: introduces it, or for `⊤` is it. A copy never
 /// does, since it adds to the linear zone rather than introducing what
 /// is there.
-fn principal(node: Node, x: OccId) -> bool {
+fn principal(node: Node, x: Member) -> bool {
     match node {
-        Node::Ax(p, q) => p.occ() == x || q.occ() == x,
+        Node::Ax(p, q) => p == x || q == x,
         Node::Copy(..) | Node::Mix(..) | Node::Cut(..) => false,
-        node => node.principal().is_some_and(|o| o.occ() == x),
+        node => node.principal() == Some(x),
     }
+}
+
+/// Returns the substitution of the witness `w` for the eigenvariable `a`.
+fn witness(a: Eigen, w: FoTermId) -> HashMap<Eigen, FoTermId> {
+    let mut sigma = HashMap::default();
+    sigma.insert(a, w);
+    sigma
 }
 
 impl Node {
@@ -1332,6 +1449,8 @@ impl Node {
         }
     }
 }
+
+mod framed;
 
 #[cfg(all(test, feature = "parse", feature = "interactive"))]
 mod tests;

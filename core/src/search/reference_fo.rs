@@ -828,7 +828,7 @@ fn contains(t: &T, e: u32) -> bool {
 }
 
 #[cfg(feature = "parse")]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::Error;
     use crate::search::generate::Rng;
