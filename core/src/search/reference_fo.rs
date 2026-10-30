@@ -2,33 +2,44 @@
 // Licensed under the EUPL
 
 //! A first-order reference prover for the tests: it decides a small
-//! one-sided classical sequent with quantifiers by the plain rules of the
-//! sequent calculus, sharing no code with the engines. Its formulas and
-//! terms are its own, read from a sequent's arenas; a witness of `∃` is
-//! an unknown that unification at the axioms binds, with the occurs
-//! check, and the eigenvariable condition is checked as the calculus
-//! states it, by freshness: once every goal is closed, the eigenvariable
-//! of each `∀` step must occur nowhere in that step's conclusion under
-//! the bindings made. A derivation that fails it is no proof, and the
-//! search goes on to the next one, so every derivation is tried.
+//! sequent with quantifiers by the plain rules of the sequent calculus,
+//! sharing no code with the engines, one-sided in classical linear logic
+//! and two-sided in intuitionistic linear logic. Its formulas and terms
+//! are its own, read from a sequent's arenas (one-sided) or built by the
+//! tests directly (two-sided); a witness of `∃` (and two-sided of `∀` on
+//! the left) is an unknown that unification at the axioms binds, with the
+//! occurs check, and the eigenvariable condition is checked as the
+//! calculus states it, by freshness: once every goal is closed, the
+//! eigenvariable of each `∀` step (two-sided: `∀R` and `∃L`) must occur
+//! nowhere in that step's conclusion under the bindings made. A derivation
+//! that fails it is no proof, and the search goes on to the next one, so
+//! every derivation is tried.
 //!
 //! The goals still to prove are a stack, so a goal is proved under the
 //! bindings its siblings left and a failure later backtracks into any
 //! choice made before: the answers of a premise are all tried. The
-//! invertible rules (`⅋`, `⊥`, `⊤`, `&`, `∀`) are applied first, on the
-//! first formula that has one, which the inversion lemma of the calculus
-//! allows; every other rule is tried on every formula: the axiom on two
-//! literals, `1` alone, every split of the rest for `⊗`, both sides of
+//! invertible rules are applied first, on the first formula that has one,
+//! which the inversion lemma of the calculus allows: one-sided `⅋`, `⊥`,
+//! `⊤`, `&`, `∀`; every other rule is tried on every formula: the axiom on
+//! two literals, `1` alone, every split of the rest for `⊗`, both sides of
 //! `⊕`, an unknown for `∃`, `!` where the rest is all `?` formulas, and
 //! for `?A` dereliction, weakening and, within the budget, contraction;
 //! in affine mode the weakening of any formula, and with Mix every split
-//! into two non-empty parts.
+//! into two non-empty parts. Two-sided, the invertible rules are `⊸R`,
+//! `&R`, `⊤R`, `∀R`, `⊗L`, `1L`, `⊕L`, `∃L` and `0L` ([`Prover::invert`]
+//! says why each is), and the others are tried on the goal and on every
+//! hypothesis: the axiom on one atom against the goal, `1R` alone, every
+//! split for `⊗R` and `⊸L`, both sides of `⊕R` and `&L`, an unknown for
+//! `∃R` and `∀L`, `!R` where every hypothesis is a `!` formula, and for a
+//! `!` hypothesis dereliction, weakening and, within the budget,
+//! contraction; in affine mode the weakening of any hypothesis, never of
+//! the goal.
 //!
 //! Contraction is bounded per branch, as the propositional reference
-//! bounds it, and a goal with a `?` formula that fails with its budget
-//! spent keeps the answer from "unprovable". The visits are bounded too.
-//! It judges an engine's "unprovable"; an engine's proof is the
-//! checker's to judge.
+//! bounds it, and a goal with a `?` formula (two-sided: a `!` hypothesis)
+//! that fails with its budget spent keeps the answer from "unprovable".
+//! The visits are bounded too. It judges an engine's "unprovable"; an
+//! engine's proof is the checker's to judge.
 
 use super::reference::Answer;
 use crate::Sequent;
@@ -83,10 +94,16 @@ enum F {
     Forall(Box<F>),
     /// `∃x.A`.
     Exists(Box<F>),
+    /// `A ⊸ B`, two-sided only.
+    Lolli(Box<F>, Box<F>),
 }
 
 /// A goal: a sequent and the contractions its branch may still make.
 type Goal = (Vec<F>, u32);
+
+/// A two-sided goal: the hypotheses, the goal formula and the
+/// contractions its branch may still make.
+type Judgement = (Vec<F>, F, u32);
 
 /// Why a search stopped before its end.
 struct GaveUp;
@@ -101,12 +118,14 @@ struct Prover {
     trail: Vec<usize>,
     /// The eigenvariables made: the next one's number.
     eigens: u32,
-    /// The `∀` steps on the derivation in the making: the eigenvariable
-    /// and the step's conclusion.
+    /// The steps that introduce an eigenvariable (`∀`, two-sided `∀R`
+    /// and `∃L`) on the derivation in the making: the eigenvariable and
+    /// the formulas of the step's conclusion.
     foralls: Vec<(u32, Vec<F>)>,
     /// The goals taken up.
     visits: usize,
-    /// Whether a goal with a `?` formula failed with no contraction left.
+    /// Whether a goal with a `?` formula (two-sided: a `!` hypothesis)
+    /// failed with no contraction left.
     wanted: bool,
 }
 
@@ -120,17 +139,31 @@ pub(crate) fn sequent(sequent: &Sequent, mode: Mode, copies: u32) -> Answer {
         .map(|&root| formula(sequent, root))
         .collect();
     for budget in 0..=copies {
-        let mut prover = Prover {
-            mode,
-            bound: Vec::new(),
-            trail: Vec::new(),
-            eigens: 0,
-            foralls: Vec::new(),
-            visits: 0,
-            wanted: false,
-        };
+        let mut prover = Prover::new(mode);
         let mut stack = vec![(formulas.clone(), budget)];
         match prover.solve(&mut stack) {
+            Ok(true) => return Answer::Proved,
+            Ok(false) if !prover.wanted => return Answer::Unprovable,
+            Ok(false) => {}
+            Err(GaveUp) => return Answer::Unknown,
+        }
+    }
+    Answer::Unknown
+}
+
+/// Decides the two-sided intuitionistic sequent `hypotheses ⊢ goal`
+/// (atoms as positive literals, `1`, `⊤`, `0`, `⊗`, `⊸`, `&`, `⊕`, `!`,
+/// `∀` and `∃`, closed) under the mode (its `affine`), with at most
+/// `copies` contractions per branch.
+fn intuitionistic(hypotheses: &[F], goal: &F, mode: Mode, copies: u32) -> Answer {
+    assert!(
+        mode.intuitionistic && !mode.mix,
+        "a two-sided sequent is intuitionistic, without Mix"
+    );
+    for budget in 0..=copies {
+        let mut prover = Prover::new(mode);
+        let mut stack = vec![(hypotheses.to_vec(), goal.clone(), budget)];
+        match prover.solve_two_sided(&mut stack) {
             Ok(true) => return Answer::Proved,
             Ok(false) if !prover.wanted => return Answer::Unprovable,
             Ok(false) => {}
@@ -214,6 +247,7 @@ fn open(f: &F, t: &T, depth: u32) -> F {
         F::Quest(a) => F::Quest(sub(a)),
         F::Forall(a) => F::Forall(Box::new(open(a, t, depth + 1))),
         F::Exists(a) => F::Exists(Box::new(open(a, t, depth + 1))),
+        F::Lolli(a, b) => F::Lolli(sub(a), sub(b)),
     }
 }
 
@@ -227,6 +261,19 @@ fn open_term(term: &T, t: &T, depth: u32) -> T {
 }
 
 impl Prover {
+    /// A prover for the mode, with nothing bound yet.
+    const fn new(mode: Mode) -> Self {
+        Self {
+            mode,
+            bound: Vec::new(),
+            trail: Vec::new(),
+            eigens: 0,
+            foralls: Vec::new(),
+            visits: 0,
+            wanted: false,
+        }
+    }
+
     /// A term with every bound unknown replaced by its binding.
     fn resolve(&self, t: &T) -> T {
         match t {
@@ -287,7 +334,7 @@ impl Prover {
         match f {
             F::Lit(_, _, args) => args.iter().any(|a| contains(&self.resolve(a), e)),
             F::One | F::Bot | F::Top | F::Zero => false,
-            F::Tensor(a, b) | F::Par(a, b) | F::With(a, b) | F::Plus(a, b) => {
+            F::Tensor(a, b) | F::Par(a, b) | F::With(a, b) | F::Plus(a, b) | F::Lolli(a, b) => {
                 self.names(a, e) || self.names(b, e)
             }
             F::Bang(a) | F::Quest(a) | F::Forall(a) | F::Exists(a) => self.names(a, e),
@@ -495,6 +542,278 @@ impl Prover {
         }
         found
     }
+
+    // The two-sided calculus.
+
+    /// Proves every two-sided goal on the stack, the last first, under
+    /// the bindings as they stand; leaves the stack as it found it where
+    /// it fails.
+    fn solve_two_sided(&mut self, stack: &mut Vec<Judgement>) -> Result<bool, GaveUp> {
+        let Some((hypotheses, goal, budget)) = stack.pop() else {
+            return Ok(self.fresh());
+        };
+        self.visits += 1;
+        if self.visits > VISITS {
+            return Err(GaveUp);
+        }
+        let found = self.judgement(stack, &hypotheses, &goal, budget);
+        if !matches!(found, Ok(true)) {
+            stack.push((hypotheses, goal, budget));
+        }
+        found
+    }
+
+    /// Introduces an eigenvariable for the step whose conclusion is
+    /// `hypotheses ⊢ goal` and whose premise is `premise` applied to it,
+    /// and proves the stack with that premise on it; the step stays on
+    /// record for the freshness check only while it is part of the
+    /// derivation.
+    fn eigen_step(
+        &mut self,
+        stack: &mut Vec<Judgement>,
+        (hypotheses, goal): (&[F], &F),
+        premise: impl FnOnce(T) -> Judgement,
+        mark: (usize, usize, u32),
+    ) -> Result<bool, GaveUp> {
+        let e = self.eigens;
+        self.eigens += 1;
+        let mut conclusion = hypotheses.to_vec();
+        conclusion.push(goal.clone());
+        self.foralls.push((e, conclusion));
+        let found = self.premises_two_sided(stack, vec![premise(T::Eigen(e))], mark);
+        if !matches!(found, Ok(true)) {
+            self.foralls.pop();
+        }
+        found
+    }
+
+    /// Applies the first invertible rule that `hypotheses ⊢ goal` has, if
+    /// any: `Some` with what proving its premises found, the only rule
+    /// tried then. Each is invertible in intuitionistic linear logic (its
+    /// premises follow from its conclusion by a cut with a provable
+    /// sequent, and the inversion keeps a cut-free derivation's height
+    /// and its contractions per branch, so it holds at every budget):
+    /// `⊸R` by `A ⊸ B, A ⊢ B`, `&R` by `A & B ⊢ A` and `A & B ⊢ B`, `∀R`
+    /// by `∀x.A ⊢ A[e/x]`, `⊗L` by `A, B ⊢ A ⊗ B`, `1L` by `⊢ 1`, `⊕L` by
+    /// `A ⊢ A ⊕ B` and `B ⊢ A ⊕ B`, `∃L` by `A[e/x] ⊢ ∃x.A`, and `⊤R` and
+    /// `0L` have no premise to lose.
+    fn invert(
+        &mut self,
+        stack: &mut Vec<Judgement>,
+        (hypotheses, goal, budget): (&[F], &F, u32),
+        mark: (usize, usize, u32),
+    ) -> Option<Result<bool, GaveUp>> {
+        let with = |i: Option<usize>, added: &[&F]| -> Vec<F> {
+            let mut formulas: Vec<F> = hypotheses
+                .iter()
+                .enumerate()
+                .filter(|&(j, _)| Some(j) != i)
+                .map(|(_, f)| f.clone())
+                .collect();
+            formulas.extend(added.iter().map(|&f| f.clone()));
+            formulas
+        };
+        match goal {
+            F::Top => return Some(self.solve_two_sided(stack)),
+            F::Lolli(a, b) => {
+                let premise = (with(None, &[&**a]), (**b).clone(), budget);
+                return Some(self.premises_two_sided(stack, vec![premise], mark));
+            }
+            F::With(a, b) => {
+                let premises = vec![
+                    (hypotheses.to_vec(), (**a).clone(), budget),
+                    (hypotheses.to_vec(), (**b).clone(), budget),
+                ];
+                return Some(self.premises_two_sided(stack, premises, mark));
+            }
+            F::Forall(a) => {
+                let premise = |e| (hypotheses.to_vec(), open(a, &e, 0), budget);
+                return Some(self.eigen_step(stack, (hypotheses, goal), premise, mark));
+            }
+            _ => {}
+        }
+        let i = hypotheses.iter().position(|h| {
+            matches!(
+                h,
+                F::Zero | F::One | F::Tensor(..) | F::Plus(..) | F::Exists(_)
+            )
+        })?;
+        let premises = match &hypotheses[i] {
+            F::Zero => return Some(self.solve_two_sided(stack)),
+            F::One => vec![(with(Some(i), &[]), goal.clone(), budget)],
+            F::Tensor(a, b) => vec![(with(Some(i), &[&**a, &**b]), goal.clone(), budget)],
+            F::Plus(a, b) => vec![
+                (with(Some(i), &[&**a]), goal.clone(), budget),
+                (with(Some(i), &[&**b]), goal.clone(), budget),
+            ],
+            F::Exists(a) => {
+                let premise = |e| (with(Some(i), &[&open(a, &e, 0)]), goal.clone(), budget);
+                return Some(self.eigen_step(stack, (hypotheses, goal), premise, mark));
+            }
+            _ => unreachable!("an invertible hypothesis"),
+        };
+        Some(self.premises_two_sided(stack, premises, mark))
+    }
+
+    /// Tries every rule on the goal `hypotheses ⊢ goal`, the rest of the
+    /// stack after it: the invertible one alone where there is one.
+    fn judgement(
+        &mut self,
+        stack: &mut Vec<Judgement>,
+        hypotheses: &[F],
+        goal: &F,
+        budget: u32,
+    ) -> Result<bool, GaveUp> {
+        let mark = (self.trail.len(), self.bound.len(), self.eigens);
+        if let Some(found) = self.invert(stack, (hypotheses, goal, budget), mark) {
+            return found;
+        }
+        let rest = |i: usize| -> Vec<F> {
+            hypotheses
+                .iter()
+                .enumerate()
+                .filter(|&(j, _)| j != i)
+                .map(|(_, f)| f.clone())
+                .collect()
+        };
+        // The axiom joins one atom to the goal alone; in affine mode the
+        // other hypotheses are weakened first, by the rule below.
+        if let ([F::Lit(_, p, xs)], F::Lit(_, q, ys)) = (hypotheses, goal)
+            && p == q
+            && xs.len() == ys.len()
+        {
+            if xs.iter().zip(ys).all(|(x, y)| self.unify(x, y)) && self.solve_two_sided(stack)? {
+                return Ok(true);
+            }
+            self.undo(mark);
+        }
+        if hypotheses.is_empty() && matches!(goal, F::One) && self.solve_two_sided(stack)? {
+            return Ok(true);
+        }
+        // The right rules.
+        let mut alternatives: Vec<Vec<Judgement>> = Vec::new();
+        match goal {
+            F::Tensor(a, b) => {
+                for (l, r) in splits(hypotheses) {
+                    alternatives.push(vec![(l, (**a).clone(), budget), (r, (**b).clone(), budget)]);
+                }
+            }
+            F::Plus(a, b) => {
+                for side in [a, b] {
+                    alternatives.push(vec![(hypotheses.to_vec(), (**side).clone(), budget)]);
+                }
+            }
+            F::Bang(a) if hypotheses.iter().all(|h| matches!(h, F::Bang(_))) => {
+                alternatives.push(vec![(hypotheses.to_vec(), (**a).clone(), budget)]);
+            }
+            F::Exists(a) => {
+                let v = self.bound.len();
+                self.bound.push(None);
+                let premise = (hypotheses.to_vec(), open(a, &T::Var(v), 0), budget);
+                if self.premises_two_sided(stack, vec![premise], mark)? {
+                    return Ok(true);
+                }
+            }
+            _ => {}
+        }
+        for premises in alternatives {
+            if self.premises_two_sided(stack, premises, mark)? {
+                return Ok(true);
+            }
+        }
+        // The left rules.
+        let mut bang_failed = false;
+        for i in 0..hypotheses.len() {
+            let others = rest(i);
+            let mut alternatives: Vec<Vec<Judgement>> = Vec::new();
+            let extended = |f: &F| {
+                let mut formulas = others.clone();
+                formulas.push(f.clone());
+                formulas
+            };
+            match &hypotheses[i] {
+                F::With(a, b) => {
+                    for side in [a, b] {
+                        alternatives.push(vec![(extended(side), goal.clone(), budget)]);
+                    }
+                }
+                F::Lolli(a, b) => {
+                    for (l, r) in splits(&others) {
+                        let mut r = r;
+                        r.push((**b).clone());
+                        alternatives
+                            .push(vec![(l, (**a).clone(), budget), (r, goal.clone(), budget)]);
+                    }
+                }
+                F::Bang(a) => {
+                    alternatives.push(vec![(extended(a), goal.clone(), budget)]);
+                    alternatives.push(vec![(others.clone(), goal.clone(), budget)]);
+                    if budget > 0 {
+                        let mut contracted = hypotheses.to_vec();
+                        contracted.push(hypotheses[i].clone());
+                        alternatives.push(vec![(contracted, goal.clone(), budget - 1)]);
+                    } else {
+                        bang_failed = true;
+                    }
+                }
+                F::Forall(a) => {
+                    let v = self.bound.len();
+                    self.bound.push(None);
+                    let premise = (extended(&open(a, &T::Var(v), 0)), goal.clone(), budget);
+                    if self.premises_two_sided(stack, vec![premise], mark)? {
+                        return Ok(true);
+                    }
+                }
+                _ => {}
+            }
+            if self.mode.affine {
+                alternatives.push(vec![(others.clone(), goal.clone(), budget)]);
+            }
+            for premises in alternatives {
+                if self.premises_two_sided(stack, premises, mark)? {
+                    return Ok(true);
+                }
+            }
+        }
+        if bang_failed {
+            self.wanted = true;
+        }
+        Ok(false)
+    }
+
+    /// Pushes the premises of a two-sided rule, the first last, so it is
+    /// proved first, and proves the stack; on a failure takes them off
+    /// again and undoes what was bound since `mark`.
+    fn premises_two_sided(
+        &mut self,
+        stack: &mut Vec<Judgement>,
+        premises: Vec<Judgement>,
+        mark: (usize, usize, u32),
+    ) -> Result<bool, GaveUp> {
+        let height = stack.len();
+        stack.extend(premises.into_iter().rev());
+        let found = self.solve_two_sided(stack);
+        if !matches!(found, Ok(true)) {
+            stack.truncate(height);
+            self.undo(mark);
+        }
+        found
+    }
+}
+
+/// Every way to split the formulas into two lists, in order.
+fn splits(formulas: &[F]) -> impl Iterator<Item = (Vec<F>, Vec<F>)> + '_ {
+    (0..1u64 << formulas.len()).map(move |mask| {
+        let (mut l, mut r) = (Vec::new(), Vec::new());
+        for (k, f) in formulas.iter().enumerate() {
+            if mask >> k & 1 == 1 {
+                l.push(f.clone());
+            } else {
+                r.push(f.clone());
+            }
+        }
+        (l, r)
+    })
 }
 
 /// Whether the eigenvariable `e` occurs in a resolved term.
@@ -743,6 +1062,443 @@ mod tests {
         assert!(
             proved * 10 > decided && (decided - proved) * 10 > decided && engine_proved > 0,
             "{proved} of {decided} proved, {engine_proved} of {judged} by the engine"
+        );
+    }
+
+    /// The predicates of the two-sided tests, by number: name and arity.
+    const PREDICATES: [(&str, usize); 3] = [("p", 1), ("q", 0), ("r", 2)];
+
+    /// The function symbols of the two-sided tests, by number: name and
+    /// arity; the generator takes the first three.
+    const FUNCTIONS: [(&str, usize); 6] =
+        [("a", 0), ("b", 0), ("f", 1), ("c", 0), ("s", 1), ("z", 0)];
+
+    /// The names of the variables, by the number of binders outside
+    /// theirs: the generator nests two quantifiers at most.
+    const VARIABLES: [&str; 2] = ["x", "y"];
+
+    /// A predicate (by its number) applied to terms.
+    fn atom(p: u32, args: &[T]) -> F {
+        F::Lit(true, p, args.to_vec())
+    }
+
+    /// A function symbol (by its number) applied to terms.
+    fn app(s: u32, args: &[T]) -> T {
+        T::App(s, args.to_vec())
+    }
+
+    /// `A ⊸ B`.
+    fn lolli(a: F, b: F) -> F {
+        F::Lolli(Box::new(a), Box::new(b))
+    }
+
+    /// `A & B`.
+    fn with(a: F, b: F) -> F {
+        F::With(Box::new(a), Box::new(b))
+    }
+
+    /// `∀x.A`.
+    fn all(a: F) -> F {
+        F::Forall(Box::new(a))
+    }
+
+    /// `∃x.A`.
+    fn ex(a: F) -> F {
+        F::Exists(Box::new(a))
+    }
+
+    /// The two-sided reference proves what intuitionistic first-order
+    /// linear logic proves and refutes what it does not: the quantifiers
+    /// shifted across `⊸` one way and not the other, their order, a
+    /// witness that both premises of `&R` share, a premise asked for its
+    /// second answer, the occurs check, a witness left open, copies of a
+    /// quantified hypothesis under `!`, and weakening of hypotheses alone
+    /// in affine mode.
+    #[test]
+    fn decides_the_intuitionistic_textbook_cases() {
+        use Answer::{Proved, Unknown, Unprovable};
+        let (a, b, z) = (app(0, &[]), app(1, &[]), app(5, &[]));
+        let (f, s) = (
+            |t: &T| app(2, std::slice::from_ref(t)),
+            |t: &T| app(4, std::slice::from_ref(t)),
+        );
+        let (x, y) = (T::Bound(0), T::Bound(1));
+        let (linear, affine) = (Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine());
+        let p = |t: &T| atom(0, std::slice::from_ref(t));
+        let q = || atom(1, &[]);
+        let r = |t: &T, u: &T| atom(2, &[t.clone(), u.clone()]);
+        let (bang, tensor) = (
+            |a: F| F::Bang(Box::new(a)),
+            |a: F, b: F| F::Tensor(Box::new(a), Box::new(b)),
+        );
+        let step = || bang(all(lolli(p(&x), p(&s(&x)))));
+        for (hypotheses, goal, mode, copies, expected) in [
+            // ∃x.(p(x) ⊸ q) ⊢ (∀x.p(x)) ⊸ q, and not its converse.
+            (
+                vec![ex(lolli(p(&x), q()))],
+                lolli(all(p(&x)), q()),
+                linear,
+                0,
+                Proved,
+            ),
+            (
+                vec![lolli(all(p(&x)), q())],
+                ex(lolli(p(&x), q())),
+                linear,
+                0,
+                Unprovable,
+            ),
+            // ∃y.∀x.r(x, y) ⊢ ∀x.∃y.r(x, y), and not its converse.
+            (
+                vec![ex(all(r(&x, &y)))],
+                all(ex(r(&y, &x))),
+                linear,
+                0,
+                Proved,
+            ),
+            (
+                vec![all(ex(r(&y, &x)))],
+                ex(all(r(&x, &y))),
+                linear,
+                0,
+                Unprovable,
+            ),
+            // A witness that both premises of `&R` share.
+            (
+                vec![with(p(&a), r(&a, &a))],
+                ex(with(p(&x), r(&x, &x))),
+                linear,
+                0,
+                Proved,
+            ),
+            (
+                vec![with(p(&a), r(&b, &b))],
+                ex(with(p(&x), r(&x, &x))),
+                linear,
+                0,
+                Unprovable,
+            ),
+            (
+                vec![with(p(&a), r(&b, &b))],
+                with(ex(p(&x)), ex(r(&x, &x))),
+                linear,
+                0,
+                Proved,
+            ),
+            // The first answer of `p(a) & p(b) ⊢ p(x)`, `a`, fails `r(x, x)`.
+            (
+                vec![with(p(&a), p(&b)), r(&b, &b)],
+                ex(tensor(p(&x), r(&x, &x))),
+                linear,
+                0,
+                Proved,
+            ),
+            // The occurs check.
+            (
+                vec![all(r(&x, &f(&x)))],
+                ex(r(&x, &x)),
+                linear,
+                0,
+                Unprovable,
+            ),
+            (vec![all(p(&x))], ex(p(&x)), linear, 0, Proved),
+            (vec![all(p(&x))], all(p(&x)), linear, 0, Proved),
+            (vec![ex(p(&x))], all(p(&x)), linear, 0, Unprovable),
+            (vec![ex(p(&x))], p(&a), linear, 0, Unprovable),
+            (
+                vec![all(with(p(&x), r(&x, &x)))],
+                with(p(&a), r(&b, &b)),
+                linear,
+                0,
+                Proved,
+            ),
+            // !∀x.(p(x) ⊸ p(s(x))), p(z) ⊢ p(s(s(z))) takes one contraction.
+            (vec![step(), p(&z)], p(&s(&s(&z))), linear, 1, Proved),
+            (vec![step(), p(&z)], p(&s(&s(&z))), linear, 0, Unknown),
+            (
+                vec![all(p(&x))],
+                tensor(p(&a), p(&b)),
+                linear,
+                2,
+                Unprovable,
+            ),
+            // `!R` where every hypothesis is a `!` formula, and nowhere else.
+            (vec![bang(all(p(&x)))], bang(p(&a)), linear, 0, Proved),
+            (vec![all(p(&x))], bang(p(&a)), linear, 0, Unprovable),
+            // Affine: the hypotheses are weakened, the goal never.
+            (vec![all(p(&x)), q()], p(&a), linear, 0, Unprovable),
+            (vec![all(p(&x)), q()], p(&a), affine, 0, Proved),
+            (vec![p(&a)], F::One, affine, 0, Proved),
+            (vec![p(&a)], q(), affine, 0, Unprovable),
+        ] {
+            assert_eq!(
+                intuitionistic(&hypotheses, &goal, mode, copies),
+                expected,
+                "{} in {mode} within {copies}",
+                ill_text(&hypotheses, &goal)
+            );
+        }
+    }
+
+    /// The text of a closed term under `scope` binders.
+    fn term_text(t: &T, scope: usize) -> String {
+        match t {
+            T::Bound(i) => VARIABLES[scope - 1 - *i as usize].to_owned(),
+            T::App(s, args) => applied(FUNCTIONS[*s as usize].0, args, scope),
+            T::Var(_) | T::Eigen(_) => unreachable!("a written term is closed"),
+        }
+    }
+
+    /// A symbol applied to terms, in the text syntax: bare when there
+    /// are none.
+    fn applied(name: &str, args: &[T], scope: usize) -> String {
+        if args.is_empty() {
+            return name.to_owned();
+        }
+        let args: Vec<String> = args.iter().map(|t| term_text(t, scope)).collect();
+        format!("{name}({})", args.join(", "))
+    }
+
+    /// The intuitionistic text of a formula under `scope` binders, every
+    /// connective but `!` in brackets.
+    fn ill_formula_text(f: &F, scope: usize) -> String {
+        let binary = |a: &F, op: &str, b: &F| {
+            format!(
+                "({} {op} {})",
+                ill_formula_text(a, scope),
+                ill_formula_text(b, scope)
+            )
+        };
+        match f {
+            F::Lit(_, p, args) => applied(PREDICATES[*p as usize].0, args, scope),
+            F::One => "1".to_owned(),
+            F::Top => "top".to_owned(),
+            F::Zero => "0".to_owned(),
+            F::Tensor(a, b) => binary(a, "*", b),
+            F::Lolli(a, b) => binary(a, "-o", b),
+            F::With(a, b) => binary(a, "&", b),
+            F::Plus(a, b) => binary(a, "+", b),
+            F::Bang(a) => format!("!{}", ill_formula_text(a, scope)),
+            F::Forall(a) | F::Exists(a) => {
+                let q = if matches!(f, F::Forall(_)) {
+                    "forall"
+                } else {
+                    "exists"
+                };
+                format!(
+                    "({q} {}. {})",
+                    VARIABLES[scope],
+                    ill_formula_text(a, scope + 1)
+                )
+            }
+            F::Bot | F::Par(..) | F::Quest(_) => unreachable!("no intuitionistic connective"),
+        }
+    }
+
+    /// The intuitionistic text of `hypotheses ⊢ goal`.
+    fn ill_text(hypotheses: &[F], goal: &F) -> String {
+        let hypotheses: Vec<String> = hypotheses.iter().map(|h| ill_formula_text(h, 0)).collect();
+        format!("{} |- {}", hypotheses.join(", "), ill_formula_text(goal, 0))
+    }
+
+    /// A random closed term under `scope` binders: a variable in scope,
+    /// `a`, `b`, or `f` applied to a term, `f` at most `depth` deep.
+    fn random_closed_term(rng: &mut Rng, scope: usize, depth: u32) -> T {
+        match rng.below(5) {
+            0..=2 if scope > 0 => T::Bound(rng.below(scope) as u32),
+            3 if depth > 0 => app(2, &[random_closed_term(rng, scope, depth - 1)]),
+            _ => app(rng.below(2) as u32, &[]),
+        }
+    }
+
+    /// A random intuitionistic formula under `scope` binders, at most
+    /// `depth` connectives deep and two quantifiers nested, with the
+    /// additives (and `⊤`, `0`) and `!` as `rules` allow.
+    fn random_ill(rng: &mut Rng, scope: usize, depth: u32, rules: [bool; 2]) -> F {
+        let [additives, exponentials] = rules;
+        let atom = |rng: &mut Rng| {
+            // `q`, which has no argument, less often.
+            let p = [0, 0, 1, 2, 2][rng.below(5)];
+            let args: Vec<T> = (0..PREDICATES[p].1)
+                .map(|_| random_closed_term(rng, scope, 1))
+                .collect();
+            F::Lit(true, p as u32, args)
+        };
+        if depth == 0 {
+            return atom(rng);
+        }
+        let sub = |rng: &mut Rng| Box::new(random_ill(rng, scope, depth - 1, rules));
+        match rng.below(12) {
+            2 => F::Tensor(sub(rng), sub(rng)),
+            3 | 4 => F::Lolli(sub(rng), sub(rng)),
+            5 | 6 if scope < VARIABLES.len() => {
+                let body = Box::new(random_ill(rng, scope + 1, depth - 1, rules));
+                if rng.one_in(2) {
+                    F::Forall(body)
+                } else {
+                    F::Exists(body)
+                }
+            }
+            7 if additives => F::With(sub(rng), sub(rng)),
+            8 if additives => F::Plus(sub(rng), sub(rng)),
+            9 if exponentials => F::Bang(sub(rng)),
+            10 if additives => [F::One, F::Top, F::Zero][rng.below(3)].clone(),
+            10 => F::One,
+            _ => atom(rng),
+        }
+    }
+
+    /// The formula with its first site of a kind changed, once `done` is
+    /// not yet set: a `∀` made `∃` (kind 0), an `∃` made `∀` (1), the
+    /// constant `a` made `b` (2), a `⊗` made `⊸` (3); any other kind
+    /// changes nothing.
+    fn changed(f: &F, kind: usize, done: &mut bool) -> F {
+        if *done {
+            return f.clone();
+        }
+        let mut sub = |g: &F| Box::new(changed(g, kind, done));
+        match (f, kind) {
+            (F::Forall(a), 0) | (F::Exists(a), 1) => {
+                *done = true;
+                if kind == 0 {
+                    F::Exists(a.clone())
+                } else {
+                    F::Forall(a.clone())
+                }
+            }
+            (F::Tensor(a, b), 3) => {
+                *done = true;
+                F::Lolli(a.clone(), b.clone())
+            }
+            (F::Lit(sign, p, args), 2) => {
+                let args = args.iter().map(|t| changed_term(t, done)).collect();
+                F::Lit(*sign, *p, args)
+            }
+            (F::Tensor(a, b), _) => {
+                let a = sub(a);
+                F::Tensor(a, sub(b))
+            }
+            (F::Lolli(a, b), _) => {
+                let a = sub(a);
+                F::Lolli(a, sub(b))
+            }
+            (F::With(a, b), _) => {
+                let a = sub(a);
+                F::With(a, sub(b))
+            }
+            (F::Plus(a, b), _) => {
+                let a = sub(a);
+                F::Plus(a, sub(b))
+            }
+            (F::Bang(a), _) => F::Bang(sub(a)),
+            (F::Forall(a), _) => F::Forall(sub(a)),
+            (F::Exists(a), _) => F::Exists(sub(a)),
+            _ => f.clone(),
+        }
+    }
+
+    /// The term with its first `a` made `b`, once `done` is not yet set.
+    fn changed_term(t: &T, done: &mut bool) -> T {
+        match t {
+            T::App(0, args) if args.is_empty() && !*done => {
+                *done = true;
+                app(1, &[])
+            }
+            T::App(s, args) => T::App(*s, args.iter().map(|a| changed_term(a, done)).collect()),
+            other => other.clone(),
+        }
+    }
+
+    /// A random two-sided intuitionistic sequent: a formula against
+    /// itself with one site changed, `A, A ⊸ B ⊢ B` with one site of the
+    /// goal changed (both keep many of them provable), or one to three
+    /// random hypotheses and a random goal.
+    fn random_ill_sequent(rng: &mut Rng, rules: [bool; 2]) -> (Vec<F>, F) {
+        match rng.below(3) {
+            0 => {
+                let f = random_ill(rng, 0, 3, rules);
+                let goal = changed(&f, rng.below(5), &mut false);
+                (vec![f], goal)
+            }
+            1 => {
+                let a = random_ill(rng, 0, 2, rules);
+                let b = random_ill(rng, 0, 2, rules);
+                let goal = changed(&b, rng.below(5), &mut false);
+                (vec![a.clone(), lolli(a, b)], goal)
+            }
+            _ => {
+                let n = 1 + rng.below(3);
+                let hypotheses = (0..n).map(|_| random_ill(rng, 0, 2, rules)).collect();
+                (hypotheses, random_ill(rng, 0, 2, rules))
+            }
+        }
+    }
+
+    /// The two-sided engine on generated first-order intuitionistic
+    /// sequents, linear and affine, by the dispatch and forced, never
+    /// contradicts the two-sided reference, every proof it returns passes
+    /// the checker, and the reference decides most of them.
+    #[test]
+    fn the_two_sided_engine_agrees() {
+        const COPIES: u32 = 1;
+        let (mut cases, mut decided, mut proved) = (0, 0, 0);
+        let (mut engine_proved, mut engine_refuted) = (0, 0);
+        for (seed, rules) in [[false, false], [true, false], [false, true], [true, true]]
+            .into_iter()
+            .enumerate()
+        {
+            let mut rng = Rng::new(4300 + seed as u64);
+            for _ in 0..50 {
+                let (hypotheses, goal) = random_ill_sequent(&mut rng, rules);
+                let text = ill_text(&hypotheses, &goal);
+                let s: Sequent = text.parse().unwrap_or_else(|e| panic!("{text:?}: {e}"));
+                for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine()] {
+                    cases += 1;
+                    let reference = intuitionistic(&hypotheses, &goal, mode, COPIES);
+                    decided += usize::from(reference != Answer::Unknown);
+                    proved += usize::from(reference == Answer::Proved);
+                    for engine in [None, Some(Engine::TwoSided)] {
+                        let options = Options::default()
+                            .with_copies(Some(COPIES))
+                            .with_engine(engine)
+                            .with_jobs(1);
+                        let mut left = 1u64 << 14;
+                        let stop = |_| {
+                            left = left.saturating_sub(1);
+                            left == 0
+                        };
+                        let outcome =
+                            prove_within(&s, mode, &options, &crate::Limits::default(), stop)
+                                .unwrap_or_else(|e| panic!("{text:?} in {mode} mode: {e}"));
+                        let contradiction = match &outcome.verdict {
+                            Verdict::Proved(proof) => {
+                                assert_eq!(proof.check(mode), Ok(()), "{text:?} in {mode} mode");
+                                engine_proved += 1;
+                                reference == Answer::Unprovable
+                            }
+                            Verdict::Unprovable(_) => {
+                                engine_refuted += 1;
+                                reference == Answer::Proved
+                            }
+                            Verdict::Unknown(_) => false,
+                        };
+                        assert!(
+                            !contradiction,
+                            "{text:?} in {mode} mode by {:?}: the engine answers {:?}, the reference {reference:?}",
+                            outcome.engine, outcome.verdict
+                        );
+                    }
+                }
+            }
+        }
+        assert!(decided * 3 > cases * 2, "{decided} of {cases} decided");
+        // Both answers occur, and the engine proves and refutes.
+        assert!(
+            proved * 10 > decided
+                && (decided - proved) * 10 > decided
+                && engine_proved > 0
+                && engine_refuted > 0,
+            "{proved} of {decided} proved; the engine proved {engine_proved}, refuted {engine_refuted}"
         );
     }
 }

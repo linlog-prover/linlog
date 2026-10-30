@@ -810,6 +810,64 @@ allows: never a proof against a refutation, either way.
   formula, contraction budgeted per branch). None is maintained: a step
   that changes the search writes or asks for its own, so that the
   judgment's independence does not rest on one file.
+- **`search/reference_fo.rs` is the first-order reference** (test-only),
+  one-sided classical (`sequent`, read from a sequent's arenas, compared
+  with the focused engine by `the_focused_engine_agrees`) and two-sided
+  intuitionistic (`intuitionistic`, ILL1 with `1 ⊤ 0 ⊗ ⊸ & ⊕ ! ∀ ∃` and no
+  `⊥`, compared with the two-sided engine by `the_two_sided_engine_agrees`).
+  Both share its terms, unification and freshness check; the formula type
+  `F` holds both calculi (`F::Lolli` two-sided only, a two-sided atom a
+  `F::Lit` whose sign is ignored).
+- **It has no memo, only a stack of goals**: a goal's answer depends on
+  the bindings its siblings left, so each rule's premises are pushed onto
+  the stack and a failure anywhere later backtracks into every earlier
+  choice (a premise's second answer). Its cost is exponential, which
+  `VISITS` (400 000 goals) bounds as `Unknown`.
+- **The eigenvariable condition is freshness on the closed derivation**:
+  each `∀` step (two-sided `∀R` and `∃L`) records its conclusion, goal
+  included, and when the stack empties `fresh` asks that no recorded
+  conclusion names the step's eigenvariable under the final bindings; a
+  derivation that fails it is backtracked. An unknown left unbound stands
+  for any closed term (domains are not empty, so `∀x.p(x) ⊢ ∃y.p(y)`).
+  An eigenvariable named in a sibling branch passes, which is sound
+  (rename it), though linlog's checker would refuse such a proof.
+- **Two-sided, the invertible rules are applied first and alone**: `⊸R`,
+  `&R`, `⊤R`, `∀R`, `⊗L`, `1L`, `⊕L`, `∃L`, `0L` (`Prover::invert` says
+  why each is). Their inversion keeps a cut-free derivation's height and
+  contractions per branch, so it holds at each budget and the deepening's
+  answers stand. `!R` (all hypotheses `!`) is invertible by a cut with
+  `!A ⊢ A` too, but is tried as any other rule. Every other rule is tried
+  on the goal and on every hypothesis; affine mode weakens hypotheses,
+  never the goal; a `!` hypothesis is weakened in either mode.
+- **Its "unprovable" is cautious, as the propositional one's is**: a goal
+  that fails while a `!` hypothesis (one-sided: a `?` formula) cannot
+  contract for want of budget marks the decision `wanted`, which turns a
+  failure into `Unknown`; since a goal also fails when a sibling after it
+  on the stack fails, the mark is set more often than needed (never
+  wrongly).
+- **The two-sided generator builds the trees, and prints them for the
+  engine** (`random_ill_sequent`, `ill_text`, every binary connective and
+  quantifier bracketed); the reference never reads the text back through
+  linlog's parser, so a reading of the text the engine makes is judged,
+  not shared. Its signature is fixed (`p`/1, `q`/0, `r`/2, `a`, `b`,
+  `f`/1; the hand-made cases add `c`, `s`, `z`), two quantifiers nested
+  at most, and a few printed texts were read back by `seq print -i` to
+  check the printer. A third of its sequents are a formula against itself
+  with one site changed, a third `A, A ⊸ B ⊢ B` changed, which keeps many
+  provable.
+- **What was checked before the two-sided one judged**: twelve
+  deliberate faults in a scratch copy (eigenvariable check dropped, occurs
+  check dropped, `!R`'s side condition dropped, goal weakened in affine
+  mode, the `wanted` mark dropped, `⊸L` without splits, `⊕R` or `&L` on
+  one side only, `∀L` by an eigenvariable, weakening in linear mode, no
+  dereliction), each failing a committed test but one with no effect (an
+  undo after a failed axiom that the caller's undo repeats); and a
+  scratch run of 3 000 generated sequents in both modes (6 000
+  decisions, 5 745 decided) against the dispatch and the forced engine
+  (no contradiction, every proof checked), the propositional
+  `reference::intuitionistic` on the quantifier-free ones (no
+  contradiction) and the one-sided reference on the lowering, since ILL
+  proves no more than CLL (no contradiction).
 
 ## Decisions
 
