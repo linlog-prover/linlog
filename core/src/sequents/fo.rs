@@ -106,9 +106,11 @@ impl Eigen {
 
 /// A first-order term: a bound variable or a function symbol applied to
 /// arguments, which refers to its arguments by arena index, or in a
-/// proof's extension of the arena an eigenvariable. Every term of a
-/// sequent's own arena is bound or ground: the free variables of a search
-/// and the eigenvariables of a proof live in their own extension of it.
+/// proof's extension of the arena an eigenvariable, or in an interactive
+/// session's a metavariable. Every term of a sequent's own arena is bound
+/// or ground: the free variables of a search, the eigenvariables of a
+/// proof and the open witnesses of a session live in their own extension
+/// of it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FoTerm {
     /// A bound variable, as the number of binders between it and the one
@@ -119,6 +121,11 @@ pub enum FoTerm {
     /// An eigenvariable, which only a proof's extension of the arena
     /// holds ([`Instances`](crate::Instances)).
     Eigen(Eigen),
+    /// A metavariable by its number: a witness of an interactive session
+    /// left open, which a later axiom or the search binds
+    /// ([`Interactive`](crate::Interactive)). Only a session's extension
+    /// of the arena holds one; a proof never does.
+    Meta(u32),
 }
 
 /// A term is a tag and two indices at most: every arena and every table
@@ -207,7 +214,9 @@ impl FirstOrder {
                     }
                     // Every way to a sequent builds its arena of bound and
                     // ground terms alone.
-                    FoTerm::Eigen(_) => unreachable!("a sequent's arena holds no eigenvariable"),
+                    FoTerm::Eigen(_) | FoTerm::Meta(_) => {
+                        unreachable!("a sequent's arena holds no eigenvariable or metavariable")
+                    }
                 }
             }
             let Some(&mut (args, ref mut i)) = open.last_mut() else {
@@ -271,7 +280,7 @@ impl FirstOrder {
         let mut unfolded = vec![0u64; self.terms.len()];
         for (n, term) in self.terms.iter().enumerate() {
             unfolded[n] = match *term {
-                FoTerm::Bound(_) | FoTerm::Eigen(_) => 1,
+                FoTerm::Bound(_) | FoTerm::Eigen(_) | FoTerm::Meta(_) => 1,
                 FoTerm::App(_, args) => self
                     .list(args)
                     .iter()
@@ -288,7 +297,7 @@ impl FirstOrder {
         for (n, term) in self.terms.iter().enumerate() {
             loose[n] = match *term {
                 FoTerm::Bound(index) => index.saturating_add(1),
-                FoTerm::Eigen(_) => 0,
+                FoTerm::Eigen(_) | FoTerm::Meta(_) => 0,
                 FoTerm::App(_, args) => self
                     .list(args)
                     .iter()

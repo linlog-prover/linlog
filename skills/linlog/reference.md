@@ -99,8 +99,9 @@ and `prove` decides it in the classical modes (with `--mix` and
 the two-sided engine: a witness of `∃` is left open and
 filled in by unification where an axiom matches two atoms, the proof
 names every witness, and MLL1 and MALL1 are decided, with `!` and `?`
-within the copy bound. `interact` and the net and Rocq outputs refuse
-it with an error (exit status 2), while a sequent with
+within the copy bound. `interact` proves it step by step with the
+quantifier rules (section 10). The net and Rocq outputs refuse it with
+an error (exit status 2), while a sequent with
 arguments and no quantifier is propositional and decided by every
 engine.
 
@@ -506,6 +507,7 @@ numbers from the output before writing the next step.
 | `goals` | the open goals, with the positions of their formulas |
 | `rules G P` | the rules that act on formula P of goal G |
 | `apply G P RULE [P…]` | applies a rule; for `⊗` or Mix the further positions go to the left premise |
+| `apply G P RULE [T]` | `∃R` or `∀L` (`exists` one-sided) with the witness T, or open without one |
 | `cut G C [P…]` | cuts goal G on the formula C (quoted if it has blanks): the positions P go to the first premise, which proves C, the others to the second, which uses it |
 | `undo` | retracts the last step |
 | `invertible on\|off` | applies every invertible rule by itself, or stops doing so |
@@ -520,10 +522,35 @@ numbers from the output before writing the next step.
 A RULE is its usual name or its ASCII spelling: `ax`, `1`, `bot`, `top`,
 `*`, `par`, `&`, `+1`, `+2`, `?d`, `?c`, `?w`, `!`, `mix`, `wk`, and in
 intuitionistic mode `-oL`, `-oR`, `*L`, `*R`, `&L1`, `&L2`, `&R`, `+L`,
-`+R1`, `+R2`, `1L`, `1R`, `0L`, `topR`, `!L`, `!R`, `!c`, `!w`; `rules`
-prints the names it applies. `--state FILE` resumes a saved session
-(the mode is the file's), `--invertible` applies the invertible rules
-from the start, and the search flags of `prove` apply to `close`.
+`+R1`, `+R2`, `1L`, `1R`, `0L`, `topR`, `!L`, `!R`, `!c`, `!w`, and for
+the quantifiers `forall`, `exists` (one-sided) and `forallR`, `existsL`,
+`existsR`, `forallL`; `rules` prints the names it applies. `--state
+FILE` resumes a saved session (the mode is the file's), `--invertible`
+applies the invertible rules from the start, and the search flags of
+`prove` apply to `close`.
+
+With quantifiers, `∀R` and `∃L` (`forall` one-sided) open the formula
+with a fresh eigenvariable, written `a`, `b`, … (a letter no symbol
+takes). `∃R` and `∀L` (`exists` one-sided) take the witness after the
+rule's name, a term of the sequent's function symbols and of the
+eigenvariables of the `∀R`/`∃L` steps below the goal; without one the
+witness stays open, written `$1`, `$2`, …, and the axiom fills it by
+unification, or `close` by the search. An open witness never takes an
+eigenvariable made after it (`error: the eigenvariable b cannot stand
+there: …`, the eigenvariable condition); `undo` of the step that filled
+it opens it again; `save` keeps it (the session's `instances`, wire
+level 7). Such a session takes no `cut`.
+
+```console
+$ printf 'apply 0 0 forallL\napply 1 1 ax\nproof\n' | linlog interact -i "forall x. p(x) |- p(f(a))"
+opened goal 1: 1: p($1) ⊢ 0: p(f(a))
+closed; no goal is open: `proof` checks the proof
+valid proof (intuitionistic)
+───────────────── ax
+p(f(a)) ⊢ p(f(a))
+────────────────── ∀L
+∀x. p(x) ⊢ p(f(a))
+```
 
 `cut G C [P…]` is the one step not on a formula of the goal: C is
 written as the mode writes formulas (intuitionistic in `-i` mode, as the

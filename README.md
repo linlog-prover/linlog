@@ -1036,7 +1036,7 @@ vertices of its cut link.
 $ linlog interact -i "!a |- a * a"
 > cut 0 !a 0
 opened goal 1: 0: !a ⊢ 1: !a
-opened goal 2:, 1: !a ⊢ 0: a ⊗ a
+opened goal 2: 1: !a ⊢ 0: a ⊗ a
 > close
 goal 1: provable (IMELL, intuitionistic, two-sided engine)
 goal 2: provable (IMELL, intuitionistic, horn engine)
@@ -1667,9 +1667,8 @@ cannot refute ends at the time limit. Two bounds of their own cut a
 branch where the search would go further, and a search that cut one is
 unknown rather than unprovable: `--witness-depth N` (64), the deepest
 term a witness is filled in with, and `--instances N` (65536), the most
-instances of quantified formulas the search holds at once. Interactive
-proving, the proof nets and the exports to Rocq refuse a quantifier
-yet, each saying so;
+instances of quantified formulas the search holds at once. The proof
+nets and the exports to Rocq refuse a quantifier yet, each saying so;
 the exit status is 2, the error's:
 
 <!-- readme-check: machine -->
@@ -1682,9 +1681,54 @@ provable (MELL1, classical, focus engine)
 $ linlog prove --witness-depth 2 "|- exists x. p(x), ~p(f(f(f(a))))" | sed 's/after .*;/after …;/'; echo "exit $?"
 unknown (MLL1, classical, focus engine): the witness depth of 2 was reached after …; raise it with --witness-depth N
 exit 3
-$ linlog interact "forall x. p(x) |- p(a)" < /dev/null; echo "exit $?"
-error: interactive proving takes no quantifiers yet: a sequent with ∀ or ∃ is read, printed and written as JSON, and nothing else
-exit 2
+```
+
+In `interact` the quantifier rules are `∀R` and `∃L` (`∀` one-sided),
+which open the formula with a fresh eigenvariable, written `a`, `b`, …
+(a letter no symbol of the sequent takes), and `∃R` and `∀L` (`∃`
+one-sided), which take their witness after the rule's name: a term of
+the sequent's function symbols and of the eigenvariables of the `∀R`
+and `∃L` steps below the goal, or nothing, which leaves the witness
+open as `$1`, `$2`, … (a `$` that no formula holds) for a later axiom to
+fill by unification, or `close` by the search. An open witness never
+takes an eigenvariable made after it, which would stand in the
+conclusion of its own step: the eigenvariable condition, which `apply`
+reports by the eigenvariable's name. `undo` of the step that filled a
+witness leaves it open again, and `save` keeps the witnesses and what
+fills them (the session's JSON at wire level 7, its `instances`). A
+session of a sequent with a quantifier makes no cut:
+
+```console
+$ linlog interact -i "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)"
+> apply 0 0 ∃L
+opened goal 1: 1: ∀x. r(x, a) ⊢ 0: ∀x. (∃y. r(x, y))
+> apply 1 0 ∀R
+opened goal 2: 0: ∀x. r(x, a) ⊢ 1: ∃y. r(b, y)
+> rules 2 0
+∀L (with a witness or none)
+> apply 2 0 ∀L
+opened goal 3: 1: r($1, a) ⊢ 0: ∃y. r(b, y)
+> apply 3 0 ∃R a
+opened goal 4: 0: r($1, a) ⊢ 1: r(b, a)
+> apply 4 0 ax
+closed; no goal is open: `proof` checks the proof
+> undo
+reopened goal 4: 0: r($1, a) ⊢ 1: r(b, a)
+> close
+goal 4: provable (IMLL1, intuitionistic, two-sided engine)
+no goal is open: `proof` checks the proof
+> proof
+valid proof (intuitionistic)
+          ───────────────── ax
+          r(b, a) ⊢ r(b, a)
+        ───────────────────── ∃R
+        r(b, a) ⊢ ∃y. r(b, y)
+      ───────────────────────── ∀L
+      ∀x. r(x, a) ⊢ ∃y. r(b, y)
+   ─────────────────────────────── ∀R
+   ∀x. r(x, a) ⊢ ∀x. (∃y. r(x, y))
+───────────────────────────────────── ∃L
+∃y. (∀x. r(x, y)) ⊢ ∀x. (∃y. r(x, y))
 ```
 
 The JSON form of a first-order sequent is written at wire level 7: its
@@ -2435,9 +2479,8 @@ Planned, in roughly this order:
   countermodels of the other logics, failure certificates of the
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
-- First-order linear logic beyond its syntax, its proofs and the
-  search: the quantifier rules in interactive proving, cut elimination at first
-  order, certificates in the Rocq library, first-order problem families
+- First-order linear logic beyond its syntax, its proofs, the
+  search and interactive proving: cut elimination at first order, certificates in the Rocq library, first-order problem families
   and the comparison with LinearOne.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).

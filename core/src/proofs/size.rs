@@ -23,7 +23,7 @@ use super::check::{
 use super::{Branch, Derivation, Node, NodeId, Proof, ViewOptions};
 use crate::fragment::Mode;
 use crate::limits::{Limits, Phase, Progress};
-use crate::occurrences::instances::eigen_names;
+use crate::occurrences::instances::{eigen_names, meta_name};
 use crate::occurrences::{Forest, Member, OccId, Reading, Side};
 use crate::sequents::{FoTerm, Term, TermId};
 
@@ -321,6 +321,7 @@ fn instance_weights(forest: &Forest, table: &crate::Instances, weights: &[u32]) 
         let (w, b) = match terms.term(crate::sequents::FoTermId::new(id as u32)) {
             FoTerm::Bound(_) => (1, 1),
             FoTerm::Eigen(a) => (names.get(&a).map_or(1, |n| width(n.chars().count())), 0),
+            FoTerm::Meta(k) => (width(meta_name(k).chars().count()), 0),
             FoTerm::App(f, args) => {
                 let list = terms.list(args);
                 let name = width(fo.symbols[f.index()].0.chars().count());

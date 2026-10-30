@@ -8,7 +8,7 @@
 //! search does.
 
 use super::expand::formula_at;
-use super::{GoalId, Interactive, Step, StepError};
+use super::{GoalId, Interactive, Step, StepError, Witness};
 use crate::limits::{Limits, Phase, Refusal};
 use crate::occurrences::{Member, OccId};
 use crate::proofs::derivation::Inference;
@@ -119,7 +119,7 @@ impl Interactive {
     /// No `?` rule is among them: dereliction and weakening are not
     /// invertible, and contraction is but never ends.
     pub fn is_invertible(&self, sequent: &[Member], step: &Step) -> bool {
-        let sequent: Vec<OccId> = sequent.iter().map(|m| m.occ()).collect();
+        let sequent: Vec<OccId> = sequent.iter().map(|&m| self.occurrence(m)).collect();
         let Ok(left) = step.left_positions(sequent.len()) else {
             return false;
         };
@@ -172,6 +172,18 @@ impl Interactive {
                 };
             }
             held = held.saturating_add(needed);
+            let premises = if self.fo.is_some() {
+                match self.framed_premises(goal, position, rule.rule, &[], &Witness::Open) {
+                    Ok(premises) => premises,
+                    // Past the eigenvariables a `u32` numbers.
+                    Err(_) => {
+                        open.push(goal);
+                        continue;
+                    }
+                }
+            } else {
+                premises.into_iter().map(Multiset::into_members).collect()
+            };
             let opened = self.record(goal, position, rule, premises);
             steps += 1;
             todo.extend(opened.into_iter().rev());
@@ -202,6 +214,15 @@ impl Interactive {
                 let named = Named::applied(rule, reading.as_ref(), sequent[position]);
                 // The reading may still refuse it: a premise without one
                 // formula on the right of ⊢, or without an antecedent.
+                // A first-order axiom closes equal instances only: binding an
+                // open witness is a choice, no invertible step.
+                if rule == Rule::Ax
+                    && let Some(q) = &self.fo
+                    && let Ok(&[x, y]) = self.goal(goal)
+                    && !q.same_atom(&self.forest, x, y)
+                {
+                    continue;
+                }
                 if let Ok(premises) = self.expand(reading.as_ref(), &sequent, position, named, &[])
                 {
                     return Some((position, named, premises));
@@ -244,7 +265,8 @@ impl Interactive {
                 &[x, y] if f.dual_literals(x, y) => Some(Rule::Ax),
                 _ => None,
             },
-            Kind::Plus | Kind::Zero | Kind::Quest | Kind::Forall | Kind::Exists => None,
+            Kind::Forall => Some(Rule::Forall),
+            Kind::Plus | Kind::Zero | Kind::Quest | Kind::Exists => None,
         }
     }
 }

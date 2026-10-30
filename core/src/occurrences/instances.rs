@@ -212,7 +212,7 @@ impl Instances {
             .iter()
             .filter_map(|t| match *t {
                 FoTerm::Eigen(a) => Some(a),
-                FoTerm::Bound(_) | FoTerm::App(..) => None,
+                FoTerm::Bound(_) | FoTerm::App(..) | FoTerm::Meta(_) => None,
             })
             .collect();
         eigens.sort_unstable();
@@ -352,6 +352,8 @@ impl<'a> Numbering<'a> {
             let (key, loose) = match terms.term(id) {
                 FoTerm::Bound(i) => (Key::Bound(i), i.saturating_add(1)),
                 FoTerm::Eigen(a) => (Key::Eigen(a), 0),
+                // `canonical` refuses a table with one before it numbers.
+                FoTerm::Meta(_) => unreachable!("a proof's table holds no metavariable"),
                 FoTerm::App(f, args) => {
                     let loose = terms
                         .list(args)
@@ -460,6 +462,8 @@ impl<'a> Numbering<'a> {
                 }
                 // An eigenvariable is closed, numbered above.
                 FoTerm::Eigen(_) => unreachable!("an eigenvariable is a closed term"),
+                // `canonical` refuses a table with one before it numbers.
+                FoTerm::Meta(_) => unreachable!("a proof's table holds no metavariable"),
             }
         }
         memo[&t]
@@ -569,6 +573,11 @@ pub(crate) fn canonical(
         match term {
             FoTerm::Bound(_) => {
                 return Err(malformed(format!("term {id} is a bound variable")));
+            }
+            FoTerm::Meta(_) => {
+                return Err(malformed(format!(
+                    "term {id} is a metavariable, an open witness"
+                )));
             }
             FoTerm::Eigen(_) => {}
             FoTerm::App(f, args) => {
@@ -736,7 +745,7 @@ impl<'a> Canonical<'a> {
                     };
                     FoTerm::App(f, list)
                 }
-                other @ (FoTerm::Eigen(_) | FoTerm::Bound(_)) => other,
+                other @ (FoTerm::Eigen(_) | FoTerm::Bound(_) | FoTerm::Meta(_)) => other,
             };
             let at = self.out.push_term(term);
             self.term_at.insert(n, at);
@@ -915,6 +924,14 @@ pub(crate) fn eigen_names(fo: &FirstOrder, eigens: &[Eigen]) -> HashMap<Eigen, S
     names
 }
 
+/// Returns the name an open witness, the metavariable `k` of a session,
+/// is written with: `$1` for the first. No reader of either surface takes
+/// a `$` (where `?1` reads as the formula `?(1)`), so the name is no
+/// formula, term or symbol, nor a name renamed apart (`x_1`).
+pub(crate) fn meta_name(k: u32) -> String {
+    format!("${}", u64::from(k) + 1)
+}
+
 /// What a printer needs to write a proof's instances: the table, the
 /// terms of both arenas and the eigenvariables' names.
 #[derive(Clone, Debug)]
@@ -974,6 +991,7 @@ impl<'a> Framing<'a> {
                         }
                     }
                     FoTerm::Eigen(a) => atom(out, self.name(a))?,
+                    FoTerm::Meta(k) => atom(out, &meta_name(k))?,
                     // A frame and a witness hold closed terms.
                     FoTerm::Bound(index) => write!(out, "#{index}")?,
                 }

@@ -411,6 +411,16 @@ impl<'a> Derivation<'a> {
         }
     }
 
+    /// Returns the derivation with its members past the forest standing
+    /// for the instances `table` numbers, as a session's do.
+    #[cfg(feature = "interactive")]
+    pub(crate) fn with_framing(self, table: &'a crate::Instances) -> Self {
+        Self {
+            framing: Some(Box::new(Framing::new(&self.forest.sequent().fo, table))),
+            ..self
+        }
+    }
+
     /// Returns whether the root concludes a goal of its proof rather than
     /// the sequent.
     pub(crate) const fn is_of_goal(&self) -> bool {

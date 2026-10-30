@@ -94,6 +94,7 @@ impl Instances {
         let fo = |t: &FoTerm| match *t {
             FoTerm::Bound(i) => FoExpression::Bound(i),
             FoTerm::Eigen(a) => FoExpression::Eigen(a.get()),
+            FoTerm::Meta(_) => unreachable!("a proof's table holds no metavariable"),
             FoTerm::App(f, args) => {
                 FoExpression::App(f.get(), terms.list(args).iter().map(|t| t.get()).collect())
             }

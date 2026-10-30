@@ -199,6 +199,7 @@ impl Frames {
                 .cloned()
                 .unwrap_or_else(|| format!("#{i}")),
             FoTerm::Eigen(a) => format!("#e{}", a.get()),
+            FoTerm::Meta(k) => format!("#m{k}"),
             FoTerm::App(f, args) => {
                 let items: Vec<String> = self.lists[&args.get()]
                     .iter()
@@ -220,7 +221,7 @@ impl Frames {
                     self.eigens(u, eigens);
                 }
             }
-            FoTerm::Bound(_) => {}
+            FoTerm::Bound(_) | FoTerm::Meta(_) => {}
         }
     }
 

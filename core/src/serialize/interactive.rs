@@ -6,6 +6,7 @@ use crate::fragment::Mode;
 use crate::limits::Limits;
 use crate::occurrences::{Forest, Member, Side, Written};
 use crate::proofs::interactive::Interactive as State;
+use crate::proofs::interactive::{PartTerm, Parts};
 use crate::proofs::{InfId, Inference, Named, Rule};
 use crate::wire::{self, Readable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -55,6 +56,100 @@ pub(super) struct Interactive {
     /// How the sequent was written, for a session that keeps it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     written: Option<WrittenForm>,
+    /// For a sequent with quantifiers, the instances, eigenvariables and
+    /// open witnesses of the steps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    instances: Option<InstancesForm>,
+}
+
+/// The serialized form of a session's first-order part: the members past
+/// the sequent's occurrences as `[occurrence, frame]`, the frames as
+/// `[parent, term]` (`null` for an outermost binder's), the terms past
+/// the sequent's own (`{"F": [symbol, [terms]]}`, an eigenvariable `{"E":
+/// n}`, an open witness `{"M": k}`), the level each metavariable was made
+/// at, how many eigenvariables were made, those that are constants, and
+/// the bindings in force in the order made, each `[metavariable, term,
+/// step]`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct InstancesForm {
+    /// The members past the forest.
+    members: Vec<(u32, u32)>,
+    /// The frames.
+    frames: Vec<(Option<u32>, u32)>,
+    /// The terms past the sequent's.
+    terms: Vec<TermForm>,
+    /// The level each metavariable was made at.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    metas: Vec<u32>,
+    /// How many eigenvariables were made.
+    eigens: u32,
+    /// The eigenvariables that are constants.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    constants: Vec<u32>,
+    /// The bindings in force, in the order made.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    bindings: Vec<(u32, u32, u32)>,
+}
+
+/// The serialized form of a term of a session's table.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum TermForm {
+    /// A symbol, by its index in the sequent's `symbols`, applied to
+    /// terms by their ids, each before this one.
+    #[serde(rename = "F")]
+    App(u32, Vec<u32>),
+    /// An eigenvariable by its number.
+    #[serde(rename = "E")]
+    Eigen(u32),
+    /// An open witness, a metavariable, by its number.
+    #[serde(rename = "M")]
+    Meta(u32),
+}
+
+impl From<Parts> for InstancesForm {
+    /// Converts the written form into its serialized one.
+    fn from(parts: Parts) -> Self {
+        Self {
+            members: parts.members,
+            frames: parts.frames,
+            terms: parts
+                .terms
+                .into_iter()
+                .map(|t| match t {
+                    PartTerm::App(f, args) => TermForm::App(f, args),
+                    PartTerm::Eigen(a) => TermForm::Eigen(a),
+                    PartTerm::Meta(k) => TermForm::Meta(k),
+                })
+                .collect(),
+            metas: parts.metas,
+            eigens: parts.eigens,
+            constants: parts.constants,
+            bindings: parts.bindings,
+        }
+    }
+}
+
+impl From<InstancesForm> for Parts {
+    /// Converts the serialized form into the written one.
+    fn from(form: InstancesForm) -> Self {
+        Self {
+            members: form.members,
+            frames: form.frames,
+            terms: form
+                .terms
+                .into_iter()
+                .map(|t| match t {
+                    TermForm::App(f, args) => PartTerm::App(f, args),
+                    TermForm::Eigen(a) => PartTerm::Eigen(a),
+                    TermForm::Meta(k) => PartTerm::Meta(k),
+                })
+                .collect(),
+            metas: form.metas,
+            eigens: form.eigens,
+            constants: form.constants,
+            bindings: form.bindings,
+        }
+    }
 }
 
 /// The serialized form of how a sequent was written: the occurrences on
@@ -134,6 +229,7 @@ impl From<&State> for Interactive {
                 .collect(),
             history: state.history().iter().map(|id| id.get()).collect(),
             written: state.writing().map(WrittenForm::of),
+            instances: state.parts().map(InstancesForm::from),
         }
     }
 }
@@ -161,7 +257,8 @@ impl Interactive {
             .collect();
         let history = proxy.history.into_iter().map(InfId::new).collect();
         let len = forest.len();
-        let mut state = State::from_parts(forest, proxy.mode, inferences, history)?;
+        let parts = proxy.instances.map(Parts::from);
+        let mut state = State::from_parts(forest, proxy.mode, inferences, history, parts)?;
         if let Some(written) = proxy.written {
             state.keep_writing(written.record(len)?)?;
         }

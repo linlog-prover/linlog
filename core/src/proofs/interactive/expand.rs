@@ -4,10 +4,12 @@
 //! The steps of a session: the rules a goal admits, a rule applied and
 //! expanded into its premises, undo, and a goal closed by the search.
 
-use super::{Applicable, Closed, GoalId, Interactive, Needs, Step, StepError};
+use super::quantified::Clash;
+use super::{Applicable, Closed, GoalId, Interactive, Needs, Step, StepError, Witness};
 use crate::Error;
 use crate::limits::{Limits, Progress};
-use crate::occurrences::{OccId, Reading, Side};
+use crate::occurrences::instances::eigen_names;
+use crate::occurrences::{Member, OccId, Reading, Side};
 use crate::proofs::derivation::{Derivation, InfId, Inference, ViewOptions};
 use crate::proofs::multiset::Multiset;
 use crate::proofs::{Branch, CheckError, Named, Proof, Rule};
@@ -18,7 +20,7 @@ impl Interactive {
     /// Returns the sequent of an open goal, or the refusal.
     pub(super) fn open(&self, id: GoalId) -> Result<Vec<OccId>, StepError> {
         let goal = self.goal(id)?;
-        Ok(goal.iter().map(|m| m.occ()).collect())
+        Ok(goal.iter().map(|&m| self.occurrence(m)).collect())
     }
 
     /// Returns the rules that can act on the formula at `position` of the
@@ -51,9 +53,8 @@ impl Interactive {
             Kind::Zero => vec![],
             Kind::Bang => vec![Promotion],
             Kind::Quest => vec![Dereliction, Contraction, Weakening],
-            Kind::Forall | Kind::Exists => {
-                unreachable!("interactive proving refuses a sequent with a binder")
-            }
+            Kind::Forall => vec![Forall],
+            Kind::Exists => vec![Exists],
         };
         if self.mode.affine && self.forest.kind(o) != Kind::Quest {
             rules.push(AffineWeakening);
@@ -68,9 +69,10 @@ impl Interactive {
                 rule: Named::applied(rule, reading.as_ref(), o),
                 needs: match rule {
                     Tensor | Mix => Needs::Split,
+                    Exists => Needs::Witness,
                     Ax | Par | One | Bot | With | PlusLeft | PlusRight | Top | Promotion
                     | Dereliction | Contraction | Weakening | AffineWeakening | Cut | Forall
-                    | Exists | Open => Needs::Nothing,
+                    | Open => Needs::Nothing,
                 },
             })
             .collect())
@@ -83,11 +85,22 @@ impl Interactive {
     /// or its two-sided name and is recorded by the latter. Fails with what
     /// the rule needed, and changes nothing then.
     ///
+    /// With quantifiers, `∀R` and `∃L` (`∀` one-sided) open the body with
+    /// a fresh eigenvariable; `∃R` and `∀L` (`∃` one-sided) with the
+    /// step's witness, or with a metavariable where it is open, which a
+    /// later axiom or [`close`](Self::close) binds and [`undo`](Self::undo)
+    /// of that step unbinds; and the axiom unifies its two literals' terms,
+    /// binding open witnesses, with the occurs check and the eigenvariable
+    /// condition: an open witness never takes an eigenvariable made after
+    /// it.
+    ///
     /// # Errors
     ///
     /// A [`StepError`] that names what the rule needed: an open goal, a
     /// formula at the position, a rule that acts on it in the mode, a split
-    /// that fits, the dual of an axiom, an empty context for `1` and `!`.
+    /// that fits, the dual of an axiom, an empty context for `1` and `!`,
+    /// a witness only where the rule takes one, a term of the sequent's
+    /// symbols and eigenvariables in scope.
     pub fn apply(&mut self, goal: GoalId, step: &Step) -> Result<Vec<GoalId>, StepError> {
         let sequent = self.open(goal)?;
         let (position, rule) = (step.position, step.rule);
@@ -111,7 +124,180 @@ impl Interactive {
                 self.expand(reading.as_ref(), &sequent, position, rule, left)?,
             )
         };
+        if step.witness != Witness::Open && rule.rule != Rule::Exists {
+            return Err(StepError::NoWitness { rule });
+        }
+        let premises = if self.fo.is_some() {
+            self.framed_premises(goal, position, rule.rule, left, &step.witness)?
+        } else {
+            premises.into_iter().map(Multiset::into_members).collect()
+        };
         Ok(self.record(goal, position, rule, premises))
+    }
+
+    /// Returns the premises of a rule on a goal of a first-order session
+    /// as members, the checks on occurrences passed: the children of the
+    /// principal formula under its frame, the body of a binder under its
+    /// frame pushed with a fresh eigenvariable, the witness given or a
+    /// fresh metavariable; and for the axiom none, its literals' terms
+    /// unified.
+    pub(super) fn framed_premises(
+        &mut self,
+        goal: GoalId,
+        position: usize,
+        rule: Rule,
+        left: &[usize],
+        witness: &Witness,
+    ) -> Result<Vec<Vec<Member>>, StepError> {
+        use Rule::*;
+        let members = self.goal(goal)?.to_vec();
+        let m = members[position];
+        // The number the step will have, under which its bindings are
+        // trailed: fewer steps than inferences, which an `InfId` numbers.
+        let step = self.history.len() as u32;
+        if rule == Ax {
+            let [x, y] = members[..] else {
+                unreachable!("the occurrences' check holds two literals");
+            };
+            let forest = &self.forest;
+            let q = self.fo.as_mut().expect("a first-order session");
+            let lx = q.literal(forest, x);
+            let ly = q.literal(forest, y);
+            let no_dual = StepError::NoDual { position };
+            if forest.kind(q.instance(x).0) == forest.kind(q.instance(y).0) {
+                return Err(no_dual);
+            }
+            match (lx, ly) {
+                (Some((p, a)), Some((r, b))) if p == r => {
+                    let pairs = a.into_iter().zip(b).collect();
+                    match q.unify(forest, pairs, step) {
+                        Ok(()) => {}
+                        Err(Clash::Terms) => return Err(no_dual),
+                        Err(Clash::Eigen(a)) => {
+                            let names =
+                                eigen_names(&forest.sequent().fo, &q.shown.eigenvariables());
+                            return Err(StepError::Eigenvariable {
+                                name: names[&a].clone(),
+                            });
+                        }
+                    }
+                }
+                (None, None) if forest.atom(q.instance(x).0) == forest.atom(q.instance(y).0) => {}
+                _ => return Err(no_dual),
+            }
+            self.show();
+            return Ok(Vec::new());
+        }
+        let opened = match (rule, witness) {
+            (Forall, _) => {
+                let q = self.fo.as_mut().expect("a first-order session");
+                let Some((_, a)) = q.fresh_eigen() else {
+                    return Err(StepError::Witness {
+                        reason: "the session has made every eigenvariable a u32 numbers".into(),
+                    });
+                };
+                Some(a)
+            }
+            (Exists, Witness::Open) => {
+                let q = self.fo.as_mut().expect("a first-order session");
+                Some(q.fresh_meta())
+            }
+            (Exists, Witness::Term(nodes)) => Some(self.witness_term(goal, nodes)?),
+            _ => None,
+        };
+        let forest = &self.forest;
+        let q = self.fo.as_mut().expect("a first-order session");
+        let (o, frame) = q.instance(m);
+        // The instances the premises name, made where they are new.
+        for c in [forest.left(o), forest.right(o)].into_iter().flatten() {
+            if !forest.kind(o).is_binder() {
+                q.member(c, frame);
+            }
+        }
+        let body = opened.map(|t| {
+            let pushed = q.frame(frame, t);
+            q.member(forest.left(o).expect("a binder's body"), Some(pushed))
+        });
+        let premises = self
+            .mirror(&members, position, rule, left, body)
+            .expect("the premises' instances were made");
+        self.show();
+        Ok(premises)
+    }
+
+    /// Returns the premises of a rule on a first-order session's goal as
+    /// members, as the rule yields them from the goal's: the principal
+    /// formula's children under its frame, the binder's `body`; `None`
+    /// where an instance they name was never made. The checks on
+    /// occurrences are passed.
+    pub(super) fn mirror(
+        &self,
+        members: &[Member],
+        position: usize,
+        rule: Rule,
+        left: &[usize],
+        body: Option<Member>,
+    ) -> Option<Vec<Vec<Member>>> {
+        use Rule::*;
+        let forest = &self.forest;
+        let q = self.fo.as_ref().expect("a first-order session");
+        let m = members[position];
+        let (o, frame) = q.instance(m);
+        let child = |c: Option<OccId>| q.find(c.expect("a child of the connective"), frame);
+        let l = matches!(
+            rule,
+            Tensor | Par | With | PlusLeft | Promotion | Dereliction
+        )
+        .then(|| child(forest.left(o)))
+        .map(|c| c.ok_or(()));
+        let r = matches!(rule, Tensor | Par | With | PlusRight)
+            .then(|| child(forest.right(o)))
+            .map(|c| c.ok_or(()));
+        let (l, r) = (l.transpose().ok()?, r.transpose().ok()?);
+        let mut rest: Vec<Member> = members.to_vec();
+        rest.remove(position);
+        let mut going_left: Vec<Member> = left.iter().map(|&p| members[p]).collect();
+        let mut going_right = Multiset::of(rest.iter().copied())
+            .difference(&Multiset::of(going_left.iter().copied()))
+            .as_slice()
+            .to_vec();
+        let with = |added: &[Option<Member>]| {
+            let mut premise = rest.clone();
+            premise.extend(added.iter().flatten());
+            premise
+        };
+        let mut premises = match rule {
+            Ax | One | Top => vec![],
+            Tensor => {
+                going_left.push(l?);
+                going_right.push(r?);
+                vec![going_left, going_right]
+            }
+            Mix => {
+                going_left.push(m);
+                vec![going_left, going_right]
+            }
+            Par => vec![with(&[l, r])],
+            Bot | Weakening | AffineWeakening => vec![with(&[])],
+            With => vec![with(&[l]), with(&[r])],
+            PlusLeft | Promotion | Dereliction => vec![with(&[l])],
+            PlusRight => vec![with(&[r])],
+            Contraction => vec![with(&[Some(m), Some(m)])],
+            Forall | Exists => vec![with(&[Some(body?)])],
+            Cut | Open => unreachable!("no step of the rule reaches here"),
+        };
+        for premise in &mut premises {
+            premise.sort_unstable();
+        }
+        Some(premises)
+    }
+
+    /// Makes the shown instances of a first-order session again after a
+    /// change.
+    pub(super) fn show(&mut self) {
+        if let Some(q) = self.fo.as_mut() {
+            q.show(&self.forest);
+        }
     }
 
     /// Closes an open goal by a rule at a position with the premises
@@ -122,7 +308,7 @@ impl Interactive {
         goal: GoalId,
         position: usize,
         rule: Named,
-        premises: Vec<Multiset>,
+        premises: Vec<Vec<Member>>,
     ) -> Vec<GoalId> {
         let principal = rule.rule.has_principal().then_some(position);
         let base = self.inferences.len() as u32;
@@ -131,7 +317,7 @@ impl Interactive {
             .collect();
         for premise in premises {
             self.inferences.push(Inference {
-                sequent: premise.into_members(),
+                sequent: premise,
                 rule: Rule::Open.into(),
                 principal: None,
                 premises: vec![],
@@ -197,9 +383,8 @@ impl Interactive {
             // The ordered calculus is unit-free MLL.
             One | Bot | With | PlusLeft | PlusRight | Top | Promotion | Dereliction
             | Contraction | Weakening => !self.mode.is_ordered(),
-            Ax | Tensor | Par | Cut | Open => true,
-            // A session holds no binder: its rule did not act above.
-            Forall | Exists => false,
+            // A session in an ordered mode holds no binder.
+            Ax | Tensor | Par | Cut | Open | Forall | Exists => true,
         };
         if !allowed {
             return Err(StepError::Mode {
@@ -253,14 +438,20 @@ impl Interactive {
             premise
         };
         let premises = match classical {
-            // A session holds no binder: its rule did not act above.
-            Forall | Exists => unreachable!("no binder in a session"),
+            Forall | Exists => vec![with(&[child(Branch::Left)])],
             Ax => {
                 let [x, y] = sequent else {
                     return Err(StepError::NotAlone { rule, position });
                 };
                 let other = if position == 0 { *y } else { *x };
-                if !f.dual_literals(o, other) {
+                // A first-order session's literals are instances, whose
+                // terms the step unifies: here only their signs are read.
+                let dual = if self.fo.is_some() {
+                    f.kind(other).is_literal() && f.kind(other) != kind
+                } else {
+                    f.dual_literals(o, other)
+                };
+                if !dual {
                     return Err(StepError::NoDual { position });
                 }
                 vec![]
@@ -366,7 +557,7 @@ impl Interactive {
 
     /// Retracts the last step, a rule applied or a goal closed by the
     /// search, and returns the goal it reopened, or `None` when no step is
-    /// left.
+    /// left. The open witnesses the step bound are open again.
     pub fn undo(&mut self) -> Option<GoalId> {
         let goal = self.history.pop()?;
         // The step's inferences are the suffix of the arena.
@@ -383,6 +574,13 @@ impl Interactive {
         if cut {
             self.uncut();
         }
+        // The step's number, under which its bindings were trailed: fewer
+        // steps than inferences, which an `InfId` numbers.
+        let step = self.history.len() as u32;
+        if let Some(q) = self.fo.as_mut() {
+            q.undo(step);
+        }
+        self.show();
         Some(GoalId::of(goal))
     }
 
@@ -424,6 +622,9 @@ impl Interactive {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Closed, Error> {
+        if self.fo.is_some() {
+            return self.close_framed(goal, options, view, limits, stop);
+        }
         let members = self.goal(goal)?;
         let outcome = search::prove_goal(
             search::Goal::new(&self.forest, members)?,

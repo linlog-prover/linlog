@@ -10,10 +10,11 @@
 #![cfg(all(feature = "parse", feature = "serialize", feature = "interactive"))]
 
 use linlog::proofs::Fault;
+use linlog::proofs::interactive::{GoalId, Needs, StepError, TermNode, Witness};
 use linlog::search::Engine;
 use linlog::{
-    CheckError, Criterion, CutFormula, Disproof, Error, Forest, InputOptions, Interactive, Limits,
-    Member, Mode, Options, Proof, ProofStructure, Sequent, Verdict,
+    CheckError, Criterion, CutFormula, Disproof, Eigen, Error, Forest, InputOptions, Interactive,
+    Limits, Member, Mode, Options, Proof, ProofStructure, Rule, Sequent, Step, Verdict,
 };
 
 /// The focused engine decides a quantified goal in the classical modes,
@@ -64,9 +65,9 @@ fn the_focused_engine_takes_a_quantified_goal_and_no_other() {
     assert_eq!(outcome.fragment.to_string(), "MLL");
 }
 
-/// Interactive proving, the proof structures and the refutations' checks
-/// refuse a sequent with a quantifier by name; the checker gives a
-/// verdict, here on an axiom that names an open atom without its instance.
+/// The proof structures and the refutations' checks refuse a sequent
+/// with a quantifier by name; the checker gives a verdict, here on an
+/// axiom that names an open atom without its instance.
 #[test]
 fn the_views_refuse_a_quantified_sequent_and_the_checker_judges_it() {
     let sequent: Sequent = "forall x. p(x) |- p(a)".parse().unwrap();
@@ -82,17 +83,6 @@ fn the_views_refuse_a_quantified_sequent_and_the_checker_judges_it() {
         matches!(invalid.fault, Fault::Instance { member, .. } if member == Member::new(1)),
         "{invalid:?}"
     );
-    let error = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap_err();
-    assert!(
-        matches!(
-            error,
-            Error::Quantifiers {
-                what: "interactive proving",
-                ..
-            }
-        ),
-        "{error}"
-    );
     let forest = Forest::new(&sequent).unwrap();
     let error = ProofStructure::new(forest, Criterion::default()).unwrap_err();
     assert!(matches!(error, Error::Net(_)), "{error}");
@@ -105,18 +95,19 @@ fn the_views_refuse_a_quantified_sequent_and_the_checker_judges_it() {
     assert!(matches!(error, Error::Refutation(_)), "{error}");
 }
 
-/// A session read from JSON and a cut formula refuse a quantifier as the
-/// session's start does, and a cut on a ground atom joins the formula's
-/// symbols, so that the session writes and reads back.
+/// A session read from JSON names an occurrence under a quantifier only
+/// by its instance; a cut formula with a quantifier, and any cut in a
+/// session with one, are refused; and a cut on a ground atom joins the
+/// formula's symbols, so that the session writes and reads back.
 #[test]
 fn a_session_refuses_a_quantifier_on_every_path() {
     let sequent: Sequent = "forall x. p(x) |- p(a)".parse().unwrap();
     let json = format!(
-        r#"{{"version":7,"sequent":{},"mode":"classical","inferences":[{{"sequent":[0,2]}}],"history":[]}}"#,
+        r#"{{"version":7,"sequent":{},"mode":"classical","inferences":[{{"sequent":[0,2],"rule":"∃","principal":0,"premises":[1]}},{{"sequent":[1,2]}}],"history":[0]}}"#,
         serde_json::to_string(&sequent).unwrap()
     );
     let error = serde_json::from_str::<Interactive>(&json).unwrap_err();
-    assert!(error.to_string().contains("quantifiers"), "{error}");
+    assert!(error.to_string().contains("instance"), "{error}");
     let limits = Limits::default();
     let input = InputOptions::default();
     let mut session = Interactive::new(&"a |- a".parse().unwrap(), Mode::CLASSICAL).unwrap();
@@ -128,12 +119,17 @@ fn a_session_refuses_a_quantifier_on_every_path() {
         matches!(
             error,
             Error::Quantifiers {
-                what: "interactive proving",
+                what: "a cut in interactive proving",
                 ..
             }
         ),
         "{error}"
     );
+    let mut quantified = Interactive::new(&sequent, Mode::CLASSICAL).unwrap();
+    let root = quantified.goals().next().unwrap();
+    let ground = CutFormula::parse_within("q(b)", Mode::CLASSICAL, &input, &limits).unwrap();
+    let error = quantified.cut(root, &ground, &[], &limits).unwrap_err();
+    assert!(matches!(error, Error::Quantifiers { .. }), "{error}");
     let formula = CutFormula::parse_within("p(b)", Mode::CLASSICAL, &input, &limits).unwrap();
     session.cut(goal, &formula, &[], &limits).unwrap();
     let json = serde_json::to_string(&session).unwrap();
@@ -599,4 +595,226 @@ fn a_deep_unification_is_counted_work() {
         "{:?}",
         outcome.verdict
     );
+}
+
+/// The position in a goal of the formula written `text`.
+fn at(state: &Interactive, goal: GoalId, text: &str) -> usize {
+    let goal = state.goal(goal).unwrap();
+    goal.iter()
+        .position(|&m| state.formula(m).to_string() == text)
+        .unwrap_or_else(|| {
+            let shown: Vec<String> = goal.iter().map(|&m| state.formula(m).to_string()).collect();
+            panic!("no {text} among {shown:?}")
+        })
+}
+
+/// Applies a step on the formula written `text` of the session's only
+/// open goal and returns the goals it opens.
+fn step(state: &mut Interactive, text: &str, rule: Rule, witness: Option<&str>) -> Vec<GoalId> {
+    let goal = state.goals().next().expect("an open goal");
+    let mut step = Step::new(at(state, goal, text), rule);
+    if let Some(witness) = witness {
+        step = step.with_witness(state.witness(witness).unwrap());
+    }
+    state.apply(goal, &step).unwrap()
+}
+
+/// A session proves a first-order sequent with the four quantifier rules:
+/// `∃L` and `∀R` with fresh eigenvariables, `∀L` with a witness left open
+/// and `∃R` with one given as text; the axiom binds the open witness,
+/// undo unbinds it, the session's JSON reads back as itself before and
+/// after, and the finished proof passes the checker.
+#[test]
+fn a_session_proves_with_the_quantifier_rules() {
+    let sequent: Sequent = "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)"
+        .parse()
+        .unwrap();
+    let mode = Mode::INTUITIONISTIC;
+    let mut state = Interactive::new(&sequent, mode).unwrap();
+    let root = state.goals().next().unwrap();
+    let rules = state
+        .rules(root, at(&state, root, "∃y. (∀x. r(x, y))"))
+        .unwrap();
+    assert_eq!(rules[0].rule.to_string(), "∃L");
+    // A witness only where the rule takes one.
+    let given = Witness::Term(vec![TermNode::Eigen(Eigen::new(0))]);
+    let error = state
+        .apply(
+            root,
+            &Step::new(at(&state, root, "∃y. (∀x. r(x, y))"), Rule::Forall).with_witness(given),
+        )
+        .unwrap_err();
+    assert!(matches!(error, StepError::NoWitness { .. }), "{error}");
+    step(&mut state, "∃y. (∀x. r(x, y))", Rule::Forall, None);
+    step(&mut state, "∀x. (∃y. r(x, y))", Rule::Forall, None);
+    let goal = state.goals().next().unwrap();
+    let rules = state.rules(goal, at(&state, goal, "∀x. r(x, a)")).unwrap();
+    assert_eq!(
+        (rules[0].rule.to_string(), rules[0].needs),
+        ("∀L".to_owned(), Needs::Witness)
+    );
+    // A witness of the sequent's terms.
+    assert!(matches!(
+        state.witness("r(a)"),
+        Err(StepError::Witness { .. })
+    ));
+    assert!(matches!(state.witness("c"), Err(StepError::Witness { .. })));
+    step(&mut state, "∀x. r(x, a)", Rule::Exists, None);
+    step(&mut state, "∃y. r(b, y)", Rule::Exists, Some("a"));
+    let goal = state.goals().next().unwrap();
+    let open: Vec<String> = state
+        .goal(goal)
+        .unwrap()
+        .iter()
+        .map(|&m| state.formula(m).to_string())
+        .collect();
+    assert_eq!(open, ["r($1, a)", "r(b, a)"]);
+    // An open witness's name reads back as nothing, in either surface.
+    for text in ["|- r($1, a)", "|- $1", "r($1, a) |- r(b, a)"] {
+        assert!(text.parse::<Sequent>().is_err(), "{text}");
+        assert!(text.parse::<linlog::IllSequent>().is_err(), "{text}");
+    }
+    let json = serde_json::to_string(&state).unwrap();
+    let back: Interactive = serde_json::from_str(&json).unwrap();
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    state.apply(goal, &Step::new(0, Rule::Ax)).unwrap();
+    assert!(state.is_complete());
+    let derivation = state.derivation().unwrap().to_string();
+    assert!(derivation.contains("r(b, a) ⊢ r(b, a)"), "{derivation}");
+    let json = serde_json::to_string(&state).unwrap();
+    assert!(json.contains(r#""bindings":"#), "{json}");
+    let back: Interactive = serde_json::from_str(&json).unwrap();
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    let proof = back.proof(&Limits::default(), |_| false).unwrap();
+    assert_eq!(proof.check(mode), Ok(()));
+    assert_eq!(state.undo(), Some(goal));
+    let open: Vec<String> = state
+        .goal(goal)
+        .unwrap()
+        .iter()
+        .map(|&m| state.formula(m).to_string())
+        .collect();
+    assert_eq!(open, ["r($1, a)", "r(b, a)"]);
+    state.apply(goal, &Step::new(0, Rule::Ax)).unwrap();
+    let proof = state.proof(&Limits::default(), |_| false).unwrap();
+    assert_eq!(proof.check(mode), Ok(()));
+}
+
+/// The eigenvariable condition holds in a session: an open witness made
+/// before a `∀` step's eigenvariable is never bound to it, and a witness
+/// given names only the eigenvariables of the `∀` steps below its goal.
+#[test]
+fn a_session_keeps_the_eigenvariable_condition() {
+    let sequent: Sequent = "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)"
+        .parse()
+        .unwrap();
+    let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
+    step(&mut state, "∃y. (∀x. r(x, y))", Rule::Exists, None);
+    step(&mut state, "∀x. r(x, $1)", Rule::Forall, None);
+    step(&mut state, "∀x. (∃y. r(x, y))", Rule::Exists, Some("a"));
+    step(&mut state, "∃y. r(a, y)", Rule::Forall, None);
+    let goal = state.goals().next().unwrap();
+    let error = state.apply(goal, &Step::new(0, Rule::Ax)).unwrap_err();
+    assert!(
+        matches!(&error, StepError::Eigenvariable { name, .. } if name == "b"),
+        "{error}"
+    );
+    let sequent: Sequent = "forall x. p(x), forall x. q(x) |- (forall x. p(x)) * (forall x. q(x))"
+        .parse()
+        .unwrap();
+    let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
+    let root = state.goals().next().unwrap();
+    let tensor = at(&state, root, "(∀x. p(x)) ⊗ (∀x. q(x))");
+    let left = at(&state, root, "∀x. p(x)");
+    let goals = state
+        .apply(root, &Step::new(tensor, Rule::Tensor).left(&[left]))
+        .unwrap();
+    // The factor, after the hypothesis of the same formula.
+    let factor = state.goal(goals[0]).unwrap().len() - 1;
+    let opened = state
+        .apply(goals[0], &Step::new(factor, Rule::Forall))
+        .unwrap();
+    assert_eq!(opened.len(), 1);
+    // `a` is the left premise's: the right one is not in its scope.
+    let error = state
+        .apply(
+            goals[1],
+            &Step::new(at(&state, goals[1], "∀x. q(x)"), Rule::Exists)
+                .with_witness(state.witness("a").unwrap()),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(&error, StepError::Eigenvariable { name, .. } if name == "a"),
+        "{error}"
+    );
+}
+
+/// The search closes a goal of a session: an open witness it fills is
+/// bound, as a later axiom would bind it, and undo unbinds it; a goal
+/// with eigenvariables is proved with them as the session's; a goal whose
+/// open witness was made before an eigenvariable it would need is not
+/// proved; every finished proof passes the checker.
+#[test]
+fn the_search_closes_a_session_goal() {
+    let (options, view, limits) = (
+        Options::default(),
+        linlog::ViewOptions::default(),
+        Limits::default(),
+    );
+    let mode = Mode::INTUITIONISTIC;
+    let sequent: Sequent = "forall x. p(x) |- p(f(a))".parse().unwrap();
+    let mut state = Interactive::new(&sequent, mode).unwrap();
+    step(&mut state, "∀x. p(x)", Rule::Exists, None);
+    let goal = state.goals().next().unwrap();
+    let closed = state
+        .close(goal, &options, &view, &limits, |_| false)
+        .unwrap();
+    assert!(matches!(closed.outcome.verdict, Verdict::Proved(_)));
+    assert_eq!(closed.grafted, Ok(()));
+    assert!(state.is_complete());
+    let derivation = state.derivation().unwrap().to_string();
+    assert!(derivation.contains("p(f(a)) ⊢ p(f(a))"), "{derivation}");
+    let json = serde_json::to_string(&state).unwrap();
+    let back: Interactive = serde_json::from_str(&json).unwrap();
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    assert_eq!(state.proof(&limits, |_| false).unwrap().check(mode), Ok(()));
+    assert_eq!(state.undo(), Some(goal));
+    let open: Vec<String> = state
+        .goal(goal)
+        .unwrap()
+        .iter()
+        .map(|&m| state.formula(m).to_string())
+        .collect();
+    assert_eq!(open, ["p(f(a))", "p($1)"]);
+
+    let sequent: Sequent = "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)"
+        .parse()
+        .unwrap();
+    let mut state = Interactive::new(&sequent, mode).unwrap();
+    step(&mut state, "∃y. (∀x. r(x, y))", Rule::Forall, None);
+    step(&mut state, "∀x. (∃y. r(x, y))", Rule::Forall, None);
+    let goal = state.goals().next().unwrap();
+    let closed = state
+        .close(goal, &options, &view, &limits, |_| false)
+        .unwrap();
+    assert!(matches!(closed.outcome.verdict, Verdict::Proved(_)));
+    assert!(state.is_complete());
+    assert_eq!(state.proof(&limits, |_| false).unwrap().check(mode), Ok(()));
+
+    let sequent: Sequent = "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)"
+        .parse()
+        .unwrap();
+    let mut state = Interactive::new(&sequent, mode).unwrap();
+    step(&mut state, "∃y. (∀x. r(x, y))", Rule::Exists, None);
+    step(&mut state, "∀x. r(x, $1)", Rule::Forall, None);
+    let goal = state.goals().next().unwrap();
+    let closed = state
+        .close(goal, &options, &view, &limits, |_| false)
+        .unwrap();
+    assert!(
+        matches!(closed.outcome.verdict, Verdict::Unprovable(_)),
+        "{:?}",
+        closed.outcome.verdict
+    );
+    assert!(!state.is_complete());
 }

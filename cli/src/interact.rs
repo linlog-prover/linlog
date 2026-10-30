@@ -15,8 +15,8 @@ use linlog::export::{latex, svg, typst};
 use linlog::proofs::interactive::Needs;
 use linlog::search::{Goal, Options, Outcome, Verdict};
 use linlog::{
-    CutFormula, Error, GoalId, InputOptions, Interactive, Limits, Named, Reading, Refusal, Side,
-    Step, ViewOptions,
+    CutFormula, Error, GoalId, InputOptions, Interactive, Limits, Named, Reading, Refusal, Rule,
+    Side, Step, ViewOptions,
 };
 use std::fmt::Write as _;
 use std::io::{IsTerminal, Write};
@@ -28,6 +28,9 @@ const HELP: &str = "\
 goals               the open goals, with the positions of their formulas
 rules G P           the rules that act on formula P of goal G
 apply G P RULE [P…] apply a rule; further positions go to the left premise of a ⊗ or Mix
+apply G P RULE [T]  ∃R or ∀L (∃ one-sided) with the witness T, a term of the sequent's
+                    symbols and the eigenvariables a, b, … the goal shows; without T
+                    the witness is left open, $1, $2, …, for an axiom or close to fill
 cut G C [P…]        cut goal G on the formula C, written as the mode writes formulas (quote
                     it if it has blanks): the positions P go to the first premise, which
                     proves C, the others to the second, which uses it
@@ -279,6 +282,7 @@ impl Session {
                         .iter()
                         .map(|r| match r.needs {
                             Needs::Split => format!("{} (with a split)", r.rule),
+                            Needs::Witness => format!("{} (with a witness or none)", r.rule),
                             _ => r.rule.to_string(),
                         })
                         .collect::<Vec<_>>()
@@ -289,7 +293,15 @@ impl Session {
                 let (goal, position) = (goal(0)?, position(1)?);
                 let word = rest.get(2).context("which rule? see `rules`")?;
                 let rule: Named = word.parse()?;
-                let step = Step::new(position, rule).left(&positions(3)?);
+                let step = if rule.rule == Rule::Exists {
+                    let step = Step::new(position, rule);
+                    match rest.get(3..).filter(|words| !words.is_empty()) {
+                        Some(words) => step.with_witness(self.state.witness(&words.join(" "))?),
+                        None => step,
+                    }
+                } else {
+                    Step::new(position, rule).left(&positions(3)?)
+                };
                 let before = self.state.steps();
                 let opened = self.state.apply(goal, &step)?;
                 self.stepped(before, opened)?
@@ -546,23 +558,36 @@ impl Session {
             notice_line(self.timeout, self.deepens),
         );
         let halt = || interrupted() || deadline.passed();
-        let (forest, mode) = (self.state.forest(), self.state.mode());
-        let target = Goal::new(forest, self.state.goal(goal)?)?;
-        let searched = searched(
-            target,
-            mode,
-            &self.options,
-            &self.limits,
-            self.threads,
-            &halt,
-        );
-        let closed = searched.and_then(|outcome| {
-            if let Verdict::Proved(proof) = &outcome.verdict {
-                self.state
-                    .close_with(goal, proof, &self.view, &self.limits, |_| halt())?;
-            }
-            Ok(outcome)
-        });
+        let closed = if self.state.forest().has_binders() {
+            // A goal of instances is searched as a sequent of its own, on
+            // one thread, by the session.
+            self.state
+                .close(goal, &self.options, &self.view, &self.limits, |_| halt())
+                .and_then(|closed| {
+                    closed
+                        .grafted
+                        .map(|()| closed.outcome)
+                        .map_err(Error::Refused)
+                })
+        } else {
+            let (forest, mode) = (self.state.forest(), self.state.mode());
+            let target = Goal::new(forest, self.state.goal(goal)?)?;
+            let searched = searched(
+                target,
+                mode,
+                &self.options,
+                &self.limits,
+                self.threads,
+                &halt,
+            );
+            searched.and_then(|outcome| {
+                if let Verdict::Proved(proof) = &outcome.verdict {
+                    self.state
+                        .close_with(goal, proof, &self.view, &self.limits, |_| halt())?;
+                }
+                Ok(outcome)
+            })
+        };
         drop(notice);
         let ended = Ended {
             stop: stopped(&deadline),
@@ -651,42 +676,40 @@ impl Session {
     }
 
     /// Returns `goal G: ` and the goal's sequent with the position of every
-    /// formula, two-sided in intuitionistic mode.
+    /// formula, two-sided in intuitionistic mode, an instance with its
+    /// terms.
     fn goal_line(&self, goal: GoalId) -> String {
-        let sequent: Vec<_> = (self.state.goal(goal).unwrap_or(&[]).iter())
-            .map(|&m| self.state.occurrence(m))
-            .collect();
-        let forest = self.state.forest();
+        let members = self.state.goal(goal).unwrap_or(&[]);
+        let sequent: Vec<_> = members.iter().map(|&m| self.state.occurrence(m)).collect();
         let reading = self.state.reading();
         let mut line = format!("goal {}:", goal.get());
-        let formula = |o| match &reading {
-            Some(reading) => reading.formula(o).to_string(),
-            None => forest.formula(o).to_string(),
-        };
+        let formula = |i: usize| self.state.formula(members[i]).to_string();
         let side = |o, side| {
             reading
                 .as_ref()
                 .is_none_or(|r: &Reading| r.position(o) == side)
         };
+        let mut first = true;
         for (i, &o) in sequent.iter().enumerate() {
             if side(o, Side::Input) && reading.is_some() {
                 let _ = write!(
                     line,
                     "{}{i}: {}",
-                    if i == 0 { " " } else { ", " },
-                    formula(o)
+                    if first { " " } else { ", " },
+                    formula(i)
                 );
+                first = false;
             }
         }
         line.push_str(" ⊢");
-        let mut first = true;
+        first = true;
         for (i, &o) in sequent.iter().enumerate() {
             if reading.is_none() || side(o, Side::Output) {
                 let _ = write!(
                     line,
                     "{}{i}: {}",
                     if first { " " } else { ", " },
-                    formula(o)
+                    formula(i)
                 );
                 first = false;
             }

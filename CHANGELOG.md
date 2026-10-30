@@ -99,6 +99,32 @@ second number (0.1.x to 0.2.0), anything else the third.
   answering `Reason::WitnessDepth` or `Reason::Instances` (in JSON
   `witness_depth` and `instances`).
 
+- Interactive proving with quantifiers: `Interactive` takes a sequent
+  with `∀` and `∃`. `∀R` and `∃L` (`Rule::Forall`) open the formula with
+  a fresh eigenvariable; `∃R` and `∀L` (`Rule::Exists`) with the step's
+  `Witness` (`Step::witness`, `Step::with_witness`, `Needs::Witness`):
+  `Witness::Term`, a closed term given flat as `TermNode`s of the
+  sequent's function symbols and the eigenvariables in the goal's
+  scope, which `Interactive::witness` reads from text, or
+  `Witness::Open`, a metavariable (`FoTerm::Meta`, written `$1`, `$2`,
+  …) that a later axiom binds by unification with the occurs check, or
+  `Interactive::close` by the search, and that never takes an
+  eigenvariable made after it; `undo` unbinds what its step bound. New
+  refusals `StepError::NoWitness`, `Witness` and `Eigenvariable`. The
+  goals, the derivation so far and its exports print every instance;
+  `proof` closes an open witness by a fresh constant and checks the
+  proof. The session's JSON (wire level 7) gains `instances`: its
+  members past the sequent's occurrences as `[occurrence, frame]`,
+  frames, terms (an open witness `{"M": k}`), the metavariables' levels,
+  the eigenvariables made and the `bindings` in the order made, all
+  replayed and checked when read. A cut in such a session is refused
+  (`Error::Quantifiers`). The command's `interact` takes the witness
+  after `∃R`/`∀L` (`apply G P RULE [TERM]`) and `close` searches such a
+  goal on one thread.
+- The classical two-sided view draws first-order derivations, with the
+  rules `ClassicalRule::{ForallLeft, ForallRight, ExistsLeft,
+  ExistsRight}` (`∀L`, `∀R`, `∃L`, `∃R`) and every instance written
+  out; `prove --classical-sides two` prints it, in every format.
 - `IllSequent`, a sequent of intuitionistic linear logic as written: its
   hypotheses in the order written and exactly one goal, every formula
   built from `⊗`, `⊸`, `&`, `⊕`, `!`, `1`, `⊤`, `0` and atoms. It is

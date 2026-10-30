@@ -790,6 +790,13 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   command needs only a sentence in `--engine`'s long help. The verdict
   line prints `Engine`'s `Display`; `--stats` prints the counters its
   `Engine::counters` lists, so the command needs nothing for them.
+- **`interact` with quantifiers**: `apply G P RULE [TERM]` takes the
+  words after an `∃` rule's name as its witness
+  (`Interactive::witness`), none leaving it open; `close` on a session
+  with binders calls `Interactive::close`, which writes the goal as a
+  sequent of its own (instances cannot go to `Goal::new`), not the
+  race of `searched`; the goal lines print members by
+  `Interactive::formula`, instances with their terms.
 - **An `interact` command**: an arm in `Session::command`, a line in
   `HELP`, and the session test in `cli/tests/cli.rs`, which pins the
   exact output of a scripted session.

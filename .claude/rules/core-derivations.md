@@ -567,6 +567,77 @@ code relies on:
   hypotheses first with `antecedents`, so the reading's choices are
   those of the session) and carries the proof back by the shift.
 
+## First-order sessions (`quantified.rs`, `witness.rs`, `handover.rs`)
+
+- **A session of a sequent with a binder has `fo: Some(Quantified)`**,
+  its own instance table: members past the forest as `(occurrence,
+  frame)`, frames as cons cells, closed terms, eigenvariables and
+  metavariables (`FoTerm::Meta`), each hash-consed (`members`, `frames`,
+  `terms`, the sequent's closed terms registered first), so that a step
+  done again names the same members and the replay's lookups find the
+  recorded ones. A member below the forest is a bare occurrence under no
+  binder; one under a binder only ever stands as its instance (the
+  reader refuses it bare). The propositional session has `fo: None` and
+  runs the code it ran before; `expand` checks occurrences for both,
+  and `framed_premises`/`mirror` make the member premises of a
+  first-order one.
+- **The table only grows**: `undo` leaves the step's entries behind,
+  unused, and takes back what the trail (`(step, Bound | Lowered)`)
+  records under the step's number (`history.len()` before it was
+  pushed). Eigenvariable numbers are never reused, so names stay put
+  across undo (`eigen_names` over every eigenvariable of the table).
+- **Levels are the eigenvariable condition, as in the engine**: a
+  metavariable's level is the eigenvariables made before it; a binding
+  refuses an eigenvariable at or above it that is no constant and
+  lowers the term's metavariables to it (trailed). A given witness is
+  held to the goal's scope instead (`scope`: the eigenvariables of the
+  `∀` steps on the path from the root, and the constants), which the
+  checker's condition demands of a witness: an eigenvariable of a
+  sibling branch is refused though it would be sound as a constant.
+- **`shown` is the table with bound metavariables replaced**, members
+  and frames keeping their numbers, made again after every change
+  (`Interactive::show`); the views, the size estimate and the proof
+  read it, never the raw table. `proof` replaces each open metavariable
+  `k` by the eigenvariable `eigens + k`, which no `∀` step introduces:
+  the checker's constant outside the signature.
+- **An open witness is written `$1`, `$2`, …** (`instances::meta_name`):
+  no reader takes a `$`, where `?1` read as the formula `?(1)`; LaTeX
+  escapes it, Typst writes it as a string.
+- **The axiom unifies** the two literals' terms (`Quantified::literal`
+  closes an atom's arguments under its frame into closed terms, made
+  where new), and the automatic axiom of the invertible steps closes
+  only equal instances (`same_atom`, which builds and binds nothing):
+  binding a witness is a choice. `∀` is invertible, `∃` is not.
+- **`close` writes the goal as a sequent of its own** (`handover.rs`):
+  one formula, the goal's formulas joined by `⅋` with the goal last
+  (the reading takes a right-nested `⅋`'s left operand as the input),
+  under a prefix that binds the open witnesses by `∃` and the
+  eigenvariables made after the first of them by `∀`, in the order
+  made; older eigenvariables and the constants are new constant
+  symbols. The search's proof opens the prefix and the spine first;
+  `carry_back` drops those steps, maps every other member to the
+  session's (an occurrence by its offset in its formula, the frame
+  extended by the proof's inner terms), maps the prefix's
+  eigenvariables to the session's and every other one to a fresh one
+  (a constant where no `∀` step introduces it), grafts the derivation
+  and binds the prefix's witnesses. The outcome is the search's on the
+  written sequent. The command's `close` calls `Interactive::close` for
+  such a session (no race), on one thread.
+- **The JSON's `instances`** are read by `Quantified::from_parts` (every
+  entry before its users, frames as long as their occurrence's binders,
+  no entry twice, function symbols of the right arity, levels at most
+  the eigenvariables made) and its bindings replayed through `bind` in
+  the order made; then every inference by `replay_framed` (an axiom's
+  literals equal instances, a binder's body under the principal's frame
+  pushed, the premises the `mirror` of the rule) and `replay_binders`
+  (each eigenvariable introduced once and no constant, each open
+  witness opened once, a given witness free of open witnesses and in
+  its scope). `a_session_proves_with_the_quantifier_rules` round-trips
+  a session before and after its axiom bound a witness.
+- **A cut is refused in a first-order session** (`Error::Quantifiers`,
+  "a cut in interactive proving"): it rebuilds the forest, which would
+  renumber the members past it.
+
 ## The invertible rules applied by themselves
 
 `proofs/interactive/invert.rs`: `Interactive::invert(goal, &limits)` and

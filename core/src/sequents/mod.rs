@@ -838,6 +838,7 @@ impl Sequent {
                 let term = match *term {
                     FoTerm::Bound(i) => FoTerm::Bound(i),
                     FoTerm::Eigen(a) => FoTerm::Eigen(a),
+                    FoTerm::Meta(k) => FoTerm::Meta(k),
                     FoTerm::App(f, args) => FoTerm::App(
                         symbols[f.index()],
                         join_list(&mut interner, tables, &terms, &mut lists, args),

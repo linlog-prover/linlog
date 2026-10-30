@@ -200,7 +200,7 @@ impl<'a> Framed<'a> {
             .zip(0..)
             .filter_map(|(t, n)| match *t {
                 FoTerm::Eigen(a) => Some((a, FoTermId::new(table.base_terms + n))),
-                FoTerm::Bound(_) | FoTerm::App(..) => None,
+                FoTerm::Bound(_) | FoTerm::App(..) | FoTerm::Meta(_) => None,
             })
             .collect();
         let depth = binders(forest);
@@ -370,7 +370,7 @@ impl Instancing for Framed<'_> {
             match terms.term(t) {
                 FoTerm::Eigen(a) => into.push(a),
                 FoTerm::App(_, args) => stack.extend_from_slice(terms.list(args)),
-                FoTerm::Bound(_) => {}
+                FoTerm::Bound(_) | FoTerm::Meta(_) => {}
             }
         }
         units

@@ -181,9 +181,11 @@ impl Interactive {
         limits: &Limits,
     ) -> Result<[GoalId; 2], Error> {
         let sequent = self.open(goal)?;
-        if formula.formula.fragment().has_quantifiers() {
+        // A cut rebuilds the forest, which would number a first-order
+        // session's instances anew.
+        if formula.formula.fragment().has_quantifiers() || self.fo.is_some() {
             return Err(Error::Quantifiers {
-                what: "interactive proving",
+                what: "a cut in interactive proving",
             });
         }
         if self.mode.is_ordered() {

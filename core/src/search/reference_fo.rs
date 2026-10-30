@@ -221,7 +221,9 @@ fn term(sequent: &Sequent, t: FoTermId) -> T {
                 .map(|&a| term(sequent, a))
                 .collect(),
         ),
-        FoTerm::Eigen(_) => unreachable!("a sequent's arena holds no eigenvariable"),
+        FoTerm::Eigen(_) | FoTerm::Meta(_) => {
+            unreachable!("a sequent's arena holds no eigenvariable or metavariable")
+        }
     }
 }
 

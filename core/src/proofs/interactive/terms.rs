@@ -6,7 +6,7 @@
 use super::Interactive;
 use crate::Error;
 use crate::limits::{Limits, Progress};
-use crate::occurrences::{Member, OccId};
+use crate::occurrences::Member;
 use crate::proofs::Rule;
 use crate::proofs::derivation::InfId;
 use crate::proofs::{Branch, Node, NodeId, Proof};
@@ -33,7 +33,8 @@ impl Interactive {
     }
 
     /// Translates the finished derivation into a proof term and checks it,
-    /// returning the proof. Fails while goals are open
+    /// returning the proof; a witness still open is a fresh constant, an
+    /// eigenvariable no `∀` step introduces. Fails while goals are open
     /// ([`Error::OpenGoals`]) or if the checker rejects the term
     /// ([`Error::Check`]), which it never does for a derivation built
     /// through this interface, or gives the check up within `limits` or
@@ -64,7 +65,12 @@ impl Interactive {
                 root = terms.push(Node::Quest(Member::from(r), root));
             }
         }
-        let proof = Proof::new(self.forest.clone(), terms.nodes, root)?.with_mode(self.mode);
+        let nodes = terms.nodes;
+        let proof = match &self.fo {
+            Some(q) => Proof::with_instances(self.forest.clone(), q.closed_table()?, nodes, root)?,
+            None => Proof::new(self.forest.clone(), nodes, root)?,
+        }
+        .with_mode(self.mode);
         proof.check_within(self.mode, limits, stop)?;
         Ok(proof)
     }
@@ -103,7 +109,7 @@ impl Terms<'_> {
             Visit(InfId),
             /// Put the `?` nodes of the `?` formulas among these, which
             /// the rule below introduced, on the term just built.
-            Quests([Option<OccId>; 2]),
+            Quests([Option<Member>; 2]),
             /// Put an inference's own node on the terms of its premises.
             Build(InfId),
         }
@@ -117,8 +123,8 @@ impl Terms<'_> {
                 Step::Quests(introduced) => {
                     let mut node = done.pop().expect("the premise's term");
                     for x in introduced.into_iter().flatten() {
-                        if f.kind(x) == Kind::Quest {
-                            node = self.push(Node::Quest(Member::from(x), node));
+                        if f.kind(state.occurrence(x)) == Kind::Quest {
+                            node = self.push(Node::Quest(x, node));
                         }
                     }
                     done.push(node);
@@ -133,14 +139,20 @@ impl Terms<'_> {
                     .principal
                     .expect("every rule but ax and mix has one")]
             };
-            let a = || f.left(o().occ()).expect("a connective with a subformula");
-            let b = || f.right(o().occ()).expect("a binary connective");
+            let principal = || state.occurrence(o());
+            // A subformula's member, under the principal formula's frame.
+            let a = || {
+                state.child(
+                    o(),
+                    f.left(principal()).expect("a connective with a subformula"),
+                )
+            };
+            let b = || state.child(o(), f.right(principal()).expect("a binary connective"));
             let rule = inference.rule.rule;
             if matches!(step, Step::Visit(_)) {
                 // What each premise's sequent gains from the rule.
-                let introduced: [[Option<OccId>; 2]; 2] = match rule {
-                    // A session holds no binder.
-                    Forall | Exists => unreachable!("no binder in a session"),
+                let introduced: [[Option<Member>; 2]; 2] = match rule {
+                    Forall | Exists => [[state.body(id), None], [None; 2]],
                     Ax | One | Top => {
                         #[expect(
                             clippy::wildcard_enum_match_arm,
@@ -168,7 +180,10 @@ impl Terms<'_> {
                     With | Tensor => [[Some(a()), None], [Some(b()), None]],
                     Cut => {
                         let a = inference.cut.expect("a cut names its formula").occ();
-                        [[Some(a), None], [f.dual(a), None]]
+                        [
+                            [Some(Member::from(a)), None],
+                            [f.dual(a).map(Member::from), None],
+                        ]
                     }
                     Open => unreachable!("no goal is open"),
                 };
@@ -181,14 +196,24 @@ impl Terms<'_> {
             }
             let mut premise = || done.pop().expect("a premise's term");
             let node = match rule {
-                // A session holds no binder.
-                Forall | Exists => unreachable!("no binder in a session"),
+                Forall => Node::Forall(
+                    o(),
+                    state
+                        .introduced(id)
+                        .expect("a ∀ step introduces an eigenvariable"),
+                    premise(),
+                ),
+                Exists => Node::Exists(
+                    o(),
+                    state.shown_witness(id).expect("an ∃ step has a witness"),
+                    premise(),
+                ),
                 Par => Node::Par(o(), premise()),
                 Bot => Node::Bot(o(), premise()),
                 PlusLeft => Node::Plus(o(), Branch::Left, premise()),
                 PlusRight => Node::Plus(o(), Branch::Right, premise()),
                 Promotion => Node::Bang(o(), premise()),
-                Dereliction => Node::Copy(Member::from(a()), premise()),
+                Dereliction => Node::Copy(a(), premise()),
                 AffineWeakening => Node::Weaken(o(), premise()),
                 With => {
                     let (r, l) = (premise(), premise());

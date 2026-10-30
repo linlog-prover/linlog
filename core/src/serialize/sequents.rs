@@ -207,6 +207,7 @@ impl Tables {
                     FoTerm::Bound(i) => FoExpression::Bound(i),
                     FoTerm::App(f, args) => FoExpression::App(f.get(), list(args)),
                     FoTerm::Eigen(a) => FoExpression::Eigen(a.get()),
+                    FoTerm::Meta(_) => unreachable!("a sequent's arena holds no metavariable"),
                 })
                 .collect(),
             atoms: Atoms::Mixed(

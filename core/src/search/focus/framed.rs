@@ -775,7 +775,9 @@ impl Zone for Framed {
                         args.iter().map(|a| depth[a.index()] + 1).max().unwrap_or(0),
                     )
                 }
-                FoTerm::Eigen(_) => unreachable!("a sequent's arena holds no eigenvariable"),
+                FoTerm::Eigen(_) | FoTerm::Meta(_) => {
+                    unreachable!("a sequent's arena holds no eigenvariable or metavariable")
+                }
             };
         }
         // A forest has fewer than 2³² occurrences and a sequent fewer

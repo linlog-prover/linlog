@@ -360,6 +360,10 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   A member below the forest's length is the occurrence with no frame,
   which only an occurrence under no binder can be: one under a binder
   named bare is `Fault::Instance`, the term's fault, not the table's.
+- **A proof's table holds no metavariable** (`FoTerm::Meta`, a
+  session's open witness): `canonical` refuses one as malformed, so the
+  checker's and the numbering's arms for it are unreachable; a session
+  closes its open witnesses into constants before it makes a proof.
 - **The canonicalization walks a term with a stack of its own**
   (`Canonical::term`, arguments first): the focused engine's closed
   proofs hand it witnesses nested as deep as their bindings go, and a

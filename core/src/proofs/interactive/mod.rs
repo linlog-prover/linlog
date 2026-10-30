@@ -25,15 +25,20 @@
 
 mod cut;
 mod expand;
+mod handover;
 mod invert;
+mod quantified;
 #[cfg(feature = "serialize")]
 mod replay;
 mod terms;
+mod witness;
 
 pub use cut::CutFormula;
 #[cfg(all(test, feature = "parse"))]
 pub(crate) use cut::with_cuts;
 pub use invert::{Inverted, Options};
+#[cfg(feature = "serialize")]
+pub(crate) use quantified::{PartTerm, Parts};
 
 use crate::Error;
 use crate::fragment::Mode;
@@ -43,7 +48,8 @@ use crate::proofs::derivation::{Derivation, InfId, Inference, ViewOptions};
 use crate::proofs::size::Size;
 use crate::proofs::{Named, Rule};
 use crate::search::Outcome;
-use crate::sequents::Sequent;
+use crate::sequents::{Eigen, Sequent, Symbol};
+use quantified::Quantified;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Why a rule does not apply to a goal as asked. Positions are those in the
@@ -157,6 +163,29 @@ pub enum StepError {
     /// In the Lambek calculus without empty antecedents, a premise would
     /// have no formula left of `⊢`, which no proof of the calculus has.
     EmptyAntecedent,
+    /// A witness was given to a rule that takes none: only `∃R` and `∀L`
+    /// (`∃` one-sided) take one.
+    #[non_exhaustive]
+    NoWitness {
+        /// The rule asked for.
+        rule: Named,
+    },
+    /// The witness is no closed term of the sequent's function symbols and
+    /// the session's eigenvariables.
+    #[non_exhaustive]
+    Witness {
+        /// What is wrong with it.
+        reason: String,
+    },
+    /// The eigenvariable condition: the step would put an eigenvariable
+    /// where its `∀` step does not reach, into a witness of a goal that
+    /// no `∀` step below introduced it to, or into an open witness made
+    /// before it.
+    #[non_exhaustive]
+    Eigenvariable {
+        /// The eigenvariable, as the session writes it.
+        name: String,
+    },
 }
 
 impl Display for StepError {
@@ -208,6 +237,13 @@ impl Display for StepError {
             StepError::EmptyAntecedent => f.write_str(
                 "a premise would have no formula left of ⊢, which the Lambek calculus without \
                  empty antecedents forbids",
+            ),
+            StepError::NoWitness { rule } => write!(f, "the rule {rule} takes no witness"),
+            StepError::Witness { reason } => write!(f, "the witness is no term here: {reason}"),
+            StepError::Eigenvariable { name } => write!(
+                f,
+                "the eigenvariable {name} cannot stand there: no ∀ step below this goal \
+                 introduced it, or it is younger than the open witness it would fill"
             ),
             StepError::Exchange { position } => write!(
                 f,
@@ -273,17 +309,26 @@ pub struct Step {
     pub rule: Named,
     /// How the context is split between two premises.
     pub split: Split,
+    /// The witness of an `∃R` or `∀L` step, open unless given.
+    pub witness: Witness,
 }
 
 impl Step {
     /// Returns the step of `rule` on the formula at `position`, without a
-    /// split.
+    /// split, its witness open.
     pub fn new(position: usize, rule: impl Into<Named>) -> Self {
         Self {
             position,
             rule: rule.into(),
             split: Split::None,
+            witness: Witness::Open,
         }
+    }
+
+    /// Returns the step with the witness given, for `∃R` or `∀L`.
+    #[must_use]
+    pub fn with_witness(self, witness: Witness) -> Self {
+        Self { witness, ..self }
     }
 
     /// Returns the step with the formulas at `positions` sent to the left
@@ -355,6 +400,38 @@ pub enum Split {
     },
 }
 
+/// The witness an `∃R` or `∀L` step puts for the bound variable: open,
+/// a metavariable that a later axiom or [`Interactive::close`] binds, or a
+/// closed term given.
+///
+/// Needs the cargo feature `interactive` (on by default).
+#[non_exhaustive]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Witness {
+    /// Left open, as a metavariable that may name only the eigenvariables
+    /// made before it.
+    #[default]
+    Open,
+    /// A closed term, flat: each node a function symbol of the sequent
+    /// applied to nodes before it, or an eigenvariable the goal is in the
+    /// scope of; the last node is the term. [`Interactive::witness`]
+    /// reads one from text.
+    Term(Vec<TermNode>),
+}
+
+/// A node of a witness term given flat ([`Witness::Term`]).
+///
+/// Needs the cargo feature `interactive` (on by default).
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TermNode {
+    /// A function symbol of the sequent applied to earlier nodes, by
+    /// their index in the list, as many as its arity; a constant to none.
+    App(Symbol, Vec<u32>),
+    /// An eigenvariable of the session.
+    Eigen(Eigen),
+}
+
 /// A rule that can act on a formula of a goal, and what a step of it needs
 /// beyond the formula's position.
 ///
@@ -394,6 +471,9 @@ pub enum Needs {
     Nothing,
     /// A split of the context between the two premises: `⊗` and Mix.
     Split,
+    /// A witness for the bound variable, or none for one left open:
+    /// `∃R` and `∀L`.
+    Witness,
 }
 
 /// A proof in progress: the forest of a sequent, the mode, the inferences
@@ -462,6 +542,9 @@ pub struct Interactive {
     inferences: Vec<Inference>,
     /// The goals closed so far, in order, for undo.
     history: Vec<InfId>,
+    /// For a sequent with quantifiers, the instances, eigenvariables and
+    /// open witnesses of the steps.
+    fo: Option<Box<Quantified>>,
 }
 
 impl Interactive {
@@ -492,11 +575,6 @@ impl Interactive {
     ///
     /// As [`new`](Self::new) does, the bound being `limits.occurrences`.
     pub fn within(sequent: &Sequent, mode: Mode, limits: &Limits) -> Result<Self, Error> {
-        if sequent.fragment().has_quantifiers() {
-            return Err(Error::Quantifiers {
-                what: "interactive proving",
-            });
-        }
         if !sequent.cuts().is_empty() {
             let mut conclusion = sequent.clone();
             while !conclusion.cuts().is_empty() {
@@ -511,11 +589,6 @@ impl Interactive {
     /// Starts a proof over a forest built already.
     fn from_forest(forest: Forest, mode: Mode) -> Result<Self, Error> {
         mode.check()?;
-        if forest.has_binders() {
-            return Err(Error::Quantifiers {
-                what: "interactive proving",
-            });
-        }
         let fragment = forest.sequent().fragment();
         if mode.is_ordered() && !crate::Fragment::MLL.contains(fragment) {
             return Err(Error::OrderedFragment { fragment, mode });
@@ -535,6 +608,9 @@ impl Interactive {
             cut: None,
             node: None,
         };
+        let fo = forest
+            .has_binders()
+            .then(|| Box::new(Quantified::new(&forest)));
         Ok(Self {
             forest,
             mode,
@@ -542,6 +618,7 @@ impl Interactive {
             writing: None,
             inferences: vec![root],
             history: vec![],
+            fo,
         })
     }
 
@@ -603,16 +680,45 @@ impl Interactive {
         &self.forest
     }
 
-    /// Returns the occurrence a member of the session stands for.
+    /// Returns the occurrence a member of the session stands for: itself
+    /// below the forest's length, an instance's occurrence past it.
     pub fn occurrence(&self, member: Member) -> OccId {
-        member.occ()
+        match &self.fo {
+            Some(fo) => fo.instance(member).0,
+            None => member.occ(),
+        }
     }
 
     /// Returns the formula a member of the session stands for: in an
     /// intuitionistic mode as the session's reading writes it, two-sided
     /// (`A ⊸ B` for a hypothesis the one-sided sequent holds as `A ⊗
-    /// ~B`), else as the one-sided sequent writes it.
+    /// ~B`), else as the one-sided sequent writes it; an instance with
+    /// its frame's terms for its bound variables, an eigenvariable by its
+    /// letter and an open witness as `$1`, `$2`, ….
+    ///
+    /// # Panics
+    ///
+    /// For a member past the forest that the session does not number,
+    /// which no goal of it holds.
     pub fn formula(&self, member: Member) -> impl Display + '_ {
+        if let Some(fo) = &self.fo
+            && member.index() >= self.forest.len()
+        {
+            let framing =
+                crate::occurrences::instances::Framing::new(&self.forest.sequent().fo, &fo.shown);
+            let mut text = String::new();
+            crate::sequents::notation::TEXT
+                .instance(
+                    &mut text,
+                    &self.forest,
+                    self.reading().as_ref(),
+                    &framing,
+                    member,
+                    None,
+                )
+                .expect("writing into a string cannot fail");
+            return text;
+        }
         match self.reading() {
             Some(reading) => reading.formula(member.occ()).to_string(),
             None => self.forest.formula(member.occ()).to_string(),
@@ -688,6 +794,13 @@ impl Interactive {
         &self.history
     }
 
+    /// Returns the written form of the first-order part, for a sequent
+    /// with quantifiers.
+    #[cfg(feature = "serialize")]
+    pub(crate) fn parts(&self) -> Option<Parts> {
+        self.fo.as_ref().map(|q| q.parts(&self.forest))
+    }
+
     /// Returns the derivation so far, with the open goals as leaves of
     /// [`Rule::Open`], two-sided in intuitionistic mode; its inferences are
     /// renumbered premises before conclusions, so its ids are not this
@@ -720,10 +833,11 @@ impl Interactive {
         let _ = view;
         // What the derivation holds, by the size estimate's measure: its
         // inferences and the characters of their sequents.
-        let weights = super::size::weights(&self.forest);
+        let weights =
+            super::size::Weights::of_members(&self.forest, self.fo.as_ref().map(|q| &q.shown));
         let estimate = self.inferences.iter().fold(0u64, |sum, inference| {
             let characters = inference.sequent.iter().fold(0u64, |sum, m| {
-                sum.saturating_add(u64::from(weights[m.index()]))
+                sum.saturating_add(u64::from(weights.get(*m)))
             });
             sum.saturating_add(Size::BYTES_PER_INFERENCE)
                 .saturating_add(characters.saturating_mul(Size::BYTES_PER_CHARACTER))
@@ -765,12 +879,12 @@ impl Interactive {
                 }
             })
             .collect();
-        Ok(Derivation::from_parts(
-            &self.forest,
-            self.reading(),
-            inferences,
-            self.mode,
-        ))
+        let derivation =
+            Derivation::from_parts(&self.forest, self.reading(), inferences, self.mode);
+        Ok(match &self.fo {
+            Some(q) => derivation.with_framing(&q.shown),
+            None => derivation,
+        })
     }
 
     /// Returns, for every inference of [`derivation`](Self::derivation) by
