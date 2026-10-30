@@ -1239,3 +1239,485 @@ zone and 42b's canonicalization only (the forced chain's undo is behind
 - **The witness depth is per binding**: a proof may hold a deeper
   witness built by several bindings, as `Options::witness_depth` says;
   the panel measured the chain family needing exactly `n − 1`.
+
+## Session 42e: the two-sided engine, interactive proving and the views
+
+Opus 5.5 at `high`, unattended, 2026-10-30, in the jj workspace
+`../linlog-step42e` on `wqqxusyk` (linlog's `main`), with two
+sub-agents in workspaces of their own (`../linlog-step42e-classical`,
+`../linlog-step42e-reference`) whose commits were rebased into the
+session's chain and gated there.
+
+### Outcome
+
+The two-sided focused engine decides first-order sequents in the
+intuitionistic modes, affine included: the dispatch's intuitionistic
+rows and `TwoSided`'s `admits` take `LL1`, and the `Framed` zone runs
+under the intuitionistic reading unchanged, since the reading is read
+per occurrence and `⊸L`'s goal placement compares occurrences. Every
+proof it returns passes the checker; a two-sided first-order reference
+prover agrees with it (no disagreement in 6 000 generated decisions).
+Interactive proving takes quantifiers: `∀R` and `∃L` open a formula
+with a fresh eigenvariable, `∃R` and `∀L` with a witness given as a
+term or left open as a metavariable (`$1`, `$2`, …) that a later axiom
+binds by unification or `close` by the search; `undo` unbinds what its
+step bound; the session's JSON keeps its instances and bindings and
+reads back as itself; the command's `interact` takes a witness after
+the rule's name. The classical two-sided view draws first-order
+derivations with `∀L`, `∀R`, `∃L`, `∃R`; the intuitionistic two-sided
+view and the LaTeX, Typst and SVG exports printed instances already
+(42b), and print a session's open witnesses too. The propositional
+case pays nothing: both target sets equal their oracles on every
+decided row, the ratchet is within every ceiling with none raised.
+The panel found faults in the interactive code
+(none in the engine's verdicts or the checker): `close` on ground and
+empty goals, unbounded terms and tables, exponential and quadratic walks,
+forged documents accepted, a stop not polled under `--instances 1`, a
+graft that did not read back; all held, all fixed and pinned, and a
+fresh-context reviewer read the fixes. The pinned time waits for the
+author's yes (below).
+
+### What was built
+
+- **The two-sided engine at first order** (`uplrqror`): `Focused::admits`
+  takes `Fragment::LL1` one- and two-sided, the two intuitionistic rows
+  of `search::DISPATCH` take `LL1` (their documented fragment `any,
+  quantifiers too`); the exponential row's turn of the inverse method is
+  refused by the inverse method's fragment, so a first-order goal takes
+  none. Nothing in the engine changed: `Focused::decide` already chose
+  `Framed` by the quantifier bit, the reading is per occurrence
+  (`Reading::position`, `Reading::implication` take occurrences, and a
+  span member's occurrence is its body's), and `open_split` places the
+  goal of a `⊸L` by comparing occurrences. Test:
+  `the_two_sided_engine_decides_first_order_sequents` (thirteen
+  sequents, linear and affine, every proof checked).
+- **The two-sided first-order reference** (`loltzmnn`, the sub-agent
+  `linlog-step42e-reference`): `reference_fo::intuitionistic`, ILL1 by its
+  own two-sided rules (the invertible ones applied first, each justified
+  in a comment by the inversion lemma), unknowns bound by unification
+  with the occurs check, the eigenvariable condition by freshness on the
+  closed derivation, contraction of `!` hypotheses bounded per branch
+  and "unprovable" only where the bound was never hit; a generator of
+  random two-sided first-order sequents (trees for the reference, text
+  for the engine, never read back into the reference);
+  `decides_the_intuitionistic_textbook_cases` (23 cases) and
+  `the_two_sided_engine_agrees` (400 decisions, dispatch and forced).
+  Twelve deliberate faults put into a scratch copy, one at a time: eleven
+  failed a test at once, the `!R` side condition after two cases were
+  added for it, the twelfth (no undo after a failed axiom) has no
+  observable effect. A scratch run of 3 000 sequents in two modes (6 000
+  decisions, 1 408 sequents with a quantifier): no disagreement, every
+  engine proof checked.
+- **The classical two-sided view at first order** (`mywnluvl`, the
+  sub-agent `linlog-step42e-classical`): `ClassicalRule::{ForallLeft,
+  ForallRight, ExistsLeft, ExistsRight}` (`Rule::Forall` on the input
+  side is `∃L`, on the output side `∀R`; `Rule::Exists` `∀L` or `∃R`),
+  `exposed` giving a binder's body, the exposed member found under the
+  principal's frame (a binder's body under the frame pushed), the
+  record read through `Derivation::occurrence`, the counting pass on
+  `Weights::of_members`, an instance written through the derivation's
+  framing (`Notation::classical` takes members); the label tables of
+  every target. Tests: `a_first_order_view_reads_as_its_term` (eight
+  sequents, every rule and negation steps), `rules_are_labelled_in_declaration_order`,
+  a pinned tree, and the snapshots `first_order_classical.{tex,typ,svg}`.
+- **Interactive proving with quantifiers** (`knnknqqs`,
+  `core/src/proofs/interactive/`): `quantified.rs`, a session's own
+  instance table (members, frames, closed terms and eigenvariables
+  hash-consed; metavariables as `FoTerm::Meta`), levels and the trail by
+  step number, unification with the occurs check, the shown table (bound
+  metavariables replaced) that the views and the proof read;
+  `witness.rs`, the witness read from text (`Interactive::witness`) and
+  built from `TermNode`s, held to the goal's scope; `expand.rs`, the four
+  rules in `apply`, the axiom by unification, member premises
+  (`framed_premises`, `mirror`), `undo` unbinding; `invert.rs`, `∀`
+  invertible and the automatic axiom closing only equal instances;
+  `terms.rs`, `Node::Forall` and `Node::Exists` in the session's proof,
+  open witnesses closed by fresh constants; `replay.rs` and
+  `serialize/interactive.rs`, the session's JSON with `instances`;
+  `handover.rs`, `close` on a first-order goal. The command's `interact`
+  takes `apply G P RULE [TERM]`, lists `∀L (with a witness or none)`,
+  prints goals with their instances, and closes such a goal through
+  `Interactive::close`. Tests (`core/tests/first_order.rs`):
+  `a_session_proves_with_the_quantifier_rules`,
+  `a_session_keeps_the_eigenvariable_condition`,
+  `the_search_closes_a_session_goal`,
+  `a_session_holds_deep_witnesses_and_bounds_its_table` (`olorpnkz`), and
+  the refusals of `a_session_refuses_a_quantifier_on_every_path`.
+- **The pinned rows** (`yutzwtzr`, `bench/pinned-time.py`): every focused
+  and two-sided row runs about a second or more, as the plan's D17 now
+  asks: the four search journeys repeated (`journey NAME --repeat N`,
+  their measured parts summed: `search-qbf-20-2` ×36,
+  `search-chain-128` ×30, `search-partition-no-5` ×2 400,
+  `search-chain-64-intuitionistic` ×200, each about 1.0 to 1.2 s on
+  core 2), `chain/512` (3.0 s, against `chain/256`'s 0.27 s),
+  `qbf/34#1` (1.5 s, against `qbf/24#1`'s 0.11 s), `mix/9` forced onto
+  the focused engine (5.9 s), `chain/384` and `chain/512` two-sided
+  forced (1.15 s and 2.3 s, against `chain/256`'s 0.27 s). `growing` has
+  no row (its size is a copy bound, and its search takes 0.14 s at 2 048,
+  4 096 and 16 384 alike) and `mix/8` (0.69 s) none, `mix/9` covering the
+  family. The sizes were chosen from one run each on core 2 while the
+  learning website's session loaded the machine (load 25 to 28): CPU
+  times good to some tens of percent, enough to choose a size.
+
+### Decisions, and where they depart from the design
+
+- **`close` writes a first-order goal as a sequent of its own**
+  (`handover.rs`) (departs from the design: 42d's note had the session's
+  open witness "a metavariable of a session's own zone" and `close`
+  handing the goal to `search_goal` with `Framed`). The engine's zone
+  starts from the sequent's roots and builds no term, while a session's
+  goal holds instances whose frames hold terms the sequent's arena lacks
+  (`f(a)` over an eigenvariable). So the goal becomes one formula: its
+  formulas joined by `⅋` (the hypotheses first, so that the reading
+  takes each as an implication's antecedent), under a prefix that binds
+  the open witnesses by `∃` and the eigenvariables made after the first
+  of them by `∀` in the order made, so that the search's eigenvariable
+  condition is the session's levels; older eigenvariables and constants
+  are constant symbols named as the session writes them. The search's
+  proof opens that prefix and splits that spine first; its derivation is
+  carried back with those steps dropped, every member mapped by its
+  offset and frame, the prefix's eigenvariables the session's, every
+  other eigenvariable fresh (a constant where no `∀` step introduces
+  it), and the prefix's witnesses bound. Nothing in the engine changed.
+  The outcome `close` returns is the search's on that sequent.
+- **The library reads a witness's text** (`Interactive::witness`)
+  (departs from the design: `api.md` 10.10 (i) left the text to the
+  front end, "since `interactive` has no parser"): a closed term is
+  names, brackets and commas, so a reader of a dozen lines needs no
+  `parse` feature, and the command and the web page (42k) read alike,
+  with the session's eigenvariable names. `Witness::Term` takes the flat
+  `TermNode` list the design named.
+- **`undo` truncates to its step's mark**, as 42a's note asked of the
+  instance table: every step that makes entries records where the
+  table, the metavariables, the eigenvariables and the constants stood,
+  and its undo goes back there (the panel's fix: the first build left
+  undone entries behind, which made the table unbounded under apply/undo
+  cycles and kept `close`'s constants past its undo). The marks are no
+  part of the JSON (departs from the design, which named no such key): a
+  session read back undoes its earlier steps without truncating, their
+  entries left unused; the steps after the read truncate.
+- **A given witness is held to its goal's scope**: the eigenvariables of
+  the `∀` steps on the path from the root, and the constants. An
+  eigenvariable of a sibling branch is refused, though it would be sound
+  as a constant there: the checker demands every occurrence of an
+  eigenvariable inside its `∀` step's subtree. An open witness is held
+  by levels, as in the engine.
+- **A cut is refused in a first-order session** (departs from the plan's
+  decision 7, "`Interactive::cut` types it as written", which no session
+  built): the cut rebuilds the session's forest, and a first-order
+  session's members past the forest would be numbered anew.
+  `Error::Quantifiers` with "a cut in interactive proving".
+- **An open witness is written `$1`, `$2`, …** (the plan named no form;
+  the supervisor asked for one no reader takes as a formula): `?1` reads
+  as the formula `?(1)`; no reader of either surface takes a `$`
+  (pinned in `a_session_proves_with_the_quantifier_rules`), nor is it a
+  name renamed apart (`x_1`). One function (`instances::meta_name`) names
+  it for every printer; LaTeX escapes it, Typst writes it as a string.
+- **`FoTerm::Meta(u32)`** is added now (the plan gave it to 42d, which
+  needed none): a session's derivation shows open witnesses, through the
+  same framing as a proof's. A proof's table refuses one
+  (`instances::canonical`); a session's proof closes them first.
+- **The command's goal lines** print a member's instance, and their
+  separator follows the first formula printed on each side: a goal whose
+  first hypothesis stood at position 1 printed `goal 2:, 1: !a` before,
+  which README showed; it prints `goal 2: 1: !a` now. A pre-existing
+  fault, fixed because every first-order goal with an instance after a
+  bare occurrence met it.
+- **`close` on a first-order session runs on one thread** in the command
+  (no race of `searched`), as the first-order engine does.
+
+### The closed enums' new variants (for step 45)
+
+`FoTerm::Meta` (`FoTerm` is exhaustive: 0.2.0's break). New variants of
+non-exhaustive enums: `StepError::{NoWitness, Witness, Eigenvariable}`,
+`Needs::Witness`, `ClassicalRule::{ForallLeft, ForallRight, ExistsLeft,
+ExistsRight}`. Additions: the types `Witness` and `TermNode`
+(`proofs::interactive`), the field `Step::witness` (`Step` is
+non-exhaustive), `Step::with_witness`, `Interactive::witness`.
+
+### The propositional case (D17)
+
+- **Target sets**, at `olorpnkz` (before the panel) and again at
+  `vpxwqwsr` (the last commit that touches the search; the one code
+  commit after it, `trrlqvvm`, changes interactive proving and the
+  command only), the files committed:
+  `bench/targets/42e.csv` against
+  `bench/targets/42d.csv` and `bench/targets/net-42e.csv` against
+  `bench/targets/net-42d.csv` (`linlog-bench summary --against …
+  --counters`): no verdict differs; of the 145 focused and 64 net rows
+  both decide alike, none differs in `nodes`, `splits`, `memo_hits`,
+  `memo_entries`, `links` or `tests`.
+- **The ratchet** (every gate, none raised): within every ceiling.
+  `derivation-chain-64`, the journey with no margin, counted +1.98 % of
+  its ceiling at the engine's commit (the base's +1.98 %), +1.93 % at the
+  classical view's, +1.97 % at the interactive commit's; `render-svg`
+  +0.89 %, `check-qbf-20-2` +0.61 %, `search-chain-128` −0.21 %, as at the
+  base. The derivation view's and the exports' propositional paths gained
+  only the classical view's member-aware writer, whose count moved
+  `derivation-chain-64` by −0.05 %.
+
+### The panel's findings and answers
+
+On the frozen tree `olorpnkz` (the workspace `../linlog-step42e-panel`),
+each member in a fresh context with its own scratch directory: the
+argument on Fable 5.1 at `high` (cores 4 and 5), the counterexamples on
+Opus 5.5 at `high` (6 to 9), the integers and limits on Sonnet 5.5 at
+`high` (10 and 11). Every finding was reproduced before it was answered,
+and every one below held; the fixes are the commits `vrlsyrnp` ("Fix what
+the panel found in first-order sessions") and `vpxwqwsr` ("Fix what the
+panel's counterexamples found"), each gated, every witness rerun against
+them.
+
+- **`close` on a goal without a binder or an open witness failed with
+  `GoalMismatch`** (all three members; the counterexamples' fuzz met it
+  about 2 800 times, the argument's 2 583 of 9 280 closes): the written
+  sequent of such a goal has no binder, so its proof has no instance
+  table, and `carry_back` required one. Fixed: an empty table stands in.
+  Reproduced with `forall x. p(x) |- p(c)` after `∀L c`, and classically
+  with `|- exists x. ~p(x), p(c)`; both now proved and checked.
+- **`close` on the empty goal of a classical mode panicked** (argument,
+  counterexamples): `|- (exists x. p(x)) * bot` after `⊗` and `⊥`.
+  Fixed: the written sequent has no formula, and the search refutes it
+  by the count equation, as the propositional `close` does.
+- **`undo` of a `close` kept the constants it made** (argument,
+  counterexamples) and, more broadly, **a session's table grew without
+  bound and each step cost the whole table** (integers: 20 000 apply/undo
+  cycles 47 s, quadratic). Fixed at the cause: every step records a mark
+  and its undo truncates to it (above, departs from my first design);
+  the cycles now take 0.13 s in a debug build, and
+  `undo_drops_what_its_step_made` pins three closes undone reading as
+  before.
+- **Terms of shared halves unfolded without bound** (integers): a 1 KB
+  session file whose frame term doubles 24 to 60 times made `goals`
+  print gigabytes and `close` run out of memory past `--timeout`, and
+  the same through a `TermNode` list. Fixed: every term of a session
+  unfolds to at most `limits.terms` (`Quantified::limit`, counted by
+  `show` over the shown table), checked at every step, at `close`'s graft
+  and at reading; the files are now refused at once ("unfold to at least
+  67108863 terms, more than the limit of 50000000; raise it with
+  --term-limit"); `a_session_refuses_what_no_step_could_make` pins a
+  witness of 2⁴⁰.
+- **Unification and the instance comparison were exponential on shared
+  terms** (integers: two 28-deep DAGs 3.6 s and doubling). Fixed: both
+  skip a pair met before, and the comparison reads the shown table.
+- **Reading was quadratic** in a chain of bindings (80 000: 11.9 s) and
+  in `∃` steps (100 000: 38 s) (integers). Fixed: a binding's term may not
+  be a bound metavariable at its top (no step makes one), and scopes are
+  read by intervals of one walk of the tree; the chain is refused at
+  once, the 100 000 steps load in 1.4 s.
+- **A forged binding step and a forged metavariable level were accepted**
+  (integers; the level also counterexamples): the first made `undo` give
+  a state no session reaches, the second let an axiom bind an
+  eigenvariable the condition forbids (the checker still refused the
+  proof). Fixed: a binding must be made by a step that closes a goal (an
+  axiom, `1`, `⊤`, or a graft), and an open witness's level may admit no
+  eigenvariable a `∀` step made at its step or later; both forgeries are
+  refused and pinned.
+- **An exhausted eigenvariable counter made `close` report
+  `GoalMismatch`** (integers, low). Fixed: a refusal (`index_limit`). Its
+  note that `∀R` at the exhausted counter says "the witness is no term
+  here" is left: a live session truncates its eigenvariables on undo, so
+  only a document claiming 2³² of them reaches it.
+- **`--instances 1` ignored the time and work limits** (counterexamples):
+  each copy level was cut at once by the instances bound and reached no
+  stable sequent, the only place the stop was polled, so the deepening
+  ran past a million levels a second (in the one-sided engine since 42d;
+  the two-sided path reaches it now). Fixed: each level of a first-order
+  search is work and polls (behind `Z::FIRST_ORDER`, so `Ground` is
+  unchanged); now "the time limit of 1s was reached at a copy bound of
+  3084287", and `the_first_order_bounds_stop_the_search` pins the work
+  bound in both modes.
+- **A session `close` had grafted did not read back** (counterexamples, 3
+  in its fuzz): `!0, (!0 -o ((forall x. r(x, x)) -o (p(b) * q))) |- …`.
+  The graft unfolded the search's proof one-sided (`Derivation::new`),
+  whose structural steps the reader's one-succedent check refused.
+  Fixed: the graft is `Derivation::of_goal` of the written sequent's
+  root, two-sided as the propositional `close` grafts; the file now reads
+  back and its proof checks.
+- **A text-started session failed its own `load`** (counterexamples,
+  lesser): a parsed and a JSON-read first-order sequent are unequal by
+  `==` (their argument lists numbered apart, 42b's follow-up), and
+  `interact`'s `load` compared them so. Fixed there: `load` compares
+  their JSON forms; the `==` itself stays a follow-up.
+- **Observation, no finding** (argument): `close` binds an open witness
+  its goal leaves unconstrained, so a witness shared with a sibling goal
+  may be committed so that the sibling becomes unprovable; as designed,
+  recoverable by `undo`.
+
+What held, by the members' counts: the argument derived the two-sided
+zone's invariants (one output per sequent consumed only by a leaf, the
+goal of `⊸L` fixed on the consequent's side on the free and the forced
+splits, the levels and the trail unchanged by the reading) and the
+session's condition from the code, and ran 3 360 engine cases against
+the reference (no contradiction) and 19 000 random session walks
+(242 000 steps, 166 000 undos, 9 760 closes; every one of 38 239
+finished proofs accepted). The counterexamples ran 823 200 engine runs
+over 39 200 cases under many option sets and a second reference of its
+own (`ref2.py`, ground witnesses) on 2 300 sequents × 2 modes × 13 flag
+sets: no contradiction, 33 661 proofs re-checked by `linlog check`; and
+30 771 fuzzed sessions (300 000 steps applied, 486 000 JSON round trips,
+145 000 axioms judged by its own unifier, 24 900 witnesses by its own
+scope; 11 000 finished proofs checked, 21 000 `close` goals against its
+reference). The integers drove every counter and id of the session and
+its JSON to its limit (4 700 mutated documents, no panic or overflow),
+the eigenvariable and metavariable numbers at `u32::MAX`, deep terms of
+10⁵ to 10⁶ levels through every walk (no stack overflow), and `close`
+against the time limit and the interrupt (stopped on time).
+
+### The fix review
+
+The panel had read the tree before its fixes, so a fresh-context
+reviewer (`linlog-step42e-fixreview`, Opus 5.5 at `high`, cores 4 to 11)
+read the fix round, `vrlsyrnp` and `vpxwqwsr`, on a workspace at
+`vpxwqwsr`, against the panel's findings and the eigenvariable condition
+with open witnesses, and reran the counterexamples member's generators
+and session fuzzer at its seeds and sizes on that tree, the supervisor's
+request. **No correctness break.** It found each fix at its finding's
+cause; truncation on undo safe (ids only grow, undo is last in first out
+with the trail popped first, the maps keep exactly the ids below the
+mark, a step failing midway goes back to its own mark, a session read
+back has no marks for its old steps); the reader's new checks accepting
+what sessions make (a single-rule graft rooted at `0L` binding a fresh
+constant reads back and checks); the per-level poll changing no verdict
+(the CLI driver's summaries byte for byte the member's, `--instances 1`
+included). Its reruns: 30 771 fuzzed sessions at the member's seeds (and
+the same again replacing the session by its read-back JSON at random,
+74 266 reloads), about 1.4 million steps tried, 297 560 applied, 11 406
+finished proofs checked in process and 9 000 through `linlog check`, all
+valid, 487 049 round trips and 163 000 whole-JSON comparisons after
+`undo` with no mismatch, 21 315 intuitionistic closes against the
+member's second reference without a contradiction, the 2 764
+`GoalMismatch` closes and 3 failed reads of the member's runs now none,
+21 491 empty goals closed without a panic; the widened two-sided
+comparison 42 160 cases, 885 360 runs, its tallies identical to the
+member's.
+
+One lesser finding, held and fixed (`trrlqvvm`, "Hold a session to its
+term limit as its reader does"): `interact` started a session by
+`Interactive::new`, ignoring `--term-limit`, and the reader counted the
+table's entries against the limit where the live session counted only
+its terms' unfolded sizes, so under `--term-limit 4` a session's own file
+was refused. Now `interact` starts it by `Interactive::within` with the
+command's limits, and the live session counts its entries beside its
+terms (`Quantified::largest`), one measure for both; pinned in
+`a_session_refuses_what_no_step_could_make`. Its witness (`|- exists x.
+p(x), ~p(a), q(g(b))`, `--term-limit 4`) refuses the deep witness at
+once, and a session within the limit reads back under it.
+
+### The pinned time: pending
+
+The rows of `bench/pinned-time.py` were changed first (above) so that
+every focused and two-sided row runs about a second or more. The rule,
+set before any run and sent to the supervisor with the request:
+the propositional engine pays nothing when the focused rows summed take
+at most 3 % more CPU time than the base's and no focused row's median is
+more than 5 % above the base's, a row above 5 % looked at with the
+journeys' instruction counts first (42c's and 42d's rule). The run waits
+for the author's yes through the supervisor, which had not come when
+everything else was done; nothing timed was run. Its command, from
+`../linlog-step42e`, after building `linlog-bench` in release at
+`wqqxusyk` (base) and at the session's last code commit `trrlqvvm` (lift)
+into `target/pinned/base/` and `target/pinned/lift/`, under the machine
+lock, the other sessions told to keep off cores 2 and 3:
+
+```sh
+systemd-run --user --unit=linlog-step42e-pinned --collect --same-dir \
+  -p MemoryMax=8G -p MemorySwapMax=0 --setenv=PATH="$PATH" \
+  flock /tmp/linlog-machine.lock python3 bench/pinned-time.py run \
+  target/pinned/base/linlog-bench target/pinned/lift/linlog-bench \
+  bench/targets/pinned-42e.runs.csv
+python3 bench/pinned-time.py summary bench/targets/pinned-42e.runs.csv bench/targets/pinned-42e.csv
+```
+
+Cores 2 and 3, five runs per row, about 4 to 5 minutes. What the counts
+say meanwhile: the ratchet's propositional journeys are where the base
+had them at every gate, and the only search change of the session past
+the dispatch (a poll per copy level) is behind `Z::FIRST_ORDER`, which
+`Ground` compiles away.
+
+### What is not verified
+
+- No problem library is first-order and intuitionistic: the evidence for
+  the two-sided engine is the generated sequents against the two-sided
+  reference, the committed tests and the panel's runs.
+- `close` on a first-order goal answers what the search answers on the
+  written sequent; where a goal's open witness is shared with other
+  goals, the binding it chooses may leave another goal unprovable, which
+  `undo` takes back (as a later axiom's binding may).
+- The web bindings (`web/`) do not yet offer the quantifier rules or a
+  witness; that is 42k's.
+- The message of `Error::Quantifiers` still ends "a sequent with ∀ or ∃ is
+  read, printed and written as JSON, and nothing else", false since 42d
+  (the search decides, the checker checks, sessions prove); left as it is
+  (a follow-up: it is pinned by tests of the nets and the Rocq export).
+- `cargo clippy -p linlog --all-targets` alone (without `--workspace`)
+  warns of an import `core/src/search/focus/tests.rs` uses only with
+  `parallel`, at `main` already (both sub-agents found it); the gate and
+  the flake check run with the workspace's features and pass. A
+  follow-up.
+
+### Checklist
+
+- [x] The two-sided instance of the first-order engine: the dispatch row
+  `LL1 → TwoSided` in the intuitionistic modes, affine included; shown
+  by the command on first-order intuitionistic sequents, every proof
+  checked by `linlog check` (the session's messages).
+- [x] `Interactive`'s four quantifier rules, a witness given and one left
+  open, bound by a later axiom or by `close`; `undo` undoing bindings;
+  the session's JSON round trip; the command's `interact` doing the same,
+  every finished proof checked.
+- [x] The two-sided derivation view, the classical two-sided view and the
+  LaTeX, Typst and SVG exports printing first-order derivations with
+  their instances (and a session's open witnesses).
+- [x] Both target sets against `42d.csv` and `net-42d.csv`, every decided
+  row's counters equal, at the session's last code commit; the ratchet
+  within its ceilings at every gate, none raised.
+- [x] `bench/pinned-time.py`'s rows of about a second or more; the rule set
+  before any run and the request sent; [ ] the timed run itself: pending
+  the author's yes, its command above.
+- [x] The panel's round on a frozen tree (`olorpnkz`), each finding
+  answered above; the fixes reviewed by a fresh-context reviewer
+  (below).
+- [x] README, the guide (its tests pass) and the changelog true.
+- [x] Every code commit gated (the interactive commit with the lock's
+  that follows it); `nix flake check` at the last commit: see the last
+  message to the supervisor for its exit status.
+- [x] `jj st` clean, the session's commits in `jj log`.
+- [x] This section, and the next.
+- [x] `.claude/rules/` amended (`core-derivations.md`, `core-focus.md`,
+  `core-proofs.md`, `core-search.md`, `core-export.md`, `core.md`,
+  `cli.md`, `bench.md`).
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **`.claude/rules/core-derivations.md`, "First-order sessions"**, holds
+  the session's invariants: its own hash-consed table that only grows,
+  the trail by step number, levels as the engine's and the scope for a
+  given witness, the shown table that every reader reads, `$1` for an
+  open witness, the axiom by unification and the automatic axiom on
+  equal instances only, `close` by the written sequent, the JSON's checks,
+  no cut. `core-search.md` holds the `LL1` rows and the two-sided
+  reference; `core-derivations.md` the classical view's members.
+- **42f (cut elimination)**: a session's proof is an ordinary proof with
+  instances; a first-order session makes no cut, so 42f's proofs with
+  cuts come from tests and files.
+- **42g (Rocq)**: a session's proof may hold eigenvariables no `∀` step
+  introduces (its open witnesses closed, and the search's own constants
+  that `close` carried back): the checker's constants outside the
+  signature, which the certificates must admit.
+- **42i (the memo, resumed answers)**: the two-sided engine at first
+  order is the one-sided engine's `Framed` under a reading; whatever 42i
+  changes there it changes for both, and `the_two_sided_engine_agrees`
+  joins `the_focused_engine_agrees` as its check.
+- **42k (the web page)**: `Interactive::witness` reads a witness from text
+  with the session's eigenvariable letters, `Needs::Witness` says where
+  one may be given, `StepError::Eigenvariable` names the eigenvariable
+  the condition refuses, `$1` is an open witness's name everywhere, and
+  the session's JSON carries `instances`; `close` of a first-order goal
+  runs on one thread, through `Interactive::close`. The bindings' `hint`
+  (`web/src/calls.rs`) searches a goal by `Goal::new` on its members,
+  which refuses a goal of instances (`Error::IndexOutOfBounds`): 42k
+  gives it the session's written sequent, as `close` does.
+- 0.2.0's list gains `FoTerm::Meta`; the rest are variants of
+  non-exhaustive enums and additions (above).
