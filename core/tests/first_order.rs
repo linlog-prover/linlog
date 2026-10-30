@@ -963,6 +963,29 @@ fn a_session_refuses_what_no_step_could_make() {
     );
     assert_eq!(state.steps(), 0);
 
+    // The session measures what its reader measures: under a limit of 4
+    // a witness of 11 terms is refused, and a session within the limit
+    // reads back under it.
+    let sequent: Sequent = "|- exists x. p(x), ~p(a), q(g(b))".parse().unwrap();
+    let limits = Limits::default().with_terms(Some(4));
+    let mut state = Interactive::within(&sequent, Mode::CLASSICAL, &limits).unwrap();
+    let root = state.goals().next().unwrap();
+    let deep = state.witness("g(g(g(g(g(g(g(g(g(g(a))))))))))").unwrap();
+    let error = state
+        .apply(root, &Step::new(0, Rule::Exists).with_witness(deep))
+        .unwrap_err();
+    assert!(matches!(error, StepError::Witness { .. }), "{error}");
+    let a = state.witness("a").unwrap();
+    state
+        .apply(root, &Step::new(0, Rule::Exists).with_witness(a))
+        .unwrap();
+    let json = serde_json::to_string(&state).unwrap();
+    <Interactive as linlog::wire::Readable>::read(
+        &mut serde_json::Deserializer::from_str(&json),
+        &limits,
+    )
+    .unwrap();
+
     // A binding moved onto the `∀L` step that opened its witness.
     let sequent: Sequent = "forall x. p(x) |- p(c)".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();

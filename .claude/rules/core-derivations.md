@@ -593,9 +593,13 @@ code relies on:
   the table unbounded when undo left entries behind; `close`'s constants
   outlived its undo). A session read from JSON has no marks for its
   steps: their undo leaves their entries unused.
-- **Every term of a session unfolds to at most `limits.terms`** (the
-  session's start's, `Quantified::limit`, `Limits::DEFAULT_TERMS` for
-  `Interactive::new`): `show` counts the shown terms' unfolded sizes and
+- **Every term of a session unfolds to at most `limits.terms`, and its
+  table holds at most that many entries** (members, frames and terms, as
+  the reader counts them; the session's start's limit,
+  `Quantified::limit`, `Limits::DEFAULT_TERMS` for `Interactive::new`,
+  the command's `--term-limit` through `Interactive::within`; one
+  measure for both, else a session's own file was refused under the
+  limit it was made in): `show` counts the shown terms' unfolded sizes and
   a step past it goes back to its mark (`StepError::Witness`, "would
   unfold to more than …"), `close` refuses its graft
   (`Refusal::Terms`), the reader refuses the document. A term of shared

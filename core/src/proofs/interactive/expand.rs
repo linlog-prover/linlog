@@ -159,7 +159,9 @@ impl Interactive {
                 let q = self.fo.as_ref().expect("a first-order session");
                 match q.limit {
                     Some(limit) if q.too_large() => Err(StepError::Witness {
-                        reason: format!("a witness would unfold to more than {limit} terms"),
+                        reason: format!(
+                            "the session would hold or unfold to more than {limit} terms"
+                        ),
                     }),
                     _ => Ok(premises),
                 }

@@ -75,8 +75,12 @@ pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
             let sequent =
                 args.input
                     .sequent(&settings.limits, &settings.input, args.mode.mode())?;
-            Interactive::new(&sequent, args.input.mode(args.mode.mode()))
-                .map_err(|e| describe(e, &sequent))?
+            Interactive::within(
+                &sequent,
+                args.input.mode(args.mode.mode()),
+                &settings.limits,
+            )
+            .map_err(|e| describe(e, &sequent))?
         }
     };
     let limits = settings.limits;

@@ -104,8 +104,9 @@ pub(super) struct Quantified {
     /// The most terms a term of the session may unfold to: `limits.terms`
     /// of the session's start.
     pub(super) limit: Option<u64>,
-    /// The most terms a shown term unfolds to, as [`show`](Self::show)
-    /// last counted.
+    /// The most terms a shown term unfolds to, or the table's entries
+    /// (members, frames and terms) where they are more, as
+    /// [`show`](Self::show) last counted: what the reader bounds too.
     pub(super) largest: u64,
 }
 
@@ -906,7 +907,10 @@ impl Quantified {
             };
             sizes.push(n);
         }
-        self.largest = sizes.iter().copied().max().unwrap_or(0);
+        let entries = (shown.members.len() as u64)
+            .saturating_add(shown.frames.len() as u64)
+            .saturating_add(shown.terms.len() as u64);
+        self.largest = sizes.iter().copied().max().unwrap_or(0).max(entries);
         self.shown = shown;
     }
 
