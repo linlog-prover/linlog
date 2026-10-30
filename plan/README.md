@@ -3990,3 +3990,33 @@ client follows it (step 32).
   lines' separator fixed (README's `goal 2:, 1:`); `close` on one
   thread. Follow-ups in `later.md` ("Follow-ups: interactive
   proving"). Next: 42f, cut elimination at first order.
+- 2026-10-30: review of session 42f, cut elimination on proof terms at
+  first order (Opus 5.5 at high, 10:08 to 11:35, unattended):
+  `proofs::cut::step` and `eliminate` take proofs with instances in
+  every mode with the cut, every 41b case reading members through the
+  proof's table (`proofs/cut/framed.rs`), the key case of `∀` against
+  `∃` (`Case::ForallExists`) substituting the witness for the
+  eigenvariable throughout the `∀` premise, into a copy where another
+  part of the proof still reads it, a remade `∀` step renamed apart with
+  a fresh eigenvariable; `linlog eliminate` printing instances,
+  `Proof::formula` writing them; the nets' elimination still refusing
+  first-order input. A heads-up box in the session's pane found the
+  plan wrong: copying a shared subproof grows the proof, so "no step
+  adds a node" fails at first order; each copy is now charged against
+  the nodes and memory bounds before it is built (a test reaches the
+  bound by copies alone; the plan corrected). Its reviewer (Opus 5.5
+  at high): no finding in about 18 000 proofs and 566 000 steps, 6 787
+  propositional proofs giving byte-identical eliminations against the
+  base binary. Checked here: the checker untouched; every intermediate
+  proof of the nine committed first-order files' eliminations (classical
+  and intuitionistic, shared subproofs, deep `∀` chains) accepted by
+  `linlog check` and each ending cut-free; `--node-limit 20` stopping
+  with exit 3; 42b's invalid `cut_frame.json` refused by `eliminate` and
+  `check` alike (exit 1); both target sets against `42e-last.csv` and
+  `net-42e-last.csv` (0 of 145 and 0 of 64 decided rows differ); the
+  text checks on the rebased head; pushed. No closed enum gained a
+  variant (`Case` is non-exhaustive). Departures, for the author: the
+  copies' bound (the plan's sentence was wrong); renaming apart once
+  after each step; `Proof::formula` writing instances; the record's
+  `formula` a member of the proof the step was taken on. Next: 42g, the
+  Rocq development.

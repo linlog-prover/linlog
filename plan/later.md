@@ -1601,6 +1601,9 @@ says first-order input is "read, printed and written as JSON, and
 nothing else". The stray comma of 41a's goal lines is fixed (42e).
 `cargo clippy -p linlog` alone warns of an unused `Member` import in
 `search/focus/tests.rs` without `parallel` (on `main` before 42e).
+Found at the review of 42f (2026-10-30): `linlog eliminate` names an
+instance in its refusal by its raw id (`cut on #8`, `#9`) where `linlog
+check` writes it (`cut on p(a)`), on `core/tests/first-order/cut_frame.json`.
 
 ## Follow-ups: the exports
 
