@@ -4070,3 +4070,37 @@ client follows it (step 32).
   toward the term limit. Proofs stay checked. 42k's linlog part fixes it
   first (`plan/first-order/README.md`, 42k), before the page relies on
   it.
+- 2026-10-30: review of session 42h, the first-order families and
+  LinearOne (Opus 5.5 at high, 14:27 to 17:00, unattended): `lambek-fo`
+  (five constructed shapes of Moot and Piazza's translation, sizes 16 to
+  512, checked against the planar search on the originals; the 2001
+  paper's text not reachable, its abstract and Moot's restatements
+  cited), `chain-fo` (provable within `n` copies, and the goal `p(b)`,
+  unprovable by a model of the classical reading, unknown at the copy
+  bound: a heads-up box found the plan's `p(sⁿ⁺¹(0))` provable),
+  `witness-fo` (MALL1 shapes and MILL1 shapes beside them); the search's
+  counters `unifications` and `bindings` (`Ground` untouched behind the
+  first-order guard) in `--stats`, the JSON and two new harness columns;
+  LinearOne's verdicts on the 28 MILL1 problems: both decide 25 and agree
+  on all, LinearOne alone `lambek-fo/512` #0 and #2 (linlog's recursion
+  limit) and `witness-fo/12#3` (linlog's time limit; LinearOne 47 ms),
+  linlog alone none; the driver's λ-term print that broke SWI-Prolog at
+  256 formulas removed. Outside its scope and fixed at its cause, with a
+  fresh reviewer's four findings fixed too: the derivation's size
+  estimate miscounted first-order names and brackets. Checked here: the
+  diff (the counters behind `Z::FIRST_ORDER`; the batch journey keeping
+  its propositional input, so its ceiling measures what it did); the
+  new families' small sizes through the harness, every verdict as
+  constructed, `summary --strict` exit 0 (`witness-fo` #3 at 38.5 ms for
+  8, the steep row for 42i); both target sets against `42g.csv` and
+  `net-42g.csv` (0 of 145 and 0 of 64 decided rows differ); the text
+  checks on the rebased head; pushed. `derivation-chain-64` at +1.99 % of
+  2 % (a follow-up in `later.md`). The timed comparison with LinearOne
+  waits for the author's yes (its command in the report and
+  `bench/TOOLS.md`). No closed enum gained a variant. Departures, for the
+  author: `chain-fo`'s goal `p(b)`; `witness-fo`'s MILL1 shapes;
+  `lambek-fo` constructed rather than `lambek.txt`'s rows;
+  `Instance::witness_depth` (the bound stopped `chain-fo` at 128
+  without it). Next: 42i, the memo, the loop check and resumed answers
+  at first order, each measured against 42d's form for the author's keep
+  or revert.

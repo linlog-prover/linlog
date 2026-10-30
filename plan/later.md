@@ -1604,6 +1604,14 @@ nothing else". The stray comma of 41a's goal lines is fixed (42e).
 Found at the review of 42f (2026-10-30): `linlog eliminate` names an
 instance in its refusal by its raw id (`cut on #8`, `#9`) where `linlog
 check` writes it (`cut on p(a)`), on `core/tests/first-order/cut_frame.json`.
+Found at the review of 42h (2026-10-30): the ratchet's
+`derivation-chain-64` stands at +1.99 % of its 2 % margin, the sum of
+42a to 42h's small costs on the derivation's propositional path (42b's
+bounds-checked indexing, 42h's names computed as the printer writes them);
+the next change to that path must first win back what it spends,
+profiled against the base by callgrind function by function, never by a
+raised ceiling. The size estimate's one case left open (42h): shadowing
+inside an instance can still lift the derivation's width.
 
 ## Follow-ups: the exports
 
