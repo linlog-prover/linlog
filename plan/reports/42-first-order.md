@@ -2259,3 +2259,364 @@ refuse one), and `rocq.md` records the point.
 - **Step 45 (the release)**: the library's version (`rocq-linlog.opam`,
   `rocq::LINLOG`) is still 0.1.0 and should rise with the new modules;
   no propositional statement changed.
+
+## Session 42h: the families and LinearOne
+
+Opus 5.5 at `high`, unattended, 2026-10-30, in the jj workspace
+`../linlog-step42h` on `lkmqpost` (linlog's `main`).
+
+### Outcome
+
+The three first-order families exist with verdicts by construction,
+each argued at its generator: `lambek-fo` (the Lambek calculus in Moot
+and Piazza's translation into MILL1, five shapes), `chain-fo` (MELL1, a
+quantified clause under `!`, provable within `n` copies, and an
+unprovable goal) and `witness-fo` (a witness among `n`, in MALL1 as the
+plan has it and in MILL1 beside it). `linlog-bench run --all-families
+--timeout 5` reports no `MISMATCH`. The engines report two first-order
+counters, `Statistics::unifications` and `bindings`, which the harness
+writes as columns of their own and `--stats` prints for a first-order
+sequent. LinearOne runs from its pinned checkout on SWI-Prolog 10.0.2 on
+the MILL1 sequents: on the 28 problems of `lambek-fo` and the MILL1 part
+of `witness-fo` its verdicts equal linlog's on all 25 that both decide,
+and every verdict of either equals the construction's. The timed
+comparison waits for the author's word (below). Both target sets equal
+their oracles on every decided row. On the way the families' proofs
+showed a defect of the derivation's size estimate at first order
+(`proofs/size.rs`), fixed at its cause in a commit of its own.
+
+### What was built
+
+- **The families** (`core/src/families.rs`):
+  - `lambek-fo`, intuitionistic, sizes 16, 64, 256, 512, five shapes by
+    index: #0 the chain `a0, a0 \ a1, …, a(k−1) \ ak ⊢ ak`, #1 its first
+    two formulas exchanged, #2 the chain of `/`, #3 the product `a0, …,
+    a(k−1) ⊢ a0 • … • a(k−1)`, #4 its goal reversed; #0, #2 and #3
+    provable. A private `Lambek` tree writes both the Lambek text (for
+    the test) and the translation: positions `i0`, …, `in` as constants,
+    each binder's variable fresh (`v1`, …). The verdicts are argued on
+    the translation itself, since the positions are distinct constants
+    and in cut-free MILL1 every atom of the conclusion's instance meets
+    one with equal arguments (the exchanged chain asks for `a0(z, i0)`
+    where the only `a0` stands at `i1, i2`; the reversed product's
+    leftmost atom stands at `i0` where the only one is at `i(k−1)`), and
+    `lambek_translations_keep_the_planar_verdicts` checks them against
+    the planar search on the Lambek originals at sizes 2 to 5.
+  - `chain-fo`, classical, sizes 16, 64, 256, 512: #0 `p(z),
+    !∀x.(p(x) ⊸ p(s(x))) ⊢ p(sⁿ(z))`, `copies` n, provable; #1 the goal
+    `p(b)`, unprovable (forgetting linearity gives a proof in classical
+    first-order logic, which the model of the closed terms with `p` true
+    of `sⁱ(z)` alone refutes), searched to the copy bound and answered
+    unknown there, which `summary` counts as undecided.
+  - `witness-fo`, intuitionistic, sizes 4, 8, 10, 12: #0 `p(a1) & … &
+    p(an), q(an) ⊢ ∃x.(p(x) ⊗ q(x))` provable, #1 with `q(b)`
+    unprovable, #2 `p(a1), …, p(an), q(an) ⊢ ∃x.(p(x) ⊗ q(x)) ⊗ ∃x.p(x)
+    ⊗ …` with n − 1 factors `∃x.p(x)`, provable, #3 with `q(b)`,
+    unprovable (the goal's `q(w)` meets only `q(b)`, so `w = b`, and
+    `p(b)` meets no `p(ai)`).
+  - `Instance::witness_depth`: the witness depth a proof needs (`chain-fo`
+    n − 1), applied by `verdicts_as_constructed` and the harness's child
+    as `copies` is; without it the default depth of 64 ended `chain-fo`
+    at 128 before the time limit.
+- **The counters**: `Statistics::unifications` (every unification of
+  two literals the focused engines tried) and `Statistics::bindings`
+  (every binding of a metavariable made, one an undo took back and the
+  search made again counted again), counted by `Framed::unify` and
+  `Framed::bind`, read by `Run::statistics` through `Zone::counts`
+  behind `Z::FIRST_ORDER`; their JSON keys are skipped when zero, so a
+  propositional outcome's JSON is byte for byte what it was; `prove
+  --stats` prints "unifications tried" and "metavariables bound" for a
+  fragment with quantifiers only (`Engine::counters` lists them for the
+  focused engines). Test: `a_first_order_search_counts_its_unifications`.
+- **The harness**: the columns `unifications` and `bindings` after
+  `raw` (the tail of 34 fields), filled on every row the child decides,
+  `0` on a propositional one; not among `COUNTERS`, since the oracles'
+  files lack them (an empty field against `0` would differ on every
+  row). A family's `witness_depth` reaches the child's options.
+- **LinearOne at first order** (`bench/src/translate.rs`,
+  `bench/src/tools.rs`): the translator writes `at(p<symbol>,
+  [terms])`, `f<symbol>(…)`, and `forall(X<n>, A)`/`exists(X<n>, A)`
+  with a Prolog variable per binder of the whole problem (the driver
+  reads the problem as one term); its `covers` takes `MLL1`. Every
+  other prover refuses a quantified sequent by `propositional(fragment)`,
+  since their translators write an atom by its index. The driver
+  (`modules/_provers/linearone.pl`) prints the verdict and the time
+  alone: printing the proof's λ-term ran out of SWI-Prolog's
+  `portray_nesting` at `lambek-fo/256`, an error row for a proof
+  LinearOne had found.
+- **Docs**: README (the families in "Benchmarks", the counters with an
+  example in "First-order sequents", the comparison's sentence, the
+  built and planned lists), the guide (`reference.md`'s first-order
+  paragraph), the changelog, `bench/TOOLS.md` (linlog's first order,
+  LinearOne's first-order syntax with its source lines, SWI-Prolog's
+  version and licence, the section "The first-order families"),
+  `bench/COMPARISON.md` (its last section), and the rules:
+  `core-inputs.md` (the families, `witness_depth`, the sizes),
+  `core-focus.md` (the counters), `bench.md` (the columns, LinearOne at
+  first order, the driver).
+
+### The Lambek translation's theorem: what was read
+
+The sub-agent `linlog-42h-moot-piazza-source` (Sonnet 5.5) read, in full
+text: Moot 2014, arXiv:1405.6678 (its title is "Hybrid Type-Logical
+Grammars, First-Order Linear Logic and the Descriptive Inadequacy of
+Lambda Grammars"; the plan's sources list swaps the two arXiv numbers),
+§2.1 p. 4–5: "As shown in (Moot & Piazza 2001), we can translate Lambek
+calculus sequents and formulas into first-order linear logic as
+follows", the sequent `A1, …, An ⊢ B = ‖A1‖^{0,1}, …, ‖An‖^{n−1,n} ⊢
+‖B‖^{0,n}` and the clauses of `/` and `\` as this family writes them,
+the target logic "the multiplicative, intuitionistic fragment of
+first-order linear logic"; Moot 2020, arXiv:2008.06351, §1.3.1 and Moot
+2016, arXiv:1602.00812, §9.3.2, which give the four clauses with the
+product as this family writes them. Of Moot and Piazza 2001 (JoLLI
+10(2), 211–232) only the abstract could be read (the Montpellier
+catalogue's page; Springer and PhilArchive refused): "We give an
+embedding translation from formulas in the Lambek Calculus to formulas
+in MDLL1 and show this translation is sound and complete." So the
+theorem is cited from the paper's own abstract and its clauses from
+Moot's restatements; no source read states whether it is for L or L*
+(with `x |- x * (a \ a)`, provable only in L*, the translation is
+provable by the witness `i1`, so it is L*'s, a claim derived here from
+the clauses). The family's verdicts rest on neither: they are argued on
+the translated sequents directly (above) and checked against the planar
+search at sizes 2 to 5; no shape of the family holds an empty
+antecedent, where L and L* differ.
+
+### The comparison with LinearOne
+
+Verdicts (not a timed run: core 2 of a machine in use), `linlog-bench
+run --tools linlog,linearone --family lambek-fo --family witness-fo
+--timeout 10 --memory-limit 4294967296`, under runexec 3.35, rows and
+ranking in `bench/comparison/first-order/`: 36 problems, 28 in
+LinearOne's fragment; `ranking` lists no contradiction and nothing
+wrong. linlog decides 33 (18 proved, 15 refuted), LinearOne 28 (16, 12);
+both decide 25 and agree on each; LinearOne alone decides three, and
+linlog alone none:
+
+| row | LinearOne | linlog | what limits linlog |
+|---|---|---|---|
+| `lambek-fo/512#0` | proved | unknown | the recursion limit of 2 048, after 15 ms: the two-sided search descends a level of recursion per step of the chain and more |
+| `lambek-fo/512#2` | proved | unknown | the recursion limit, after 3.9 s: the chain of `/` makes 89 million split steps (256: 11 million in 0.43 s) |
+| `witness-fo/12#3` | unprovable | unknown | the time limit: with no memo for a first-order goal the search tries the twelve factors `∃x.p(x)` against the `p(ai)` in every order (10: 55 million split steps, 2.7 s); LinearOne refutes it in about 47 ms |
+
+**The timing is pending.** The request went to `linlog-orchestrator`,
+which passed it to the author; no yes had come when the session ended.
+The command (one run per problem, since `run --tools` takes no
+`--repeat`; about two minutes), from a checkout with this session's
+release build on the path beside BenchExec and the flake's
+`prover-linearone`, under the machine's lock:
+
+```sh
+taskset -c 2 linlog-bench run --tools linlog,linearone --family lambek-fo --family witness-fo \
+  --timeout 10 --memory-limit 4294967296 --shard 1/2 --output first-order-1.csv &
+taskset -c 3 linlog-bench run --tools linlog,linearone --family lambek-fo --family witness-fo \
+  --timeout 10 --memory-limit 4294967296 --shard 2/2 --output first-order-2.csv
+```
+
+### For 42i and 42j: what the families exercise
+
+Measured by the harness on one thread at 10 s (sizes past the default
+lists where said), the counters from the new columns:
+
+- **Repeated subgoals** (the memo, 42i): `chain-fo`, both shapes, every
+  size: the deepening searches each copy level again from the start, so
+  the bindings grow as n² (16 384 at 128, 65 536 at 256), where one
+  level's search binds about n; `witness-fo` #3 from size 8 (0.03 s) to
+  12 (past 10 s): the factors `∃x.p(x)` are alike, and the search meets
+  the same multiset of `p(ai)` left over in every order of them, n!
+  where a memo by canonical instances would meet 2ⁿ.
+- **Many failing witnesses** (the resumed answers, 42i): `witness-fo`
+  #3 again, each factor's answer failing further on; `witness-fo` #0
+  and #1 ask the `&` premise for its n answers in turn but are fast at
+  every size (0.1 ms at 32), so they show the mechanism's overhead, not
+  its gain; `lambek-fo` #2 (the chain of `/`), whose split steps grow
+  eightfold per doubling (0.43 s at 256, the recursion limit at 512).
+- **Wide independent premises** (the pool, 42j): `witness-fo` #2 and #3,
+  whose n − 1 factors `∃x.p(x)` share no metavariable; `lambek-fo` #3's
+  product shares its metavariables between neighbouring factors, so it
+  is the case a division must not split.
+- **Where they should not pay**: `lambek-fo` #0, #1, #3, #4 and
+  `witness-fo` #0 to #2 are decided in milliseconds at every size.
+
+### Departures from the design
+
+- **`chain-fo`'s unprovable shape is `p(b)`, not `p(sⁿ⁺¹(0))`**
+  (departs from the design: the plan's decision 9): the plan's goal is
+  provable with n + 1 copies, so it is not an unprovable variant. `p(b)`
+  is unprovable by a classical countermodel; no refuter decides it
+  (MELL1 is undecidable), so its expected verdict is unprovable and
+  linlog answers unknown at the copy bound, which `summary` counts as
+  undecided, never as a mismatch or an agreement. The supervisor agreed
+  (2026-10-30).
+- **`witness-fo` has MILL1 shapes beside the plan's MALL1 ones**
+  (departs from the design): the plan's sequents hold `&`, so its "MILL1
+  part of witness-fo" would be empty; #2 and #3 are the same question
+  with the alternatives side by side and the leftovers taken by
+  `∃x.p(x)` factors.
+- **`lambek-fo` is constructed shapes, not `bench/problems/lambek.txt`**
+  (departs from the design: "the Lambek family's sequents"): the
+  problem file is the harness's and its random rows' verdicts rest on
+  the planar search, which a family's must not; the five shapes are
+  those of the file whose verdicts are by construction (chains of both
+  divisions, the product, the exchanged and reversed mutants).
+- **`Instance::witness_depth`** (departs from the design: an addition
+  the plan does not name): the chain's witness deepens with its size.
+- **No row of `bench/RESULTS.md`**: that table is a baseline's output
+  (`bench/baseline.sh`, the author's night); the families join it at
+  the next baseline (45b), the families' stage running `--all-families`.
+
+### Outside the scope, fixed at its cause
+
+The size estimate of a derivation (`proofs/size.rs`, step 42b's at
+first order) failed its own test once the families' proofs joined the
+oracle's sample (`oracle::proofs` takes the smallest instance of every
+family): it counted an open atom by its key, whose `#0` is two
+characters where the printer writes the binder's name (`v16`, three),
+left out the brackets of a nested binder (`?(∃x. …)`), and an instance
+added its frame's widest term on top of the variable's own name. The
+characters fell 162 below the derivation's for `lambek-fo/16#0`, which
+an inexact size must bound, and the width rose above the widest
+sequent, which it must bound from below (the command prints "at least"
+it and leaves out a wider tree). Every occurrence of a sequent with
+binders is now counted with the names the printer writes inside its
+root (`printed_names`: `Scope::enter`'s renaming, `x` for a binder a
+document gives no name), per occurrence, since one atom term sits under
+binders of different names; an instance as its occurrence with its
+loose variables' names replaced by its frame's terms, exactly; and
+where an eigenvariable's name can rename a binder inside an instance
+(the instance's scope holds the eigenvariables' names), with a bound on
+the characters the renaming adds. The propositional loop is unchanged
+but for its binder arm, now unreachable behind `Forest::has_binders`.
+
+**The reviewer's round** (`linlog-42h-size-reviewer`, Opus 5.5 at
+`high`, fresh context, read-only, on the first form of the fix, which
+counted kept names exactly and every other name at the widest a
+printer writes): four findings, each held and answered in the commit.
+(1) A JSON document can hold binders with no names and nullary atoms,
+`⊢ ∀x. 1`, which the first form's propositional path reached and
+panicked on: the branch is now `Forest::has_binders`, and an unnamed
+binder is `x`. (2) An eigenvariable's name renames a binder inside an
+instance (`⊢ ∀z.∃a.~p(a), ∀b.p(b)` writes `∃a_1. ~p(a_1)`), which no
+check saw: the renaming's bound above. (3) Where a printer might rename
+(two binders of one name side by side, every cut on a quantified
+formula), the widest-name count put the width above the widest sequent
+(29 against 21 for `⊢ ∃x.p(x), ∀x.~p(x)`): names are now computed as
+the printer writes them, not bounded. (4) A saturated key lost its
+saturation by the subtraction of its `#i`, and one addition was not
+saturating: both fixed. The test `binder_names_are_counted_as_written`
+holds the three inputs of (1) to (3); the size test's sample `|- top,
+?(forall long. p(long, c)), exists v10. q(v10)` holds the long name and
+the brackets, exactly. Checked by the reviewer and found right: the
+levels of `loose_variables`, the pairing of loose levels with binders
+and frame cells, `enclosing_binders`, the `#i` widths, the frame terms'
+widths, the dual's `~`, the brackets, `merge`, and that `exact` is false
+wherever there are instances.
+
+### The closed enums' new variants (for step 45)
+
+None. Additions: the fields `Statistics::unifications` and
+`Statistics::bindings` (`Statistics` is non-exhaustive) and
+`Instance::witness_depth` (`Instance` is non-exhaustive), the two
+counters in `Engine::counters`, the families `lambek-fo`, `chain-fo`
+and `witness-fo` in `families::FAMILIES`.
+
+### The propositional case (D17)
+
+- **Target sets**, run at the tree of the session's search and family
+  code (before the size estimate's fix, which no search reads):
+  `bench/targets/42h.csv` against `bench/targets/42g.csv` and
+  `bench/targets/net-42h.csv` against `bench/targets/net-42g.csv`
+  (`linlog-bench summary --against … --counters`): no verdict differs;
+  of the 145 focused and 64 net problems both decide alike on one
+  thread, none differs in `nodes`, `splits`, `memo_hits`,
+  `memo_entries`, `links` or `tests`. The sets name their families, so
+  the new ones add no row.
+- **The ratchet** (the gate, none raised): within every ceiling.
+  `batch-families` batches every family's smallest instance, so the new
+  families made it measure three problems more (+2.01 % over its
+  ceiling at the first gate); the journey now takes the families
+  without quantifiers, its input and count as before (+0.19 %), and a
+  first-order journey would be one of its own. `derivation-chain-64`
+  is at +1.99 % of its ceiling (+1.97 % at 42g's base, 1 474
+  instructions more): the size estimate's first form put a scan for
+  binders before the propositional loop (+2.01 %); the loop now meets a
+  binder in its own match and hands over there. The margin left is
+  0.01 %: the next change to the derivation's or the size's
+  propositional path is measured against the base build first.
+
+### What is not verified
+
+- The wall times against LinearOne: pending the author's word (above).
+- LinearOne's proofs are not checked (it has no checker linlog can
+  run); its refutations rest on its search, as linlog's do.
+- `bench/RESULTS.md` has no row of the new families until the next
+  baseline.
+- The family run (`--all-families --timeout 5`) and the target sets ran
+  on a build before the size estimate's last form; no search, family or
+  harness code changed after them, only `proofs/size.rs` and the batch
+  journey's input.
+- Where a binder inside an instance was renamed in its root only by
+  shadowing, the size's width may pass the widest sequent
+  (`core-derivations.md`); no input of the tests reaches it.
+
+### Checklist
+
+- [x] `lambek-fo`, `chain-fo`, `witness-fo` in `core/src/families.rs`,
+  verdicts argued at their generators, the Lambek verdicts checked
+  against the planar search; `linlog-bench run --all-families --timeout
+  5`: `summary --strict` exit 0, no mismatch (167 rows).
+- [x] The source of the Lambek translation's theorem named (above).
+- [x] The harness's columns `unifications` and `bindings`, filled on the
+  new families' rows; `Instance::witness_depth` applied.
+- [x] LinearOne and SWI-Prolog as flake packages (pinned since step 29:
+  `prover-linearone` at `d9379a5`, SWI-Prolog 10.0.2 from the locked
+  nixpkgs), their licences in `bench/TOOLS.md`; the harness runs
+  LinearOne on `lambek-fo` and on `witness-fo`'s MILL1 shapes; every
+  verdict both give equal, none against the construction.
+- [x] The timed comparison asked of `linlog-orchestrator`; pending, its
+  command above.
+- [x] Both target sets against `42g.csv` and `net-42g.csv`, every
+  decided row's counters equal; the ratchet within its ceilings, none
+  raised.
+- [x] README, the guide (its tests pass), `bench/COMPARISON.md`,
+  `bench/TOOLS.md` and the changelog true; the rules amended
+  (`core-inputs.md`, `core-focus.md`, `core-derivations.md`,
+  `bench.md`).
+- [x] Every code commit gated; `nix flake check` at the last commit:
+  see the last message to the supervisor for its exit status.
+- [x] The fresh-context reviewer's round on the size estimate, every
+  finding answered.
+- [x] `jj st` clean, the session's commits in `jj log`.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **`.claude/rules/core-inputs.md`** holds the families' shapes,
+  arguments, `witness_depth` and sizes; **`bench.md`** the columns,
+  LinearOne at first order and the batch journey's input;
+  **`core-focus.md`** the counters; **`core-derivations.md`** the size
+  estimate's weights at first order.
+- **42i (the memo, resumed answers)**: measure on `chain-fo` (both
+  shapes; the deepening re-searches every level, bindings n²) and on
+  `witness-fo` #3 at 8, 10 and 12 (n! orders of alike factors, 2.7 s at
+  10, past 10 s at 12, where LinearOne answers in 47 ms); `witness-fo`
+  #0 and #1 and `lambek-fo` #0, #1, #3, #4 are where the mechanisms
+  should cost nothing. The columns `unifications` and `bindings` are
+  the first-order work counters on one thread, a function of the input
+  as `nodes` is; compare them from two files that both have them, since
+  `summary --counters` does not.
+- **42j (the pool)**: `witness-fo` #2 and #3 have n − 1 independent
+  factors; `lambek-fo` #3's factors share metavariables.
+- **The three rows linlog leaves undecided** where LinearOne decides:
+  `lambek-fo/512` #0 and #2 at the two-sided search's recursion limit
+  (2 048), `witness-fo/12#3` at the time limit (table above).
+- **A new family that holds first-order sequents** is left out of the
+  `batch-families` journey by `is_first_order`; one whose witnesses
+  deepen with its size sets `Instance::witness_depth`.
+- **`derivation-chain-64` has 0.01 % of margin**: measure any change to
+  the derivation's or the size estimate's propositional path against
+  the base build before calling it done.
+- **The comparison's timing**: on the author's word, the command
+  above; its rows into `bench/comparison/first-order/`, its table into
+  `bench/COMPARISON.md` and `bench/TOOLS.md`.
