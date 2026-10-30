@@ -62,7 +62,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 41 | Cut, and cut elimination on terms and on nets, and both on the web page (four sessions) | `41-cut.md` (finished at the reviews of 39 and 40) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39, 40 |
 | 42 | First-order linear logic, its last session on the web page (several sessions, a plan of its own) | `42-first-order.md` (finished 2026-10-19, at the review of 37; its note on step 40 added 2026-10-23) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31, 40 |
 | 43 | Practice and Learn from one store of problems (the author, 2026-10-23): the store, and Practice as a place of its own with only provable problems, easy to very hard, by category and at random (43a); then Learn's lessons in D56's sequence and D60's order: lessons 1 to 5, then 6 to 9 (with 39's nets with boxes and 40's two-sided surface), then cut and the quantifiers (four sessions, content in the web client, the education plugins; 43a may run beside 40's linlog session, 43b and 43c beside 41) | `43-learn-lessons.md` (written 2026-10-23 at the author's word, its store and Practice added the same day) | Opus 5.5; a fresh-context reviewer per session | high | 39 (43b, 43c: 40; 43d: 41, 42) |
-| 44 | A guide to linlog for AI models: a compact summary of the command and the library by the practices current then (research first), every example run by a test, tried on a small model given nothing else, kept true by every later step (one session, documentation only; after 40, may run beside 41); 44b the manual: README a front page, the reference an mdBook manual on the Pages site, every example still run (the author, 2026-10-29; after 42i and 43d, before 45) | `44-llm-guide.md` (written 2026-10-23 at the author's word) | Opus 5.5; research on Sonnet 5.5; the trial agents Haiku 5.5 and Sonnet 5.5 | high (the sub-agents `medium`) | 40 |
+| 44 | A guide to linlog for AI models: a compact summary of the command and the library by the practices current then (research first), every example run by a test, tried on a small model given nothing else, kept true by every later step (one session, documentation only; after 40, may run beside 41); 44b the manual: README a front page, the reference an mdBook manual on the Pages site, every example still run (the author, 2026-10-29; after 42k and 43d, before 45) | `44-llm-guide.md` (written 2026-10-23 at the author's word) | Opus 5.5; research on Sonnet 5.5; the trial agents Haiku 5.5 and Sonnet 5.5 | high (the sub-agents `medium`) | 40 |
 | 45 | The fourth baseline, and the second release, 0.2.0, the bump the closed enums' new variants call for (four sessions: the Rocq library moved to its own repository `linlog-prover/rocq-linlog`, the author's of 2026-10-24; the baseline on a night the author gives; then the release prepared, the tag and publication the author's; the Rocq library given a release of its own; after the tags, the library's submission to the Rocq opam repository prepared, and whether to submit linlog and its Rocq library to nixpkgs assessed for the author, and if they say so packaged by nixpkgs' current practice, the pull request the author's, 2026-10-25) | `45-release-0.2.0.md` (written 2026-10-23 at the author's word; finished at the review of the last step before it) | Opus 5.5 | high | every step before it |
 | 46 | Research: what to add after 0.2.0, from the literature, the other tools, what users say publicly and `later.md`, ranked, the author choosing; then the prompts of the chosen steps (two sessions with the author between, no code) | `46-research-next.md` (written 2026-10-23 at the author's word) | Fable 5.1 for the research and its synthesis, the sub-agents on Sonnet 5.5; Opus 5.5 for the prompts | high (the sub-agents `medium`) | 45 |
 
@@ -3869,3 +3869,26 @@ client follows it (step 32).
   chapters, Zola): the Rust ecosystem's form, no new toolchain, the
   manual beside the code where its examples are tested; its theme in the
   page's violet with the logo.
+- 2026-10-30: the planning session moved back to the first account
+  (Max 20x) from `plan/handoff.md`, after a reboot (signing unlocked by
+  the author at about 07:00, the key-warming loop started again). The author's
+  decisions on 42a to 42d's departures, each re-evaluated and explained
+  first: accepted are one arity and one role per symbol name (relaxing
+  it later breaks no one), an eigenvariable no `∀` step introduces as a
+  constant outside the signature (domains are not empty, as Girard and
+  Lincoln and Shankar have them; 42g's calculus admits it), and every
+  internal departure (the `_1` names, frames named by the nodes, a cut
+  on an instance bringing its frame's eigenvariables, 42c's file, charge,
+  hooks and shared-load measurement, the `instances` bound global, the
+  witness depth per binding, one eigenvariable counter, no forced split
+  at a `!` factor with an open atom, no public `Meta`); 42a's
+  `CheckError::Quantifiers` and deferred term limits and 42c's missing
+  trail were already undone by 42b and 42d. Not accepted, to be built
+  before 0.2.0: the memo and the loop check for first-order goals and a
+  premise's next answer by resuming its search (session 42i), and
+  parallel first-order search (42j); the web page becomes 42k
+  (`plan/first-order/README.md`). Found at the re-evaluation: the
+  pinned time's clock counts 10 ms ticks, so its rows of 110 to 280 ms
+  moved 3.7 to 9 % by one tick, beyond the rule of 5 % a row (42d's
+  "worst row" was one tick; the sums stand, carried by `mix/9` and
+  `chain/512`); from 42e on each pinned row runs about a second or more.

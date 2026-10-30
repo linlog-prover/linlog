@@ -91,27 +91,29 @@ on the page), 43a to 43c, 44, and 42a to 42d (the first-order plan and
 data model, the proof term and checker, the focused engine generic over
 its zone, the first-order focused engine). Left, in order:
 
-- **42e to 42i**, as `plan/first-order/README.md` ("The sessions")
+- **42e to 42k**, as `plan/first-order/README.md` ("The sessions")
   describes each, all on Opus 5.5 at `high`: **42e** the two-sided
   engine, interactive proving with `∀`/`∃` (a witness given or left
   open), the two-sided views (the panel); **42f** cut elimination at
   first order (a reviewer); **42g** the Rocq development (a reviewer of
   the statements); **42h** the first-order families and LinearOne (none);
-  **42i** first order on the web page, in the client too (a reviewer;
+  **42i** the memo, the loop check and resumable answers at first
+  order (the panel; the author, 2026-10-30, before 0.2.0); **42j**
+  parallel first-order search (the panel; the same); **42k** first
+  order on the web page, in the client too (a reviewer;
   linlog's part pushed first, "linlog ready"). Every session: D17's
   oracles (the target sets against the latest labels, now
   `bench/targets/42d.csv` and `net-42d.csv`; the ratchet, none raised)
   and, where the propositional engine is touched, the pinned time by
-  `bench/pinned-time.py` (below). 42d's report says what 42e builds on
-  (the memo and loop check are off for first-order goals: weigh keying
-  by canonical instance ids, a listed follow-up).
-- **43d**: Learn's lessons on cut and the quantifiers, after 42i; its
+  `bench/pinned-time.py` (below), its rows about a second or more each
+  from 42e on (the author, 2026-10-30; 42e changes its `ROWS`).
+- **43d**: Learn's lessons on cut and the quantifiers, after 42k; its
   outline goes to the author first, as 43b's and 43c's did.
 - **44b**: the manual (`plan/44-llm-guide.md`, its last section; the
   author, 2026-10-29): README a front page of about 150 lines, the
   reference an mdBook manual under `docs/` published on the Pages site
   beside the rustdoc, `cli/tests/readme.rs` running every chapter's
-  examples; Opus 5.5 at `high` with a fresh reviewer, after 42i and 43d,
+  examples; Opus 5.5 at `high` with a fresh reviewer, after 42k and 43d,
   before step 45.
 - **45**, rewritten 2026-10-24 and 25 (read `plan/45-release-0.2.0.md`
   whole):
@@ -151,19 +153,8 @@ its zone, the first-order focused engine). Left, in order:
 
 ## Open with the author
 
-- **Departures not yet accepted**, each in its Status entry: 42a's (one
-  arity and one role per symbol name, `p` and `p(a)` not in one
-  sequent; the term limits moved to 42b; `x_1` for a clashing name),
-  42b's (the frame pass derives no frame; a cut on an instance brings
-  its frame's eigenvariables; an eigenvariable no `∀` introduces is a
-  constant; `a_1`), 42c's (the pinned rows chosen anew; the machine not
-  idle but both builds sharing every minute; `zone.rs` in
-  `search/focus/`; two hooks the spike lacked), 42d's (the memo and
-  loop check off for first-order goals; a second answer by exclusion; no
-  pool for a first-order goal; the `instances` bound global; the
-  witness depth per binding; one eigenvariable counter; a `!` factor
-  forcing no split where an atom is open). Step 41's were accepted on
-  2026-10-28.
+- **Departures**: all of 41's and 42a to 42d's are decided (the
+  Status entry of 2026-10-30); a new one goes to the author as it comes.
 - 43d's outline, when that session sends it.
 - The baseline's night (45b); the 0.2.0 tags; code signing for the
   installers; whether to submit to nixpkgs (at 45d).

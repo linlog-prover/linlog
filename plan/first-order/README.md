@@ -21,7 +21,9 @@ terms the binders above an occurrence are bound to.
 
 ## The sessions
 
-Nine sessions. The first on Fable 5.1 at `high`; every other one on
+Eleven sessions (42i and 42j added by the author on 2026-10-30, at the
+review of 42a to 42d's departures; the web page, once 42i, is 42k). The
+first on Fable 5.1 at `high`; every other one on
 Opus 5.5 at `high` (`plan/README.md`, "Why these models and efforts",
 the roles table: a step session that writes code or proofs). Every
 session that changes a search, a criterion or the checker is reviewed by
@@ -149,7 +151,33 @@ from a pinned checkout (a flake package, as `lltp` is fetched), verdicts
 compared and wall times recorded, in `bench/COMPARISON.md`. Checks: no
 `MISMATCH` in `summary`, every LinearOne verdict equal to linlog's.
 
-**42i, the web page** (Opus 5.5 at `high`; the last session, the
+**42i, the first-order search reusing its work** (Opus 5.5 at `high`;
+panel; the author, 2026-10-30, before 0.2.0). What 42d switched off or
+simplified, lifted in the one- and the two-sided engines: the memo and
+the loop check for first-order goals, keyed by canonical instance ids
+(the closing's numbering is one), proofs kept out of the memo or closed
+when kept (a kept proof's members name metavariables that a later undo
+unbinds: 42d's report); and a premise's next answer found by resuming
+its search where it stopped, not by searching again with the failed
+answers excluded. Measured against 42d's mechanisms on 42h's families
+and the generated sequents (work counters, then pinned time): each new
+form kept where it decides at least as much for no more work, otherwise
+the report says why not. Checks: D17, both references against the
+engine, the families' verdicts. Panel: the memo's keys and what a hit
+may reuse; the resumption's completeness (every answer reached, none
+skipped, none twice where that costs).
+
+**42j, parallel first-order search** (Opus 5.5 at `high`; panel; the
+author, 2026-10-30, before 0.2.0). A first-order goal on the pool as a
+propositional one is (`--jobs`, the race, the cubes), dividing only work
+that shares no unbound metavariable (decision 4) or by another division
+the session argues for; 42d runs it on one thread whatever `--jobs`
+says. Measured on 42h's families at one, two and four threads, the
+verdicts equal to one thread's, `--deterministic` repeatable. Checks:
+D17, `cargo test --workspace` (the CLI enables `parallel`), the
+families. Panel: the division's soundness and completeness, the stops.
+
+**42k, the web page** (Opus 5.5 at `high`; the last session, the
 author's instruction of 2026-10-23). Input with quantifiers and terms,
 the quantifier rules in interactive proving (the student gives the
 witness at `∃R` and `∀L`, the page checks the eigenvariable condition
@@ -161,8 +189,8 @@ moved after linlog's push. No lesson or practice (43d's). Checks:
 What waits for a later step, said here so no session builds it: the
 inverse method, the net engine, the planar search, `additive`, `horn`
 and `essential` at first order (below); first-order ordinary logic
-(`api.md` 10.10 (j)); sorts; LLO's finer dependency; variant keys in the
-memo; numerals in argument position.
+(`api.md` 10.10 (j)); sorts; LLO's finer dependency; numerals in
+argument position.
 
 ## D17: the propositional case unchanged
 
@@ -176,7 +204,11 @@ propositional journey; 42c measures pinned CPU time besides. A session
 that changes the search on purpose (42d, 42e) still leaves every
 propositional row's counters equal, since the propositional instance is
 the ground instance of the same engine and a quantifier-free goal never
-enters the framed code.
+enters the framed code. From 42e on the pinned rows of
+`bench/pinned-time.py` are each about a second or more (the author,
+2026-10-30): the clock counts in 10 ms ticks, so a row of 110 ms moves
+9 % by one tick and the rule of 5 % a row judged only noise there
+(42c's and 42d's sums stand, carried by `mix/9` and `chain/512`).
 
 ## The decisions
 
@@ -384,7 +416,11 @@ The two passes of `fo-linear.md` §4.2, specified for the build:
   `h`). The memo and the loop check key ground stable sequents only; the
   `&` premises and the parallel cubes split only premises sharing no
   unbound metavariable; a failing right premise of `⊗` asks the left
-  for another answer. MLL1 and MALL1 are decided by the bounded search
+  for another answer. (42d built the search with the memo and the loop
+check off for first-order goals, another answer by searching again with
+the failed ones excluded, and no pool; the author accepted these for
+the moment on 2026-10-30 and asked for all three before 0.2.0: 42i and
+42j.) MLL1 and MALL1 are decided by the bounded search
   alone (MLL1 is NP-complete and MALL1 NEXPTIME-complete, Lincoln and
   Shankar's theorems 3.5 and 3.4, the hardness Lincoln and Scedrov's);
   with exponentials the copy bound and the three-valued answer carry
@@ -473,8 +509,11 @@ calculus with the `∀` rule's side condition as freshness against the
 whole conclusion (the absorbed context explicit, which the exporter
 gives it from the checker's frames) and the two-sided intuitionistic
 calculus with its four rules; the proof term with the witness and the
-eigenvariable named; the checker as a function mirroring 42b's two
-passes; the theorem that an accepted term proves its sequent. Yalla and
+eigenvariable named; an eigenvariable no `∀` step introduces is a
+constant outside the signature (42b's checker, the author's acceptance
+of 2026-10-30: domains are not empty, so `∀x.p(x) ⊢ ∃y.p(y)` is
+provable), which the calculus must admit too; the checker as a function
+mirroring 42b's two passes; the theorem that an accepted term proves its sequent. Yalla and
 NanoYalla are propositional (their formula types read for this plan),
 so no bridge is possible and none is planned; Laurent's anti-locally-
 nameless representation (CPP 2021, two kinds of variables, the `∀`
