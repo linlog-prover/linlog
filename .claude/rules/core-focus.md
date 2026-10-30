@@ -1069,8 +1069,9 @@ relies on:
   old stamp tests in the same short-circuit order. The memo, the loop
   check and the waiting failures key occurrences only (`Linear::ground`,
   `Unrestricted::ground`), behind `Zone::memoizes`; a zone that does not
-  memoize a sequent decides it in `prove_unkeyed`, with no memo, stack
-  or waiting entry. There is no `Key<Z>`.
+  memoize a sequent by its occurrences decides it in `prove_unkeyed`,
+  with no memo, stack or waiting entry, or by its instance in
+  `prove_keyed` (below, "The first-order zone"). There is no `Key<Z>`.
 - **`Ground` must stay the old code.** Every method is an `#[inline]`
   forward of what the engine did itself; the key's words come from the
   same pool as the member lists (`Zone::word_lists`) and are the members
@@ -1178,7 +1179,8 @@ code it was. What a later session must keep:
 - **The trail is undone exactly where pending nodes are released**, and
   where a binder rule or an identity tried fails: `decompose` and
   `exists` on their own failure, `initial_framed` per pair tried,
-  `answers` per answer abandoned, `prove_unkeyed` as a safety net. The
+  `answers` per answer abandoned, `prove_unkeyed` and `prove_keyed` on a
+  failure. The
   invariant: a step that fails leaves the zone as it found it. A zone
   (`Γ`) a caller holds after a failed call may name members past the
   mark; every such zone is a copy the caller drops (`premise`, a
@@ -1197,22 +1199,43 @@ code it was. What a later session must keep:
   metavariables are no less constrained (`fits`); complete because a
   binding only specializes the tuple. The patterns' bytes are charged
   to the engine's scratch while the rule is open.
+- **The memo and the loop check key instances** (`keyed.rs`, the keys
+  in `framed.rs` beside `KeyScratch`): a first-order stable sequent goes
+  through `prove_unkeyed`, which hands it to `prove_keyed` when the memo
+  is on (`--memo-limit 0` switches both off, the 42d form). Only
+  failures are recorded, never proofs (a proof's members name spans and
+  metavariables an undo takes back). The own key (variables as the
+  search names them, with every metavariable's level) keys the loop
+  check and the failures cut by a bound; the canonical key (members
+  sorted with metavariables alike, metavariables numbered by first
+  appearance, eigenvariables ranked, each metavariable's level as the
+  number of the sequent's eigenvariables below it) keys complete
+  failures, which hold for every renaming. Why the own key for the loop
+  check: a repeat of an ancestor's *snapshot* up to renaming is no
+  repeat (`p(X)` below `p(s(Y))` after `X := s(Y)` is the chain's next
+  step); equal own keys mean the ancestor's metavariables are still
+  unbound, so the sequent is the ancestor. Nothing is recorded while an
+  answer is excluded (`Zone::excluding`: a failure may rest on the
+  exclusion) nor with a dependency (no waiting failures at
+  first order: dropping one is always sound). The interner keeps no zone
+  for a first-order search (`Interner::new(0)`): `Set::ground` is empty,
+  and `ByClass` must see a new id for every `Θ`. A key past `KEY_WORDS`
+  words or a value past 2³⁰ is no key: the sequent is decided unkeyed.
 - **Switched off for a first-order goal** (the table of `api.md` 10.10
-  (f)): the memo and the loop check (`Table::own(0)`, `memoizes`
-  false, so every stable sequent goes through `prove_unkeyed` and every
-  `Θ` gets a fresh id, which `by_class` keys on); the chains of free
-  splits (`chains_on`); a `!` factor's forced split (a promotion may
-  bind a metavariable the other factor holds); a positive literal's
-  forced split and the tensor of literals where the predicate has an
-  open atom (`Counts`, `Predicates`). Kept: the classes of members
-  outside every binder (closed formulas, interchangeable whatever the
-  bindings), the counts per predicate, the copy budget and its
-  deepening. Not memoizing even the ground stable sequents was weighed:
-  their proofs hold members whose metavariables a later undo unbinds, so
-  only failures could be kept, and the members after the first binder
-  step are rarely all outside binders; an unprovable sequent with `!`
-  (`p(a), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(b)`) meets new instances at every
-  level, which no memo of instances would end either.
+  (f)): the chains of free splits (`chains_on`); a `!` factor's forced
+  split (a promotion may bind a metavariable the other factor holds); a
+  positive literal's forced split and the tensor of literals where the
+  predicate has an open atom (`Counts`, `Predicates`); the classes of
+  members inside binders. Kept: the classes of members outside every
+  binder (closed formulas, interchangeable whatever the bindings), the
+  counts per predicate, the copy budget and its deepening. An unprovable
+  sequent with `!` that meets new instances at every level
+  (`p(a), !∀x.(p(x) ⊸ p(s(x))) ⊢ p(b)`) is ended by no memo; the memo
+  and the loop check end a clause that leads back to an instance met
+  before (`the_memo_and_the_loop_check_key_first_order_sequents`). The
+  memo sees stable sequents only: a search whose repeats lie inside one
+  focus phase (`witness-fo` #3, one stable sequent and 55 million split
+  steps at size 10) gains nothing from it.
 - **Term work is counted and polled** (`Run::poll_terms`): the zone
   counts the terms its walks visit (`Framed::steps`, atomic since the
   matching walks read the zone), and the engine adds them to its work

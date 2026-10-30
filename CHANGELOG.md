@@ -85,8 +85,12 @@ second number (0.1.x to 0.2.0), anything else the third.
   witness a term and every metavariable left unbound a fresh constant,
   and passes the checker. MLL1 and MALL1 are decided; with exponentials
   the copy bound and the three verdicts work as without quantifiers. The
-  memo and the loop check are off for a first-order goal, which runs on
-  one thread. The counts carry over: a predicate with an open atom is
+  memo and the loop check key a first-order stable sequent by its
+  instance: a complete failure is remembered for every renaming of its
+  open witnesses and eigenvariables, a failure cut by a bound for the
+  instance itself, never a proof, and a sequent equal to an ancestor
+  whose witnesses are still open is a loop (`--memo-limit 0` switches
+  both off). A first-order goal runs on one thread. The counts carry over: a predicate with an open atom is
   counted over all its atoms and refuted by `Refutation::UnbalancedSymbol`
   and `OneSidedSymbol` (in JSON `unbalanced_symbol` and
   `one_sided_symbol`, the predicate by its index), which

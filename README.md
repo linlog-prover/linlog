@@ -1707,7 +1707,13 @@ term a witness is filled in with, and `--instances N` (65536), the most
 instances of quantified formulas the search holds at once. `--stats`
 adds two counters on a first-order sequent, the unifications of two
 literals tried and the bindings of a witness made (in JSON `unifications`
-and `bindings`, written only where they are not zero). The proof
+and `bindings`, written only where they are not zero). The memo and
+the loop check work on a first-order sequent by its instances: a
+failure is remembered for every renaming of the witnesses it leaves
+open, and a sequent met again on its own branch as the same instance is
+a loop, so a hypothesis under `!` that leads back to where it started is
+refuted rather than cut at the copy bound (`--memo-limit 0` switches
+both off). The proof
 nets refuse a quantifier yet, saying so with the exit status 2, the
 error's, and a first-order proof's Rocq certificate is written for
 linlog's library (`--format rocq` above). The verdicts and the bounds:
@@ -1719,6 +1725,9 @@ unprovable (MLL1, classical, focus engine): ~p(…) occurs 1 more time than p(�
 exit 1
 $ linlog prove --copies 2 "p(z), !forall x. (p(x) -o p(s(x))) |- p(s(s(z)))" | head -1
 provable (MELL1, classical, focus engine)
+$ linlog prove -i --copies 6 "!(forall x. (p(x) -o p(x))), !(q -o r), !(r -o q), p(e) |- r"; echo "exit $?"
+unprovable (IMELL1, intuitionistic, two-sided engine): the search was exhaustive
+exit 1
 $ linlog prove --witness-depth 2 "|- exists x. p(x), ~p(f(f(f(a))))" | sed 's/after .*;/after …;/'; echo "exit $?"
 unknown (MLL1, classical, focus engine): the witness depth of 2 was reached after …; raise it with --witness-depth N
 exit 3
