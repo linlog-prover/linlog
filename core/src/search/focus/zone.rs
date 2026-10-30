@@ -226,6 +226,28 @@ pub(super) trait Zone: Sized + Send + Sync {
         unreachable!("a zone without binders has one answer")
     }
 
+    /// Writes the keys of the stable sequent `⊢ Θ ; Γ` by instance: its
+    /// own, which names its variables as the search does, and its
+    /// canonical one, the same up to a renaming of them; false where the
+    /// sequent is to be decided without a key.
+    fn keys(
+        &mut self,
+        _forest: &Forest,
+        _theta: &Self::Unrestricted,
+        _gamma: &Self::Linear,
+        _own: &mut Vec<OccId>,
+        _canonical: &mut Vec<OccId>,
+    ) -> bool {
+        unreachable!("a zone without binders keys its sequents by occurrence")
+    }
+
+    /// Whether some answer is excluded while its first premise is
+    /// searched: a failure found then may rest on the exclusion, so it is
+    /// no fact about its sequent.
+    fn excluding(&self) -> bool {
+        unreachable!("a zone without binders has one answer")
+    }
+
     /// The terms the zone's walks visited since this was last asked:
     /// work that grows with the size of the terms, which the engine counts
     /// and polls its stop on.

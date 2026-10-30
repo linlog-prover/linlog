@@ -9,7 +9,7 @@
 
 use super::arena::{Arena, Kept};
 use super::counts::Counts;
-use super::memo::Table;
+use super::memo::{Interner, Memo, Table};
 use super::zone::Zone;
 use super::{Problem, Run, SetUp};
 use crate::fragment::{Fragment, Mode};
@@ -151,12 +151,12 @@ impl Plan {
         account: &'a Account,
         stop: Stop<'a>,
     ) -> (Finished, bool) {
-        let mut problem = Problem::new(set_up, counts, self.copies, account);
-        // The memo is off for a first-order search: its table of zones then
-        // gives every zone a new id without reading it.
+        let problem = Problem::new(set_up, counts, self.copies, account);
+        // A first-order search keys its sequents by instance: its table of
+        // zones keeps none and gives every zone a new id without reading
+        // it, which the copies' order by class needs.
         let memo = if Z::FIRST_ORDER {
-            problem.memoizes = false;
-            Table::own(0)
+            Table::Own(Memo::new(set_up.options.memo_entries()), Interner::new(0))
         } else {
             Table::own(set_up.options.memo_entries())
         };

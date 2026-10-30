@@ -284,6 +284,8 @@ pub(super) struct Framed {
     walk: Vec<(TRef, bool)>,
     /// Scratch: the depth of every term a binding's walk met.
     depths: HashMap<TRef, u32>,
+    /// Scratch: the buffers the keys of stable sequents are written with.
+    key: KeyScratch,
 }
 
 impl Framed {
@@ -757,6 +759,280 @@ impl Framed {
     }
 }
 
+// The keys of a first-order search's stable sequents, which its memo and
+// loop check read.
+//
+// A member is written as its occurrence followed by the terms of its
+// frame, innermost first, each in prefix order as the bindings resolve
+// it: a closed term of the sequent's arena by its id (hash-consed, so
+// equal ids are equal terms), an application by its symbol followed by
+// its arguments, a metavariable or an eigenvariable by a number. The
+// occurrence fixes how many binders lie above it, and a symbol its
+// arity, so the words of a member end where its last term does.
+//
+// **The instance's own key** names every variable as the search does,
+// and every metavariable's level beside it: two stable sequents share it
+// exactly when they are the same instance, the same members over the
+// same unbound metavariables and eigenvariables. The loop check compares
+// it: a sequent equal to an ancestor whose metavariables are still
+// unbound is that ancestor, and a smallest proof of the ancestor never
+// passes through it. A failure cut by a bound is recorded under it, as
+// the propositional engine records one under the sequent's own key.
+//
+// **The canonical key** is the same sequent up to a renaming of its
+// variables: the members sorted with every metavariable alike, the
+// metavariables then numbered as they first appear, the eigenvariables
+// ranked by number, and every metavariable's level written as how many
+// of the sequent's eigenvariables lie below it, which is all of its
+// level a search of the sequent reads: a binding there only ever meets
+// the sequent's own eigenvariables and younger ones, which no
+// metavariable of the sequent may take. Two sequents with one canonical
+// key are one sequent up to a renaming that keeps the levels' order, so
+// a complete failure of either is one of the other.
+
+/// The bits of a term's word that say what it is.
+const TAG: u32 = 3 << 30;
+/// A closed term of the arena, by its id.
+const CLOSED: u32 = 0;
+/// An application, by its symbol; its arguments follow.
+const APP: u32 = 1 << 30;
+/// An eigenvariable, by its number or rank.
+const EIGEN: u32 = 2 << 30;
+/// A metavariable, by its index or number.
+const META: u32 = 3 << 30;
+/// The bits of a term's word that hold its value. A value past them is
+/// refused: such a sequent is decided without a key.
+const VALUE: u32 = !TAG;
+
+/// The most words the members of a key may take: a sequent whose terms,
+/// written out, pass it (a witness shared many times over is written as
+/// often as it is reached) is decided without the memo and the loop
+/// check, which would spend more on its key than on most searches.
+const KEY_WORDS: usize = 1 << 16;
+
+/// The buffers the keys are written with, kept between stable sequents.
+#[derive(Debug, Default)]
+struct KeyScratch {
+    /// The members' words, one member after another.
+    words: Vec<u32>,
+    /// Per member, where its words start, `Γ`'s first.
+    starts: Vec<usize>,
+    /// The members' order in a key.
+    order: Vec<usize>,
+    /// The eigenvariables' numbers, sorted, each once.
+    eigens: Vec<u32>,
+    /// The metavariables by index, in the order a key names them.
+    metas: Vec<u32>,
+    /// The number of each metavariable in the canonical key.
+    numbers: HashMap<u32, u32>,
+    /// The terms to write.
+    walk: Vec<TRef>,
+}
+
+impl KeyScratch {
+    /// Where the words of member `i` lie.
+    fn range(&self, i: usize) -> std::ops::Range<usize> {
+        let end = self.starts.get(i + 1).copied().unwrap_or(self.words.len());
+        self.starts[i]..end
+    }
+
+    /// The words of member `i`.
+    fn member(&self, i: usize) -> &[u32] {
+        &self.words[self.range(i)]
+    }
+
+    /// Orders members `x` and `y` as the canonical key does: by their
+    /// words, a metavariable as any other and an eigenvariable by its
+    /// rank.
+    fn abstract_order(&self, x: usize, y: usize) -> std::cmp::Ordering {
+        let (x, y) = (self.member(x), self.member(y));
+        x[0].cmp(&y[0]).then_with(|| {
+            x[1..]
+                .iter()
+                .map(|&w| self.abstracted(w))
+                .cmp(y[1..].iter().map(|&w| self.abstracted(w)))
+        })
+    }
+
+    /// The word as the canonical key's order reads it: a metavariable as
+    /// any other, an eigenvariable by its rank.
+    fn abstracted(&self, word: u32) -> u32 {
+        match word & TAG {
+            META => META,
+            EIGEN => EIGEN | self.rank(word & VALUE),
+            _ => word,
+        }
+    }
+
+    /// The rank of an eigenvariable among the sequent's.
+    fn rank(&self, number: u32) -> u32 {
+        // Fewer eigenvariables than words.
+        self.eigens.partition_point(|&n| n < number) as u32
+    }
+}
+
+impl Framed {
+    /// Writes the keys of the stable sequent `⊢ Θ ; Γ`: its own and its
+    /// canonical one, as said above [`KeyScratch`]. False where a variable, a term
+    /// or a symbol passes a word's value or the words pass
+    /// [`KEY_WORDS`]: the sequent is then decided without a key.
+    fn write_keys(
+        &mut self,
+        forest: &Forest,
+        theta: &Set,
+        gamma: &Members,
+        own: &mut Vec<OccId>,
+        canonical: &mut Vec<OccId>,
+    ) -> bool {
+        let fo = &forest.sequent().fo;
+        let mut s = std::mem::take(&mut self.key);
+        s.words.clear();
+        s.starts.clear();
+        s.eigens.clear();
+        let written = gamma
+            .0
+            .iter()
+            .chain(&theta.0)
+            .all(|&m| self.write_member(fo, m, &mut s));
+        if written {
+            s.eigens.sort_unstable();
+            s.eigens.dedup();
+            let n = gamma.0.len();
+            self.own_key(&mut s, n, own);
+            self.canonical_key(&mut s, n, canonical);
+        }
+        self.key = s;
+        written
+    }
+
+    /// Writes a member's words, collecting its eigenvariables.
+    fn write_member(&self, fo: &FirstOrder, m: FMember, s: &mut KeyScratch) -> bool {
+        let (o, mut frame) = self.instance(m);
+        s.starts.push(s.words.len());
+        s.words.push(o.get());
+        while frame != NONE {
+            let (parent, term) = self.frames[frame as usize];
+            s.walk.clear();
+            s.walk.push(term);
+            while let Some(t) = s.walk.pop() {
+                self.step();
+                if s.words.len() >= KEY_WORDS {
+                    return false;
+                }
+                let t = self.deref(fo, t);
+                let (tag, value) = if let Some(v) = self.var(t) {
+                    match self.vars[v as usize] {
+                        Var::Meta { .. } => (META, v),
+                        Var::Eigen(number) => {
+                            s.eigens.push(number);
+                            (EIGEN, number)
+                        }
+                    }
+                } else if self.closed[t.id as usize] {
+                    (CLOSED, t.id)
+                } else {
+                    let (symbol, args) = Self::app(fo, t);
+                    s.walk.extend(args.iter().rev().map(|a| TRef {
+                        id: a.get(),
+                        frame: t.frame,
+                    }));
+                    (APP, symbol.get())
+                };
+                if value > VALUE {
+                    return false;
+                }
+                s.words.push(tag | value);
+            }
+            frame = parent;
+        }
+        true
+    }
+
+    /// The level of a metavariable, by index.
+    fn meta_level(&self, v: u32) -> u32 {
+        match self.vars[v as usize] {
+            Var::Meta { level, .. } => level,
+            Var::Eigen(_) => unreachable!("a metavariable's word names a metavariable"),
+        }
+    }
+
+    /// The instance's own key: the members of `Γ` (the first `n`) and of
+    /// `Θ`, each zone's sorted by their words, each zone after its size,
+    /// then the level of every metavariable in the order they appear.
+    fn own_key(&self, s: &mut KeyScratch, n: usize, key: &mut Vec<OccId>) {
+        let total = s.starts.len();
+        s.order.clear();
+        s.order.extend(0..total);
+        let mut order = std::mem::take(&mut s.order);
+        order[..n].sort_by(|&x, &y| s.member(x).cmp(s.member(y)));
+        order[n..].sort_by(|&x, &y| s.member(x).cmp(s.member(y)));
+        s.metas.clear();
+        key.clear();
+        for members in [&order[..n], &order[n..]] {
+            // A zone has fewer members than a word counts: a forest has
+            // fewer than 2³¹ occurrences and a span as many as its body.
+            key.push(OccId::new(members.len() as u32));
+            for &i in members {
+                let range = s.range(i);
+                key.push(OccId::new(s.words[range.start]));
+                for &w in &s.words[range.start + 1..range.end] {
+                    if w & TAG == META && !s.metas.contains(&(w & VALUE)) {
+                        s.metas.push(w & VALUE);
+                    }
+                    key.push(OccId::new(w));
+                }
+            }
+        }
+        key.extend(s.metas.iter().map(|&v| OccId::new(self.meta_level(v))));
+        s.order = order;
+    }
+
+    /// The canonical key: the members of `Γ` (the first `n`) and of `Θ`,
+    /// each zone's sorted with every metavariable alike and every
+    /// eigenvariable by its rank, the metavariables numbered as they
+    /// first appear in that order, then per metavariable how many of the
+    /// sequent's eigenvariables lie below its level.
+    fn canonical_key(&self, s: &mut KeyScratch, n: usize, key: &mut Vec<OccId>) {
+        let mut order = std::mem::take(&mut s.order);
+        order[..n].sort_by(|&x, &y| s.abstract_order(x, y));
+        order[n..].sort_by(|&x, &y| s.abstract_order(x, y));
+        s.metas.clear();
+        s.numbers.clear();
+        key.clear();
+        for members in [&order[..n], &order[n..]] {
+            key.push(OccId::new(members.len() as u32));
+            for &i in members {
+                let range = s.range(i);
+                key.push(OccId::new(s.words[range.start]));
+                for j in range.start + 1..range.end {
+                    let w = s.words[j];
+                    let word = match w & TAG {
+                        META => {
+                            let v = w & VALUE;
+                            // Fewer metavariables than words.
+                            let next = s.metas.len() as u32;
+                            let number = *s.numbers.entry(v).or_insert(next);
+                            if number == next {
+                                s.metas.push(v);
+                            }
+                            META | number
+                        }
+                        EIGEN => EIGEN | s.rank(w & VALUE),
+                        _ => w,
+                    };
+                    key.push(OccId::new(word));
+                }
+            }
+        }
+        key.extend(
+            s.metas
+                .iter()
+                .map(|&v| OccId::new(s.rank(self.meta_level(v)))),
+        );
+        s.order = order;
+    }
+}
+
 impl Zone for Framed {
     const FIRST_ORDER: bool = true;
 
@@ -813,6 +1089,7 @@ impl Zone for Framed {
             met: HashSet::default(),
             walk: Vec::new(),
             depths: HashMap::default(),
+            key: KeyScratch::default(),
         }
     }
 
@@ -915,13 +1192,15 @@ impl Zone for Framed {
         }
     }
 
-    /// A first-order search keys no sequent.
+    /// A first-order search keys its sequents by instance
+    /// ([`Zone::keys`]), not by occurrence.
     fn memoizes(&self, _: &Set, _: &Members) -> bool {
         false
     }
 
-    fn word_lists(_: &mut Pools<Self>) -> &mut Vec<Pooled<OccId>> {
-        unreachable!("a first-order search keys no sequent")
+    /// A pool of its own: the members are no words.
+    fn word_lists(pools: &mut Pools<Self>) -> &mut Vec<Pooled<OccId>> {
+        &mut pools.words
     }
 
     fn listed(_: &[OccId]) -> Option<&[FMember]> {
@@ -1143,6 +1422,24 @@ impl Zone for Framed {
         self.answers.pop();
     }
 
+    fn keys(
+        &mut self,
+        forest: &Forest,
+        theta: &Set,
+        gamma: &Members,
+        own: &mut Vec<OccId>,
+        canonical: &mut Vec<OccId>,
+    ) -> bool {
+        self.write_keys(forest, theta, gamma, own, canonical)
+    }
+
+    /// Whether an answer is excluded while its first premise is searched.
+    fn excluding(&self) -> bool {
+        self.answers
+            .iter()
+            .any(|answers| answers.first && !answers.patterns.is_empty())
+    }
+
     fn take_steps(&mut self) -> u64 {
         std::mem::take(self.steps.get_mut())
     }
@@ -1341,7 +1638,7 @@ impl Linear<FMember> for Members {
     }
 
     fn ground(&self) -> &Context {
-        unreachable!("a first-order search keys no sequent")
+        unreachable!("a first-order search keys no sequent by occurrence")
     }
 }
 
@@ -1378,8 +1675,9 @@ impl Unrestricted<FMember> for Set {
         self.0.iter().copied()
     }
 
-    /// The empty set: the memo is off in a first-order search, so its
-    /// table of zones gives every zone a new id without reading it.
+    /// The empty set: a first-order search keys its sequents by instance,
+    /// and its table of zones keeps none, so it gives every zone a new id
+    /// without reading it.
     fn ground(&self) -> &OccSet {
         &self.1
     }

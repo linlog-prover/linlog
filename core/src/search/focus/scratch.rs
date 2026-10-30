@@ -219,6 +219,9 @@ pub(super) struct Pools<Z: Zone> {
     cursors: Vec<Cursors>,
     /// Spare lists of the frames of a chain of free splits.
     frames: Vec<Vec<Frame<Z>>>,
+    /// Spare lists of the words of keys, where they are not lists of
+    /// members ([`Zone::word_lists`]).
+    pub(super) words: Vec<Pooled<OccId>>,
 }
 
 impl<Z: Zone> Default for Pools<Z> {
@@ -233,6 +236,7 @@ impl<Z: Zone> Default for Pools<Z> {
             links: Vec::new(),
             cursors: Vec::new(),
             frames: Vec::new(),
+            words: Vec::new(),
         }
     }
 }

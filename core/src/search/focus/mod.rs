@@ -55,6 +55,8 @@ pub(crate) mod counts;
 mod first_order;
 /// The zone of a first-order search.
 mod framed;
+/// The memo and the loop check of a first-order search.
+mod keyed;
 /// The memo of stable sequents.
 mod memo;
 #[cfg(feature = "parallel")]
@@ -1105,7 +1107,8 @@ impl<'a, Z: Zone> Run<'a, Z> {
     }
 
     /// The decision of a stable sequent that the memo and the loop check
-    /// may not key.
+    /// may not key by its occurrences: a first-order one by its instance
+    /// where the memo is on and the sequent has keys.
     #[cold]
     fn prove_unkeyed(
         &mut self,
@@ -1113,6 +1116,12 @@ impl<'a, Z: Zone> Run<'a, Z> {
         gamma: &Z::Linear,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
+        if Z::FIRST_ORDER
+            && self.problem.memoizes
+            && let Some(decided) = self.prove_keyed(theta, gamma, budget)
+        {
+            return decided;
+        }
         let mut members = self.take_list();
         gamma.list_into(&mut members);
         let mark = self.nodes.mark();
