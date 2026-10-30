@@ -4184,3 +4184,6 @@ client follows it (step 32).
   kept on by default (the earlier revert withdrawn before it was made),
   the memo kept and its cost on `chain-fo` found and removed by 42j
   first.
+- 2026-10-30, 21:40: the author, standing: timed runs need no yes, only
+  coordination with the other sessions (`plan/handoff.md`); the baseline's
+  night is still theirs to give.

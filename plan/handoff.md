@@ -196,8 +196,8 @@ its zone, the first-order focused engine). Left, in order:
   (3 % summed, 5 % a row for the focused rows) is set in the report
   before the run. The target set's rows over a second are the Horn
   engine's now, so the focused and two-sided engines are forced on
-  `mix` and `chain` rows (`bench.md`). Ask the author before each timed
-  run until they say otherwise.
+  `mix` and `chain` rows (`bench.md`). Since 2026-10-30 21:40 no timed
+  run needs the author's yes, only coordination (below).
 - **The usage limit stops the planner too.** At the five-hour limit a
   step session shows "Goal paused · usage limit reached · send a message
   after it resets to continue" and does not go on by itself; its
@@ -400,6 +400,13 @@ its zone, the first-order focused engine). Left, in order:
   repository) need the author's yes for that task (the yes for
   `rocq-linlog`'s creation and setup is given); deleting and
   transferring are theirs alone.
+- **Timed runs need no yes** (the author, 2026-10-30, 21:40: "You
+  don't need to ask before doing benchmarks. Just coordinate with the
+  other sessions"): a session tells the planning session before each
+  timed run; the planning session pauses the other sessions' heavy work
+  (the learning website's: "pause heavy work", then "go ahead") and the
+  run starts; the night baseline still waits for the night the author
+  gives.
 - **Benchmarks are protected from other load** (the author,
   2026-10-30): whenever a timed run is going (the baseline's night, a
   pinned-time comparison, a session's own timing while it iterates),
