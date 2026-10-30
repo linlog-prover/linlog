@@ -381,8 +381,15 @@ has no or-choices worth sharing out). What the code relies on:
   own counters and cut stay), and pushes the worker's kept nodes onto
   its pending ones, renamed (`Run::adopted`), so the proof's members name
   instances of its zone and the root's closing writes them; a losing
-  worker's zone and arena are dropped, and its cut reason joins the
-  engine's (`Zone::cut_by`). A worker's zone counters reach the engine
+  worker's zone and arena are dropped, its arena's charge given back to
+  the account (`Collected::take`: only the spawning engine's own arena
+  stays charged; before, a second prover's kept nodes stayed charged for
+  ever), and its cut reason joins the engine's (`Zone::cut_by`). The
+  sequent's tables of the zone (`closed`, `depth`, `arena`) never change
+  after `Framed::new` and are shared by the forks (`Arc`): copied, they
+  were nine bytes a term per live worker outside the account (a sequent
+  of three million constants held 654 MB on one thread and 926 MB on
+  four under one bound, the panel's witness; 649 MB shared). A worker's zone counters reach the engine
   through `Run::report`. (4) **A cut last level is searched once more
   alone** (`Run::again_alone`) where the engine divided a choice in it:
   a worker may have searched a sequent cut by its budget while a sibling
