@@ -320,3 +320,82 @@ impl Choices {
         self.replaying = false;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Choices, Cuts, Site};
+
+    /// A resumption replays every choice point to its logged alternative,
+    /// with the cuts of those tried before it, and goes on past the last
+    /// one that took an alternative, with the cuts of every failure
+    /// logged after it.
+    #[test]
+    fn a_resumption_goes_on_at_the_last_open_choice() {
+        let mut choices = Choices::default();
+        choices.open();
+        let stable = choices.enter(Site::Choose);
+        choices.take(&stable, 0, Cuts::NONE);
+        choices.take(&stable, 1, Cuts::BUDGET);
+        let pair = choices.enter(Site::Initial);
+        choices.take(&pair, 2, Cuts::NONE);
+        let absorbed = choices.enter(Site::Initial);
+        choices.fail(&absorbed, Cuts::repeat(3));
+        let end = choices.len();
+        assert_eq!(choices.resume(0, end), Ok(()));
+        let stable = choices.enter(Site::Choose);
+        assert_eq!(
+            (stable.start, stable.cuts, stable.resumed),
+            (1, Cuts::BUDGET, false)
+        );
+        choices.take(&stable, 1, stable.cuts);
+        let pair = choices.enter(Site::Initial);
+        assert_eq!(
+            (pair.start, pair.cuts, pair.resumed),
+            (3, Cuts::repeat(3), true)
+        );
+        assert!(!choices.replaying());
+        assert!(!choices.end_replay());
+    }
+
+    /// A replay that meets another choice point than its log's, or tries
+    /// another alternative before its resume point, has diverged: every
+    /// choice point fails at once, cut, and the rule is told.
+    #[test]
+    fn a_replay_off_its_log_diverges() {
+        let mut choices = Choices::default();
+        choices.open();
+        let stable = choices.enter(Site::Choose);
+        choices.take(&stable, 0, Cuts::NONE);
+        let split = choices.enter(Site::Splits);
+        choices.take(&split, 0, Cuts::NONE);
+        let end = choices.len();
+        choices.resume(0, end).unwrap();
+        let other = choices.enter(Site::Initial);
+        assert_eq!((other.start, other.cuts), (u32::MAX, Cuts::BUDGET));
+        assert!(choices.end_replay());
+        let mut choices = Choices::default();
+        choices.open();
+        let stable = choices.enter(Site::Choose);
+        choices.take(&stable, 0, Cuts::NONE);
+        let split = choices.enter(Site::Splits);
+        choices.take(&split, 0, Cuts::NONE);
+        choices.resume(0, choices.len()).unwrap();
+        let stable = choices.enter(Site::Choose);
+        choices.take(&stable, 1, Cuts::NONE);
+        assert!(choices.end_replay());
+    }
+
+    /// Where no choice point took an alternative the answer was the only
+    /// one: no replay, and the cuts of every failure logged.
+    #[test]
+    fn no_open_choice_leaves_no_answer() {
+        let mut choices = Choices::default();
+        choices.open();
+        let pair = choices.enter(Site::Initial);
+        choices.fail(&pair, Cuts::BUDGET);
+        let parts = choices.enter(Site::Parts);
+        choices.settle(&parts, 1);
+        assert_eq!(choices.resume(0, choices.len()), Err(Cuts::BUDGET));
+        assert!(!choices.replaying());
+    }
+}

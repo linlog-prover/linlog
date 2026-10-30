@@ -517,6 +517,33 @@ fn the_two_sided_engine_decides_first_order_sequents() {
     }
 }
 
+/// A premise whose answer fails the other is asked for its next one:
+/// the witness that a later factor needs is the last of its premise's
+/// answers, provable with every proof checked, and refuted where no
+/// answer serves, in both engines.
+#[test]
+fn a_premise_gives_its_answers_in_turn() {
+    let options = Options::default();
+    for (goal, provable) in [("q(a4)", true), ("q(b)", false)] {
+        let ill = format!(
+            "p(a1), p(a2), p(a3), p(a4), {goal} |- exists x. (p(x) * q(x)) * exists x. p(x) * exists x. p(x) * exists x. p(x)"
+        );
+        assert_eq!(
+            decided(&ill, Mode::INTUITIONISTIC, &options),
+            Some(provable),
+            "{ill}"
+        );
+        let one_sided = format!(
+            "|- ~p(a1), ~p(a2), ~p(a3), ~p(a4), ~{goal}, exists x. (p(x) * q(x)) * exists x. p(x) * exists x. p(x) * exists x. p(x)"
+        );
+        assert_eq!(
+            decided(&one_sided, Mode::CLASSICAL, &options),
+            Some(provable),
+            "{one_sided}"
+        );
+    }
+}
+
 /// The first-order families with verdicts by construction: a witness
 /// among `n` alternatives (`p(a₁) & … & p(aₙ), q(aₖ) ⊢ ∃x.(p(x) ⊗ q(x))`,
 /// unprovable with `q(b)`), and a chain of `n` steps of a quantified
