@@ -798,6 +798,20 @@ $ linlog prove --classical-sides two --format latex "A -o B, A |- B"
 \end{prooftree}
 ```
 
+A first-order derivation is drawn so too, its quantifier steps named by
+side (`∀L`, `∀R`, `∃L`, `∃R`) and every instance written out:
+
+```console
+$ linlog prove --classical-sides two "|- ~(forall x. p(x)), p(a)"
+provable (MLL1, classical, focus engine)
+    ─────────── ax
+    p(a) ⊢ p(a)
+  ─────────────── ∀L
+  ∀x. p(x) ⊢ p(a)
+─────────────────── ~R
+⊢ ~(∀x. p(x)), p(a)
+```
+
 `--timeout` and Ctrl-C hold while a derivation is built and written as
 they do during the search, and an `--output` file holds a whole output or
 is left as it was.
@@ -2201,7 +2215,8 @@ Built:
   propositional one.
 - First-order proofs: `∀` and `∃` steps with eigenvariables and
   witnesses, checked with the eigenvariable condition, written as JSON,
-  their derivations printed one- and two-sided (`∀R`, `∀L`, `∃R`, `∃L`)
+  their derivations printed one- and two-sided (`∀R`, `∀L`, `∃R`, `∃L`,
+  in the classical two-sided view too)
   and drawn in LaTeX, Typst and SVG with every instance written out.
 - First-order proof search: the focused engine decides first-order
   sequents in the classical modes, Mix and affine mode included, and

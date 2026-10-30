@@ -218,8 +218,9 @@ A ⊢ A        B ⊸ C, B ⊢ C
 
 A classical derivation is one-sided; `--classical-sides two` draws it
 two-sided as written, the rules named by side (`⊗L`, `⅋R`, …) with a
-step `~L` or `~R` where a negation was written. Intuitionistic
-derivations are always two-sided.
+step `~L` or `~R` where a negation was written, a first-order one with
+`∀L`, `∀R`, `∃L` and `∃R` by side and its instances written out.
+Intuitionistic derivations are always two-sided.
 
 ```console
 $ linlog prove --classical-sides two "A par B |- ~(~A * ~B)"
