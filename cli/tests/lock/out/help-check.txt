@@ -130,7 +130,7 @@ Options:
           - new-computer-modern: New Computer Modern Math 7.1.1 (Book), the Computer Modern of TeX
 
       --kernel <KERNEL>
-          The Rocq kernel a certificate of linear logic is written for; by default the mode's: nanoyalla for classical linear logic, linlog for Mix, affine and intuitionistic logic (styles.rocq.kernel)
+          The Rocq kernel a certificate of linear logic is written for; by default the mode's: nanoyalla for classical linear logic, linlog for Mix, affine and intuitionistic logic and for a sequent with a quantifier (styles.rocq.kernel)
 
           Possible values:
           - nanoyalla: NanoYalla 1.1.3, the kernel of Click & coLLecT: classical linear logic one-sided, a proof script checked rule by rule

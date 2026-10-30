@@ -1310,7 +1310,8 @@ impl From<FontArg> for MathFont {
 pub(crate) struct RocqArgs {
     /// The Rocq kernel a certificate of linear logic is written for; by
     /// default the mode's: nanoyalla for classical linear logic, linlog
-    /// for Mix, affine and intuitionistic logic (styles.rocq.kernel)
+    /// for Mix, affine and intuitionistic logic and for a sequent with a
+    /// quantifier (styles.rocq.kernel)
     #[arg(long, value_enum, value_name = "KERNEL")]
     pub(crate) kernel: Option<KernelArg>,
     /// The name of the lemma of a Rocq certificate (styles.rocq.lemma)
