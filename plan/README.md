@@ -3926,3 +3926,7 @@ client follows it (step 32).
   existing families into that chapter, every figure drawn by
   `bench/plots.py` from the CSV rows; 45d adds 45b's growing families
   and the fourth baseline's beside them.
+- 2026-10-30: the author's go, unattended until further notice. Next:
+  session 42e, the two-sided first-order engine, interactive proving
+  with the quantifiers and the two-sided views (Opus 5.5 at high, with
+  the panel); timed runs still wait for the author's word.
