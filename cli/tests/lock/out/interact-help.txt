@@ -7,6 +7,9 @@ help
 goals               the open goals, with the positions of their formulas
 rules G P           the rules that act on formula P of goal G
 apply G P RULE [P…] apply a rule; further positions go to the left premise of a ⊗ or Mix
+apply G P RULE [T]  ∃R or ∀L (∃ one-sided) with the witness T, a term of the sequent's
+                    symbols and the eigenvariables a, b, … the goal shows; without T
+                    the witness is left open, $1, $2, …, for an axiom or close to fill
 cut G C [P…]        cut goal G on the formula C, written as the mode writes formulas (quote
                     it if it has blanks): the positions P go to the first premise, which
                     proves C, the others to the second, which uses it
