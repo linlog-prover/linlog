@@ -1437,17 +1437,18 @@ non-exhaustive), `Step::with_witness`, `Interactive::witness`.
 
 ### The propositional case (D17)
 
-- **Target sets**, at `olorpnkz` (before the panel) and again at
-  `vpxwqwsr` (the last commit that touches the search; the one code
-  commit after it, `trrlqvvm`, changes interactive proving and the
-  command only), the files committed:
-  `bench/targets/42e.csv` against
-  `bench/targets/42d.csv` and `bench/targets/net-42e.csv` against
+- **Target sets** against `bench/targets/42d.csv` and
   `bench/targets/net-42d.csv` (`linlog-bench summary --against …
-  --counters`): no verdict differs; of the 145 focused and 64 net rows
-  both decide alike, none differs in `nodes`, `splits`, `memo_hits`,
-  `memo_entries`, `links` or `tests`.
-- **The ratchet** (every gate, none raised): within every ceiling.
+  --counters`), three times: at `olorpnkz` (before the panel), at
+  `vpxwqwsr` (the last commit that touches the search; files
+  `42e.csv`, `net-42e.csv`) and at `trrlqvvm`, **the session's last code
+  commit, which the D17 evidence covers** (files `42e-last.csv`,
+  `net-42e-last.csv`). Each time no verdict differs, and of the 145
+  focused and 64 net rows both decide alike, none differs in `nodes`,
+  `splits`, `memo_hits`, `memo_entries`, `links` or `tests`.
+- **The ratchet** (every gate, none raised; the last at `trrlqvvm`):
+  within every ceiling; `bench/ceilings.csv` is unchanged over the
+  session.
   `derivation-chain-64`, the journey with no margin, counted +1.98 % of
   its ceiling at the engine's commit (the base's +1.98 %), +1.93 % at the
   classical view's, +1.97 % at the interactive commit's; `render-svg`
@@ -1692,8 +1693,9 @@ the dispatch (a poll per copy level) is behind `Z::FIRST_ORDER`, which
 ### What the next sessions must know
 
 - **`.claude/rules/core-derivations.md`, "First-order sessions"**, holds
-  the session's invariants: its own hash-consed table that only grows,
-  the trail by step number, levels as the engine's and the scope for a
+  the session's invariants: its own hash-consed table, truncated by
+  `undo` to its step's mark, the trail by step number, the term limit
+  measured as the reader measures it, levels as the engine's and the scope for a
   given witness, the shown table that every reader reads, `$1` for an
   open witness, the axiom by unification and the automatic axiom on
   equal instances only, `close` by the written sequent, the JSON's checks,
