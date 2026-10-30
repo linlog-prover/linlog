@@ -754,6 +754,65 @@ fn a_deep_unification_is_counted_work() {
     );
 }
 
+/// The keys of first-order stable sequents are charged and counted: the
+/// keys of every stable sequent on the branch live while its subtree is
+/// searched, so a tower of quantifiers over many literals reaches the
+/// memory bound within little work, and writing them is work, which a
+/// tower of instances makes grow with its height.
+#[test]
+fn the_first_order_keys_are_charged_and_counted() {
+    use linlog::Reason;
+    let tower = |height: usize, inner: String| {
+        (0..height).rev().fold(inner, |body, i| {
+            format!("exists x{i}. (forall y{i}. {body})")
+        })
+    };
+    let literals: Vec<String> = (0..150).map(|t| format!("q{t}(x39, y39)")).collect();
+    let duals: Vec<String> = (0..150).map(|t| format!("~q{t}(a, b)")).collect();
+    let wide = format!(
+        "|- {}, {}, ~r",
+        tower(
+            40,
+            format!("({} par {})", literals.join(" par "), tower(60, "r".into()))
+        ),
+        duals.join(", ")
+    );
+    let limits = Limits::default()
+        .with_memory_bytes(Some(2 << 20))
+        .with_work(Some(500_000));
+    let outcome = linlog::prove_within(
+        &wide.parse().unwrap(),
+        Mode::CLASSICAL.with_mix(),
+        &Options::default(),
+        &limits,
+        |_| false,
+    )
+    .unwrap();
+    assert!(
+        matches!(
+            outcome.verdict,
+            Verdict::Unknown(Reason::MemoryLimit { .. })
+        ),
+        "{:?}",
+        outcome.verdict
+    );
+    let variables: Vec<String> = (0..100).map(|i| format!("x{i}")).collect();
+    let high = format!(
+        "|- {}, ~p({}, b)",
+        tower(100, format!("p({}, x0)", variables.join(", "))),
+        vec!["a"; 100].join(", ")
+    );
+    let work = |memo_limit| {
+        let options = Options::default().with_memo_limit(memo_limit);
+        let outcome = linlog::prove(&high.parse().unwrap(), Mode::CLASSICAL, &options).unwrap();
+        assert!(matches!(outcome.verdict, Verdict::Unprovable(_)));
+        outcome.statistics.work
+    };
+    // About three times the memo-free search's work at this height, where
+    // writing the keys went uncounted at a third more.
+    assert!(work(1 << 20) > 2 * work(0));
+}
+
 /// The position in a goal of the formula written `text`.
 fn at(state: &Interactive, goal: GoalId, text: &str) -> usize {
     let goal = state.goal(goal).unwrap();
