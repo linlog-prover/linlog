@@ -818,3 +818,54 @@ fn the_search_closes_a_session_goal() {
     );
     assert!(!state.is_complete());
 }
+
+/// A witness nested 100 000 deep goes through a session without
+/// recursion: built flat, printed, written for the search and decided;
+/// and a session read from JSON holds no more table entries than
+/// `limits.terms`.
+#[test]
+fn a_session_holds_deep_witnesses_and_bounds_its_table() {
+    let sequent: Sequent = "forall x. p(x) |- p(f(c))".parse().unwrap();
+    let symbol = |name: &str| {
+        let index = sequent
+            .symbols()
+            .iter()
+            .position(|(n, _)| n == name)
+            .unwrap();
+        linlog::sequents::Symbol::new(u32::try_from(index).unwrap())
+    };
+    let mut nodes = vec![TermNode::App(symbol("c"), vec![])];
+    for i in 0..100_000u32 {
+        nodes.push(TermNode::App(symbol("f"), vec![i]));
+    }
+    let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
+    let root = state.goals().next().unwrap();
+    let position = at(&state, root, "∀x. p(x)");
+    let deep = Step::new(position, Rule::Exists).with_witness(Witness::Term(nodes));
+    let goals = state.apply(root, &deep).unwrap();
+    let deep = state.formula(state.goal(goals[0]).unwrap()[1]).to_string();
+    // `p(`, a hundred thousand `f(`, `c` and as many brackets and one.
+    assert_eq!(deep.len(), 2 + 200_000 + 1 + 100_001);
+    assert!(deep.starts_with("p(f(f(") && deep.contains("f(f(c))"));
+    let view = linlog::ViewOptions::default();
+    let closed = state
+        .close(
+            goals[0],
+            &Options::default(),
+            &view,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
+    assert!(matches!(closed.outcome.verdict, Verdict::Unprovable(_)));
+    assert_eq!(state.undo(), Some(root));
+    step(&mut state, "∀x. p(x)", Rule::Exists, Some("f(c)"));
+    let json = serde_json::to_string(&state).unwrap();
+    let limits = Limits::default().with_terms(Some(2));
+    let error = <Interactive as linlog::wire::Readable>::read(
+        &mut serde_json::Deserializer::from_str(&json),
+        &limits,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("terms"), "{error}");
+}

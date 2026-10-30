@@ -580,23 +580,34 @@ impl Copy<'_> {
     /// formula, its loose variables past them the frame's terms.
     fn open(&mut self, t: FoTermId, inner: u32, frame: &[FoTermId]) -> FoTermId {
         let fo = &self.forest.sequent().fo;
-        match fo.terms[t.index()] {
-            FoTerm::Bound(i) if i < inner => self.interner.term(FoTerm::Bound(i)),
-            FoTerm::Bound(i) => self.closed(frame[(i - inner) as usize], inner),
-            FoTerm::App(f, args) => {
-                let items: Vec<FoTermId> = fo
-                    .list(args)
-                    .to_vec()
-                    .into_iter()
-                    .map(|c| self.open(c, inner, frame))
-                    .collect();
-                let list = self.interner.list(&items);
-                self.interner.term(FoTerm::App(f, list))
+        // A walk with a stack of its own, arguments first: an input's
+        // terms are as deep as its text.
+        let mut done: HashMap<FoTermId, FoTermId> = HashMap::default();
+        let mut stack = vec![(t, false)];
+        while let Some((u, expanded)) = stack.pop() {
+            if done.contains_key(&u) {
+                continue;
             }
-            FoTerm::Eigen(_) | FoTerm::Meta(_) => {
-                unreachable!("a sequent's arena holds no eigenvariable or metavariable")
-            }
+            let made = match fo.terms[u.index()] {
+                FoTerm::Bound(i) if i < inner => self.interner.term(FoTerm::Bound(i)),
+                FoTerm::Bound(i) => self.closed(frame[(i - inner) as usize], inner),
+                FoTerm::App(f, args) if expanded => {
+                    let items: Vec<FoTermId> = fo.list(args).iter().map(|c| done[c]).collect();
+                    let list = self.interner.list(&items);
+                    self.interner.term(FoTerm::App(f, list))
+                }
+                FoTerm::App(_, args) => {
+                    stack.push((u, true));
+                    stack.extend(fo.list(args).iter().map(|&c| (c, false)));
+                    continue;
+                }
+                FoTerm::Eigen(_) | FoTerm::Meta(_) => {
+                    unreachable!("a sequent's arena holds no eigenvariable or metavariable")
+                }
+            };
+            done.insert(u, made);
         }
+        done[&t]
     }
 
     /// Copies a closed term of the session under `inner` binders of its
@@ -604,38 +615,48 @@ impl Copy<'_> {
     /// prefix binds is its bound variable, any other eigenvariable its
     /// constant.
     fn closed(&mut self, t: FoTermId, inner: u32) -> FoTermId {
-        let t = self.q.resolve(self.forest, t);
-        if let Some(&made) = self.closed.get(&(t, inner)) {
-            return made;
-        }
-        let made = match self.q.terms(self.forest).term(t) {
-            FoTerm::App(f, args) => {
-                let items: Vec<FoTermId> = self
-                    .q
-                    .terms(self.forest)
-                    .list(args)
-                    .to_vec()
-                    .into_iter()
-                    .map(|c| self.closed(c, inner))
-                    .collect();
-                let list = self.interner.list(&items);
-                self.interner.term(FoTerm::App(f, list))
+        // A walk with a stack of its own, arguments first: a witness is as
+        // deep as its bindings go.
+        let mut stack = vec![(t, false)];
+        while let Some((u, expanded)) = stack.pop() {
+            let u = self.q.resolve(self.forest, u);
+            if self.closed.contains_key(&(u, inner)) {
+                continue;
             }
-            FoTerm::Eigen(a) => match self.bound[&a] {
-                Bound::Constant(symbol) => {
-                    let list = self.interner.list(&[]);
-                    self.interner.term(FoTerm::App(symbol, list))
+            let made = match self.q.terms(self.forest).term(u) {
+                FoTerm::App(f, args) if expanded => {
+                    let items: Vec<FoTermId> = self
+                        .q
+                        .terms(self.forest)
+                        .list(args)
+                        .iter()
+                        .map(|&c| self.closed[&(self.q.resolve(self.forest, c), inner)])
+                        .collect();
+                    let list = self.interner.list(&items);
+                    self.interner.term(FoTerm::App(f, list))
                 }
-                Bound::Prefix(j) => self.prefixed(j, inner),
-            },
-            FoTerm::Meta(k) => {
-                let j = self.metas_at[&k];
-                self.prefixed(j, inner)
-            }
-            FoTerm::Bound(_) => unreachable!("a closed term has no bound variable"),
-        };
-        self.closed.insert((t, inner), made);
-        made
+                FoTerm::App(_, args) => {
+                    stack.push((u, true));
+                    let children = self.q.terms(self.forest).list(args).to_vec();
+                    stack.extend(children.into_iter().map(|c| (c, false)));
+                    continue;
+                }
+                FoTerm::Eigen(a) => match self.bound[&a] {
+                    Bound::Constant(symbol) => {
+                        let list = self.interner.list(&[]);
+                        self.interner.term(FoTerm::App(symbol, list))
+                    }
+                    Bound::Prefix(j) => self.prefixed(j, inner),
+                },
+                FoTerm::Meta(k) => {
+                    let j = self.metas_at[&k];
+                    self.prefixed(j, inner)
+                }
+                FoTerm::Bound(_) => unreachable!("a closed term has no bound variable"),
+            };
+            self.closed.insert((u, inner), made);
+        }
+        self.closed[&(self.q.resolve(self.forest, t), inner)]
     }
 
     /// Returns the bound variable of the prefix's binder `j`, seen from

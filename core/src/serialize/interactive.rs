@@ -257,6 +257,20 @@ impl Interactive {
             .collect();
         let history = proxy.history.into_iter().map(InfId::new).collect();
         let len = forest.len();
+        if let Some(instances) = &proxy.instances {
+            // The table is held whole, as a proof's is: bounded alike.
+            let entries = (instances.members.len() as u64)
+                .saturating_add(instances.frames.len() as u64)
+                .saturating_add(instances.terms.len() as u64);
+            if let Some(limit) = limits.terms
+                && entries > limit
+            {
+                return Err(crate::Error::Refused(crate::limits::Refusal::Terms {
+                    terms: entries,
+                    limit,
+                }));
+            }
+        }
         let parts = proxy.instances.map(Parts::from);
         let mut state = State::from_parts(forest, proxy.mode, inferences, history, parts)?;
         if let Some(written) = proxy.written {

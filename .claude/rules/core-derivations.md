@@ -623,6 +623,12 @@ code relies on:
   and binds the prefix's witnesses. The outcome is the search's on the
   written sequent. The command's `close` calls `Interactive::close` for
   such a session (no race), on one thread.
+- **Every walk over a session's terms has a stack of its own** (`close`,
+  `show`, `bind`, `same_atom`, the copy into the written sequent): a
+  witness is as deep as its nodes or its bindings go
+  (`a_session_holds_deep_witnesses_and_bounds_its_table`, 100 000 deep).
+  The reader bounds the table by `limits.terms` (members, frames and
+  terms together), as the proof reader does.
 - **The JSON's `instances`** are read by `Quantified::from_parts` (every
   entry before its users, frames as long as their occurrence's binders,
   no entry twice, function symbols of the right arity, levels at most
