@@ -81,7 +81,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   `∃` is a metavariable that unification binds at the axioms, with the
   occurs check; the eigenvariable condition is kept by levels; a rule of
   two premises asks its first premise for another answer where the
-  second fails under the one it gave; the proof is returned closed, every
+  second fails under the one it gave, resuming its search at its last
+  choice point by replaying the choices before it (and searching it
+  again with the failed answers excluded where the replay finds the memo
+  changed); the proof is returned closed, every
   witness a term and every metavariable left unbound a fresh constant,
   and passes the checker. MLL1 and MALL1 are decided; with exponentials
   the copy bound and the three verdicts work as without quantifiers. The

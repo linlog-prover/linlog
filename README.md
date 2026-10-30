@@ -1655,7 +1655,8 @@ leaves the witness of each `∃` open as a variable, fills it in where an
 axiom matches two atoms (never with a term that holds the variable
 itself), keeps the eigenvariable of each `∀` out of every witness
 chosen before it, and asks a premise for another witness where the one
-it gave fails the other premise. The proof it returns names every
+it gave fails the other premise, resuming that premise's search where
+it stopped. The proof it returns names every
 witness, a closed term, and passes the checker (below):
 
 <!-- readme-check: machine -->

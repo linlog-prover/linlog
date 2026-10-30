@@ -1189,12 +1189,13 @@ code it was. What a later session must keep:
   `&`): the metavariables the second premise shares are collected
   before the first runs; when the second fails, the first's answer (their
   terms, with the levels of the metavariables in them) is recorded as a
-  pattern, the zone undone, and the first searched again with every
-  binding that makes the tuple an instance of a pattern refused
-  (`Framed::passes`, after each unification, only while the first
-  premise runs). It ends when the bindings before the first premise are
-  an instance of a pattern (`exhausted`; else a first premise that binds
-  nothing would loop) or when the first fails. Sound because the second
+  pattern, the zone undone, and the first premise **resumed**
+  (`choices.rs`, below), every binding that makes the tuple an instance
+  of a pattern refused (`Framed::passes`, after each unification, only
+  while the first premise runs and no replay is under way). It ends when
+  the bindings before the first premise are an instance of a pattern
+  (`exhausted`), when the first fails, or when its search took no
+  alternative (`Choices::resume` answers `Err`). Sound because the second
   premise failed under the pattern and so under any instance whose
   metavariables are no less constrained (`fits`); complete because a
   binding only specializes the tuple. The patterns' bytes are charged
@@ -1263,6 +1264,31 @@ code it was. What a later session must keep:
   which the engine's closed proofs feed): a witness may be nested as
   deep as its bindings go, and a recursion per level overflowed the
   search's stack at 180 000 (`a_deep_witness_closes_without_recursion`).
+- **The resumption is a replay of a choice log** (`choices.rs`,
+  `Choices`, a field of `Framed`): while a rule with shared
+  metavariables is open, every first-order choice point logs an entry
+  (`choose_framed` for a stable sequent's alternatives and `⊕`,
+  `initial_framed`'s pairs, `search_splits_framed`'s splits, the
+  `answers` rule's rounds, `parts_fail_logged`'s answer): the
+  alternative it tries with the cuts of those before, or `Failed` with
+  all cuts, or `Settled`. Resuming replays the first premise from the
+  rule's zone mark: each choice point takes its logged alternative, the
+  last open one goes on with the next, and the cuts of every entry after
+  it are added to it (an answer given up hid alternatives cut by the
+  budget, which a failure must not deny: dropping them is a wrong
+  `Unprovable`). Invariants: the replay is deterministic only because
+  the undo restores the zone exactly (same variable and span ids) and
+  passes are not read while replaying; a choice point a later change adds
+  to the first-order engine must log through `Choices` or the replay
+  misaligns (detected as divergence, below, so it costs the gain, not a
+  verdict); a resumption never starts while a replay runs. A replay that
+  meets another site, fails before its resume point, or ends before it
+  has **diverged**: every choice point then fails at once, cut, and the
+  rule searches its first premise again with the failed answers
+  excluded (42d's form). The memo of failures is the one thing a replay
+  reads that may have changed since the logged search; no failure of a
+  stable sequent that encloses a resume point is recorded, since an
+  answer is excluded while the resumed search runs (`Zone::excluding`).
 - **Each copy level of a first-order search is work and polls the
   stop** (`Run::run`, `poll_with` behind `Z::FIRST_ORDER`): a level the
   instances bound cuts at once reaches no stable sequent, the only other
