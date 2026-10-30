@@ -368,8 +368,11 @@ its zone, the first-order focused engine). Left, in order:
   `learning-website-orchestrator` (the author's site `website-learn`,
   linlog having priority) pins its heavy jobs to cores 8 to 15 and
   wraps its `nix flake check` and `nix build` in `flock
-  /tmp/linlog-machine.lock`; before each timed run of linlog's, send
-  it "pause heavy work" with the run's length, and "go ahead" after.
+  /tmp/linlog-machine.lock` (only jobs that end: never a preview
+  server, a dev server or a watcher, which once held the lock for half
+  an hour and stalled every build behind it); before each timed run of
+  linlog's, send it "pause heavy work" with the run's length, and "go
+  ahead" after. A server under the lock: tell it the pid, it stops it.
 - Night jobs (the baseline) start detached when ready (`bench/baseline.sh
   --detach --fresh`), on the night the author gives.
 - "Stop" or "Pause" from the author: the `graceful-stop` skill (`HH:MM`
