@@ -124,8 +124,13 @@ its zone, the first-order focused engine). Left, in order:
     started fresh with no history; creating and setting up that
     repository like the client's (ruleset, topics, Actions) is yours by
     the author's yes of 2026-10-24, its `CACHIX_AUTH_TOKEN` theirs;
-  - **45b**: the fourth baseline, on a night the author gives;
-  - **45c**: the release prepared: the API break listed by a tool (the
+  - **45b** (added 2026-10-30, the later letters moved by one):
+    families of linlog's own that grow in size, one per claim of an
+    engine's or another prover's strength or weakness, and graphs of
+    time against size in the comparison and the manual;
+  - **45c**: the fourth baseline, on a night the author gives, with
+    45b's families; a second night for the other provers on them;
+  - **45d**: the release prepared: the API break listed by a tool (the
     reviews list every closed enum's new variant and `Placed::parent`
     in the Status entries 41a to 42d), versions, README; install
     instructions for each system (Debian and Ubuntu, Fedora, Arch,
@@ -135,7 +140,7 @@ its zone, the first-order focused engine). Left, in order:
     musl binary the likely portable form); code signing the author's
     decision; the Rocq library complete for 0.2.0 and given a release
     of its own by the Rocq community's practice;
-  - **45d**, after the author's tags: the Rocq library's submission to
+  - **45e**, after the author's tags: the Rocq library's submission to
     the Rocq opam repository prepared; then a thorough re-evaluation of
     nixpkgs (its criteria of the day against the public evidence of
     use, since nixpkgs refuses "a niche of 5 people"), the author
@@ -159,12 +164,12 @@ its zone, the first-order focused engine). Left, in order:
 - **Departures**: all of 41's and 42a to 42d's are decided (the
   Status entry of 2026-10-30); a new one goes to the author as it comes.
 - 43d's outline, when that session sends it.
-- The baseline's night (45b); the 0.2.0 tags; code signing for the
-  installers; whether to submit to nixpkgs (at 45d).
+- The baseline's night and the second night for the other provers (45c); the 0.2.0 tags; code signing for the
+  installers; whether to submit to nixpkgs (at 45e).
 - 41a's departure for the release: certificates that linlog 0.1.0 wrote
   with a record literal (one-sided Mix or affine proofs and their
   refutations) no longer compile, the library's record having gained
-  `cut`; 45c states the break.
+  `cut`; 45d states the break.
 - An MCP server ("not now", sketched in `later.md`); whether to add an
   `AGENTS.md`; the Zenodo community (skipped for now, in `later.md`).
 - The desktop app above.

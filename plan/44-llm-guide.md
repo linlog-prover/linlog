@@ -127,5 +127,5 @@ One session on Opus 5.5 at `high`, documentation and its tests only,
 with a fresh-context reviewer on Opus 5.5 at `high` (every section of
 the old README present in the manual or the front page, every example
 run, every link resolving). It runs after 42k and 43d, which still add
-to README, and before step 45, whose 45c then prepares the front page
+to README, and before step 45, whose 45d then prepares the front page
 and the manual for 0.2.0.

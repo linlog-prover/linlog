@@ -27,9 +27,11 @@ plainly.
 
 ## How the step runs
 
-Four sessions on Opus 5.5 at `high`, each with its goal in its launch
+Five sessions on Opus 5.5 at `high`, each with its goal in its launch
 prompt and reviewed by the planning session before the next; the
-fourth (45d) after the author's tags.
+fifth (45e) after the author's tags. (45b was added on 2026-10-30 and
+the later sessions' letters moved by one; the Status log keeps the old
+ones.)
 
 - **45a, the Rocq library in its own repository** (the author,
   2026-10-24; D20 and D22 foresaw it): `rocq/` becomes the repository
@@ -67,17 +69,63 @@ fourth (45d) after the author's tags.
   - Checked by both flakes' `nix flake check`: the library's at the new
     repository's head, linlog's (with the exporter's certificates against
     the pinned library) at its head.
-- **45b, the fourth baseline**, comparable with the third
+- **45b, families that grow, and their graphs** (the author,
+  2026-10-30; after 44b, before the baseline): problems of linlog's own
+  beyond the libraries, chosen to show where each engine and each other
+  prover is strong or weak, in sets that grow in size so that the growth
+  of the time to solve can be seen, and graphs of it in the comparison
+  and the manual.
+  - **A family per claim**: each says what it shows and what is
+    expected, and has its verdicts by construction: an engine's strength
+    (the net engine on wide unit-free MLL, the Horn engine on counters,
+    the inverse method on Mix, the memo on duplicated `&` subgoals, the
+    first-order search's mechanisms of 42i and 42j), an engine's
+    weakness (the copy bound's deepening on a long `!` chain, the
+    focused engine's splits on wide tensors), and another prover's known
+    limit (llprover's contraction cap of three, LinearOne's MILL1 only).
+    Research first (sub-agents on Sonnet 5.5 at `medium`, conduct.md's
+    rule): the literature's hard families for linear and intuitionistic
+    logic, ILTP's and TPTP's parametrised classes, the other provers'
+    own benchmark sets. linlog's seventeen families
+    (`core/src/families.rs`) and 42h's first-order ones are reused
+    where they show a claim; a new one is written only where none does.
+  - **Sizes that grow geometrically**, each family up to the size where
+    every engine reaches the time limit or a stated ceiling; the
+    machine time the nights need estimated by arithmetic in the report
+    before any run.
+  - **The harness**: the growing sets selectable in `linlog-bench run`,
+    each family run under the default and under every engine that admits
+    it, forced; the other provers through step 29's harness
+    (`bench/comparison.sh`) on the families their logic covers.
+  - **The graphs**: time against size per family, a line per engine and
+    per prover, log scales, the fitted growth (a polynomial's degree or
+    an exponential's base) in a table beside each, a run past its limit
+    drawn at the limit; drawn by `bench/plots.py` in both colour themes
+    by the `dataviz` skill's rules, committed as SVG. Step 29's cactus and
+    scatter plots (`bench/comparison/2026-10-15/figures/`), drawn but
+    never shown, are shown beside them.
+  - **What runs when**: this session runs only each family's smallest
+    sizes, for the verdicts (no `MISMATCH`); the curves come from the
+    baseline's night (45c) and the second night (45c); 45d puts the
+    graphs into `bench/COMPARISON.md` and the manual's benchmark
+    chapter (44b's).
+  Opus 5.5 at `high`; a fresh-context reviewer on Opus 5.5 at `high` of
+  each family's verdicts by construction and of its claim against the
+  engines' documented behaviour.
+- **45c, the fourth baseline**, comparable with the third
   (`bench/results/2026-10-17/`; `bench/COMPARISON.md` gains a column),
   by `.claude/rules/bench.md` and the lessons of steps 14, 16 and 30: the
   estimate by arithmetic and a word to the supervisor before the start,
   the night the author's go, detached (`bench/baseline.sh --detach`),
   stopped by the author's word through the graceful-stop skill and
   resumed; the target sets against their latest labels; no probes
-  beyond those named. A second night of the comparison with other
-  tools (step 29's) is the author's to ask for; without it, README's
-  "Beside the other provers" says the comparison is of 0.1.0's engines.
-- **45c, the release prepared**, so that the author's acts (the tag, and
+  beyond those named. It runs 45b's growing families over every engine
+  that admits them. A second night, on a date the author gives (asked
+  for on 2026-10-30), runs the other provers on 45b's families through
+  step 29's harness, and step 29's library comparison with 0.2.0's
+  engines if the night has room; without that rerun, README's "Beside
+  the other provers" says the library comparison is of 0.1.0's engines.
+- **45d, the release prepared**, so that the author's acts (the tag, and
   through it the release workflow's publication to crates.io, the GitHub
   release and Zenodo's new version of the DOI) are the last and smallest
   part:
@@ -120,7 +168,7 @@ fourth (45d) after the author's tags.
       author's tag publishes them. A channel that needs an account, a
       package in someone else's repository or a tap of the
       organisation's is proposed to the author in the final message,
-      not created (nixpkgs is 45d's).
+      not created (nixpkgs is 45e's).
     - **Native packages, where feasible** (the author, 2026-10-25): a
       `.deb` and an `.rpm` for Linux, and for macOS and Windows what
       their users install directly (a macOS `.pkg` or the archive
@@ -184,7 +232,7 @@ fourth (45d) after the author's tags.
       install from the opam file into a fresh switch for each Rocq
       version its bounds admit, by the flake or a container, before the
       tag.
-    - **After the author's tag** (45d): the opam repository's file
+    - **After the author's tag** (45e): the opam repository's file
       `released/packages/rocq-linlog/rocq-linlog.0.2.0/opam` with the
       release archive's checksum, `opam lint --check-upstream` passing,
       in a local clone, the pull request's text in the report; the pull
@@ -195,9 +243,9 @@ fourth (45d) after the author's tags.
     `plan/later.md` and the reports, in the final message: what is
     theirs to send, set or decide before or after the tag.
 
-- **45d, the package archives** (the author, 2026-10-25), after the
+- **45e, the package archives** (the author, 2026-10-25), after the
   author has tagged 0.2.0 in linlog and in `rocq-linlog`: first the Rocq
-  library's submission to the Rocq opam repository, prepared as 45c's
+  library's submission to the Rocq opam repository, prepared as 45d's
   last bullet says; then nixpkgs, as follows: the command as
   the package `linlog`, and the Rocq library as `rocqPackages`' `linlog`
   (or the name nixpkgs' conventions give it), prepared as commits for a
@@ -273,6 +321,6 @@ fourth (45d) after the author's tags.
 ## Deliverables
 
 Thematic jj commits in linlog and in `rocq-linlog`; `bench/results/DAY/`;
-the nixpkgs commits in a local clone (45d);
+the nixpkgs commits in a local clone (45e);
 `plan/reports/45-release-0.2.0.md`. Pushing, tagging, publishing and
 the nixpkgs pull request are the author's.
