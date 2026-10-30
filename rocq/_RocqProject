@@ -9,3 +9,12 @@ theories/Intuitionistic.v
 theories/IntuitionisticCheck.v
 theories/Mix.v
 theories/Refutations.v
+theories/Terms.v
+theories/TermsCheck.v
+theories/FirstOrderFormulas.v
+theories/FirstOrderCalculus.v
+theories/FirstOrderProofs.v
+theories/FirstOrderCheck.v
+theories/FirstOrderSoundness.v
+theories/FirstOrderIntuitionistic.v
+theories/FirstOrderIntuitionisticCheck.v
