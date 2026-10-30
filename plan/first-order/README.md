@@ -189,12 +189,13 @@ author, who decides; a revert is a commit of its own, gated, the
 references and the panel's tests still passing.
 
 **42j, parallel first-order search** (Opus 5.5 at `high`; panel; the
-author, 2026-10-30, before 0.2.0). First, the author's decision on 42i's
-tables (2026-10-30): the memo is kept; both ways to a premise's next
-answer are kept, 42d's re-search the default and 42i's resumption an
-option (a named default, a flag, a JSON key and a settings key with its
-line of documentation, D16), the option's off position exactly the
-re-search's search, shown by the counters. A first-order goal on the pool as a
+author, 2026-10-30, before 0.2.0). The decision on 42i's tables
+(2026-10-30): the memo is kept; the resumption is reverted (the author
+first asked to keep it as an option off by default, then left it to the
+planning session, which reverted it: an option off by default keeps
+its code and its invariant at every choice point while the default
+runs and tests seldom exercise it, for no verdict gained), so 42j builds
+on 42d's re-search with the memo. A first-order goal on the pool as a
 propositional one is (`--jobs`, the race, the cubes), dividing only work
 that shares no unbound metavariable (decision 4) or by another division
 the session argues for; 42d runs it on one thread whatever `--jobs`

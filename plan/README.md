@@ -4157,3 +4157,10 @@ client follows it (step 32).
   sessions are closed): the propositional engine's pinned time once,
   from 42e's base (`wqqxusyk`) to the top, which covers 42e to 42i;
   42i's two mechanisms' runs; 42h's LinearOne timing.
+- 2026-10-30: the author, on their second answer: "if it doesn't make
+  practical sense, please feel free to overrule". The planning session
+  reverts the resumption rather than keeping it as an option off by
+  default: the option would keep its 610 lines and its invariant at
+  every choice point (a dropped cut is a wrong "unprovable") while the
+  default runs and the tests seldom exercise it, for no verdict gained;
+  its commits stay in the history, restored by reverting the revert.
