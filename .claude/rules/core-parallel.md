@@ -371,7 +371,12 @@ has no or-choices worth sharing out). What the code relies on:
   up to those names, which holds a failure cut by a bound for both (a
   cut never refutes). The memo's table of zones keeps none
   (`Shared::new(entries, 0)`): `ByClass` must see a new id for every
-  `Θ`. Each worker with a fresh memo instead lost `gen1/1797` and
+  `Θ`. Every engine's account reads the shared table's capacity at each
+  poll (`Framed::held`, called after every unification): it is an atomic
+  beside the table (`SharedGrounds::slots`), written under the lock at
+  each insertion; read under the lock, four threads contended on it and
+  `witness-fo/10#3` took twice the CPU time and 2.5 s where 1.7 s is the
+  pool's. Each worker with a fresh memo instead lost `gen1/1797` and
   `gen2/2328` at the copy bound and made the lifted rows three times as
   costly. (3) **The worker that proves a choice hands over its zone and
   arena** (`Collected::won`; every engine keeps its own arena,
