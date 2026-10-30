@@ -25,7 +25,8 @@ use crate::fragment::Mode;
 use crate::limits::{Limits, Phase, Progress};
 use crate::occurrences::instances::{eigen_names, meta_name};
 use crate::occurrences::{Forest, Member, OccId, Reading, Side};
-use crate::sequents::{FoTerm, Term, TermId};
+use crate::sequents::{FoTerm, Kind, Term};
+use std::collections::{HashMap, HashSet};
 
 /// How large the derivation of a proof is, as
 /// [`Proof::derivation_size`] computes it. A count that passes `u64::MAX`
@@ -219,7 +220,8 @@ struct Measure<'a, I> {
 
 /// Returns, for every occurrence of a forest, the characters of its
 /// formula in one-sided notation plus two for the separator after it,
-/// saturating.
+/// saturating; under a binder, as the formula is written inside its
+/// root.
 pub(crate) fn weights(forest: &Forest) -> Vec<u32> {
     let sequent = forest.sequent();
     let names: Vec<u32> = sequent
@@ -244,18 +246,10 @@ pub(crate) fn weights(forest: &Forest) -> Vec<u32> {
                 true,
             ),
             Bang(k) | Quest(k) => (inner[k.index()].saturating_add(1), false),
-            // `∀x. ` before the body: the symbol, the name, the dot and a
-            // space.
-            Forall(k) | Exists(k) => {
-                let name = sequent
-                    .binder_name(TermId::new(top.len() as u32))
-                    .map_or(1, |name| name.chars().count());
-                let name = u32::try_from(name).unwrap_or(u32::MAX);
-                (
-                    inner[k.index()].saturating_add(name.saturating_add(3)),
-                    false,
-                )
-            }
+            // A sequent with a binder is counted per occurrence; its
+            // terms are met here first, so a propositional one pays no
+            // scan of its own.
+            Forall(_) | Exists(_) => return weights_with_binders(forest, &names),
         };
         top.push(width);
         inner.push(if binary {
@@ -270,8 +264,142 @@ pub(crate) fn weights(forest: &Forest) -> Vec<u32> {
         .collect()
 }
 
+/// Per occurrence, the characters of the name a printer writes its
+/// binder's variable with inside its root, zero for an occurrence that is
+/// no binder: the binder's name (`x` where it has none), or with `_` and
+/// a number after it where a symbol or an enclosing binder's written name
+/// takes it, as the printers rename.
+fn printed_names(forest: &Forest) -> Vec<u32> {
+    let sequent = forest.sequent();
+    let symbols: HashSet<&str> = sequent.fo.symbols.iter().map(|(s, _)| s.as_str()).collect();
+    let mut open: HashMap<String, u32> = HashMap::new();
+    // The open binders' written names, each with the end of its subtree.
+    let mut scope: Vec<(usize, String)> = Vec::new();
+    let mut printed = vec![0u32; forest.len()];
+    for o in forest.ids() {
+        while let Some((end, _)) = scope.last()
+            && *end <= o.index()
+        {
+            let (_, name) = scope.pop().expect("just seen");
+            if let Some(count) = open.get_mut(&name) {
+                *count -= 1;
+                if *count == 0 {
+                    open.remove(&name);
+                }
+            }
+        }
+        if forest.kind(o).is_binder() {
+            let base = sequent.binder_name(forest.term(o)).unwrap_or("x");
+            let mut written = base.to_owned();
+            let mut n = 0u64;
+            while symbols.contains(written.as_str()) || open.contains_key(&written) {
+                n += 1;
+                written = format!("{base}_{n}");
+            }
+            printed[o.index()] = u32::try_from(written.chars().count()).unwrap_or(u32::MAX);
+            *open.entry(written.clone()).or_insert(0) += 1;
+            scope.push((o.index() + forest.size(o) as usize, written));
+        }
+    }
+    printed
+}
+
+/// The weights of a forest whose sequent has binders, per occurrence,
+/// since an atom's key writes a bound variable as `#i` and a printer
+/// writes the name of the binder that binds it there ([`printed_names`]),
+/// which differs between occurrences of one shared atom.
+fn weights_with_binders(forest: &Forest, names: &[u32]) -> Vec<u32> {
+    let sequent = forest.sequent();
+    let fo = &sequent.fo;
+    let printed = printed_names(forest);
+    // Per first-order term, its bound variables as (index, uses), sorted,
+    // and the characters their `#i` take in a key, unfolded; arguments
+    // precede their terms.
+    let mut held: Vec<(Vec<(u32, u64)>, u64)> = Vec::with_capacity(fo.terms.len());
+    let gather = |held: &[(Vec<(u32, u64)>, u64)], args: &[crate::sequents::FoTermId]| {
+        let mut uses: Vec<(u32, u64)> = Vec::new();
+        let mut keyed = 0u64;
+        for t in args {
+            let (more, k) = &held[t.index()];
+            keyed = keyed.saturating_add(*k);
+            merge(&mut uses, more.iter().copied());
+        }
+        (uses, keyed)
+    };
+    for term in &fo.terms {
+        let entry = match *term {
+            FoTerm::Bound(i) => (
+                vec![(i, 1)],
+                1 + u64::from(i.checked_ilog10().unwrap_or(0) + 1),
+            ),
+            FoTerm::App(_, args) => gather(&held, fo.list(args)),
+            // A sequent's own arena holds no other term.
+            FoTerm::Eigen(_) | FoTerm::Meta(_) => (Vec::new(), 0),
+        };
+        held.push(entry);
+    }
+    let enclosing = enclosing_binders(forest);
+    let name_of = |b: OccId| printed[b.index()];
+    // Per occurrence, from the leaves up, the characters at the top of its
+    // formula and inside one, where a binary formula or a binder is
+    // bracketed.
+    let mut top = vec![0u32; forest.len()];
+    let mut inner = vec![0u32; forest.len()];
+    for o in forest.ids().rev() {
+        use Term::*;
+        let at = |c: Option<OccId>| inner[c.expect("a child").index()];
+        let (width, binary) = match sequent.terms()[forest.term(o).index()] {
+            // A saturated name stays saturated.
+            Atom(a) | DualAtom(a) if names[a.index()] == u32::MAX => (u32::MAX, false),
+            Atom(a) | DualAtom(a) => {
+                let mut width = u64::from(names[a.index()]);
+                if let Some((_, args)) = sequent.atom_predicate(a) {
+                    let (uses, keyed) = gather(&held, fo.list(args));
+                    width = width.saturating_sub(keyed);
+                    for (i, n) in uses {
+                        // The binder `i` levels up from the atom.
+                        let mut b = enclosing[o.index()];
+                        for _ in 0..i {
+                            b = b.and_then(|b| enclosing[b.index()]);
+                        }
+                        let name = b.map_or(1, name_of);
+                        width = width.saturating_add(n.saturating_mul(u64::from(name)));
+                    }
+                }
+                let dual = u64::from(matches!(forest.kind(o), Kind::DualAtom));
+                (
+                    u32::try_from(width.saturating_add(dual)).unwrap_or(u32::MAX),
+                    false,
+                )
+            }
+            One | Bot | Top | Zero => (1, false),
+            Tensor(..) | Par(..) | With(..) | Plus(..) => (
+                at(forest.left(o))
+                    .saturating_add(3)
+                    .saturating_add(at(forest.right(o))),
+                true,
+            ),
+            Bang(_) | Quest(_) => (at(forest.left(o)).saturating_add(1), false),
+            // `∀x. ` before the body: the symbol, the name, the dot and a
+            // space; bracketed inside another formula, as a binary one is,
+            // since its scope would run on.
+            Forall(_) | Exists(_) => (
+                at(forest.left(o)).saturating_add(name_of(o).saturating_add(3)),
+                true,
+            ),
+        };
+        top[o.index()] = width;
+        inner[o.index()] = if binary {
+            width.saturating_add(2)
+        } else {
+            width
+        };
+    }
+    top.iter().map(|w| w.saturating_add(2)).collect()
+}
+
 /// The characters of every member's formula and its separator, by member:
-/// an occurrence's exactly ([`weights`]), an instance's at most, its
+/// an occurrence's as [`weights`] counts it, an instance's at most, its
 /// occurrence's characters with every bound variable it holds written as
 /// the widest term of its frame. Each saturates at `u32::MAX`.
 pub(crate) struct Weights(Vec<u32>);
@@ -342,38 +470,145 @@ fn instance_weights(forest: &Forest, table: &crate::Instances, weights: &[u32]) 
         written.push(w);
         bound.push(b);
     }
-    // Per formula term, the bound variables its atoms hold.
-    let mut uses = Vec::<u64>::with_capacity(sequent.terms().len());
-    for term in sequent.terms() {
-        use Term::*;
-        let n = match *term {
-            Atom(a) | DualAtom(a) => sequent.atom_predicate(a).map_or(0, |(_, args)| {
-                fo.list(args)
+    // The occurrence's characters with each loose bound variable's name
+    // written as its frame's term: exactly the instance, but where a
+    // binder inside it takes a name an eigenvariable has, which its
+    // scope then renames, at most `rename` characters more per name it
+    // writes.
+    let printed = printed_names(forest);
+    let loose = loose_variables(forest);
+    let enclosing = enclosing_binders(forest);
+    let renamed = names.values().any(|e| {
+        fo.binders.iter().any(|(_, b)| {
+            e == b
+                || e.strip_prefix(b.as_str())
+                    .is_some_and(|rest| rest.starts_with('_'))
+        }) || e == "x"
+            || e.starts_with("x_")
+    });
+    let rename = renamed.then(|| {
+        let clashes = fo.symbols.len() + fo.binders.len() + names.len() + forest.len();
+        1 + u64::from(clashes.checked_ilog10().unwrap_or(0) + 1)
+    });
+    // Per occurrence, the names a renaming may lengthen in it: its
+    // binders and the bound variables its atoms hold.
+    let written_names = rename.map(|_| {
+        let mut counted = vec![0u64; forest.len()];
+        for o in forest.ids().rev() {
+            let mut here = u64::from(forest.kind(o).is_binder());
+            if let Some((_, args)) = forest.atom(o).and_then(|a| sequent.atom_predicate(a)) {
+                here = fo
+                    .list(args)
                     .iter()
-                    .fold(0u64, |sum, t| sum.saturating_add(bound[t.index()]))
-            }),
-            One | Bot | Top | Zero => 0,
-            Tensor(k, l) | Par(k, l) | With(k, l) | Plus(k, l) => {
-                uses[k.index()].saturating_add(uses[l.index()])
+                    .fold(here, |n, t| n.saturating_add(bound[t.index()]));
             }
-            Bang(k) | Quest(k) | Forall(k) | Exists(k) => uses[k.index()],
-        };
-        uses.push(n);
-    }
-    // Per frame, its widest term; a parent precedes its frames.
-    let mut widest = Vec::<u64>::with_capacity(table.frames.len());
-    for &(parent, term) in &table.frames {
-        let own = written[term.index()];
-        widest.push(parent.map_or(own, |p| own.max(widest[p.index()])));
-    }
+            for c in forest.children(o) {
+                here = here.saturating_add(counted[c.index()]);
+            }
+            counted[o.index()] = here;
+        }
+        counted
+    });
     table
         .members
         .iter()
         .map(|&(o, frame)| {
-            let more = uses[forest.term(o).index()].saturating_mul(widest[frame.index()]);
-            u32::try_from(u64::from(weights[o.index()]).saturating_add(more)).unwrap_or(u32::MAX)
+            let mut weight = u64::from(weights[o.index()]);
+            if weight == u64::from(u32::MAX) {
+                return u32::MAX;
+            }
+            let (mut binder, mut cell) = (enclosing[o.index()], Some(frame));
+            let mut level = 0;
+            for &(at, n) in &loose[o.index()] {
+                // Up to the binder and the frame's cell of that level.
+                while level < at {
+                    binder = binder.and_then(|b| enclosing[b.index()]);
+                    cell = cell.and_then(|c| table.frames[c.index()].0);
+                    level += 1;
+                }
+                let name = binder.map_or(1, |b| u64::from(printed[b.index()]));
+                let term = cell.map_or(1, |c| written[table.frames[c.index()].1.index()]);
+                weight = weight
+                    .saturating_sub(n.saturating_mul(name))
+                    .saturating_add(n.saturating_mul(term));
+            }
+            if let (Some(rename), Some(counted)) = (rename, &written_names) {
+                weight = weight.saturating_add(counted[o.index()].saturating_mul(rename));
+            }
+            u32::try_from(weight).unwrap_or(u32::MAX)
         })
         .collect()
+}
+
+/// The nearest binder above each occurrence of `forest`.
+fn enclosing_binders(forest: &Forest) -> Vec<Option<OccId>> {
+    let mut enclosing: Vec<Option<OccId>> = vec![None; forest.len()];
+    // A parent precedes its children.
+    for o in forest.ids() {
+        if let Some(p) = forest.parent(o) {
+            enclosing[o.index()] = if forest.kind(p).is_binder() {
+                Some(p)
+            } else {
+                enclosing[p.index()]
+            };
+        }
+    }
+    enclosing
+}
+
+/// Per occurrence, the bound variables its atoms hold that a binder above
+/// it binds, as (level, uses) sorted by level: level 0 is the nearest
+/// binder above the occurrence.
+fn loose_variables(forest: &Forest) -> Vec<Vec<(u32, u64)>> {
+    let sequent = forest.sequent();
+    let fo = &sequent.fo;
+    // Per first-order term, its bound variables by index, unfolded.
+    let mut held: Vec<Vec<(u32, u64)>> = Vec::with_capacity(fo.terms.len());
+    for term in &fo.terms {
+        let entry = match *term {
+            FoTerm::Bound(i) => vec![(i, 1)],
+            FoTerm::App(_, args) => {
+                let mut uses = Vec::new();
+                for t in fo.list(args) {
+                    merge(&mut uses, held[t.index()].iter().copied());
+                }
+                uses
+            }
+            FoTerm::Eigen(_) | FoTerm::Meta(_) => Vec::new(),
+        };
+        held.push(entry);
+    }
+    let mut loose: Vec<Vec<(u32, u64)>> = vec![Vec::new(); forest.len()];
+    // Children follow their parent, so a reverse walk meets them first.
+    for o in forest.ids().rev() {
+        let mut here = Vec::new();
+        if let Some((_, args)) = forest.atom(o).and_then(|a| sequent.atom_predicate(a)) {
+            for t in fo.list(args) {
+                merge(&mut here, held[t.index()].iter().copied());
+            }
+        }
+        for c in forest.children(o) {
+            if forest.kind(o).is_binder() {
+                // The binder binds level 0 of its body.
+                let shifted = loose[c.index()].iter().filter(|&&(i, _)| i > 0);
+                merge(&mut here, shifted.map(|&(i, n)| (i - 1, n)));
+            } else {
+                merge(&mut here, loose[c.index()].iter().copied());
+            }
+        }
+        loose[o.index()] = here;
+    }
+    loose
+}
+
+/// Adds `more` to the sorted list of (level, uses) `uses`.
+fn merge(uses: &mut Vec<(u32, u64)>, more: impl Iterator<Item = (u32, u64)>) {
+    for (i, n) in more {
+        match uses.binary_search_by_key(&i, |&(j, _)| j) {
+            Ok(at) => uses[at].1 = uses[at].1.saturating_add(n),
+            Err(at) => uses.insert(at, (i, n)),
+        }
+    }
 }
 
 impl<I: Instancing> Measure<'_, I> {
@@ -810,12 +1045,11 @@ fn measured_with<I: Instancing>(
 mod tests {
     use crate::proofs::{Derivation, ViewOptions, oracle};
     use crate::search::{Options, Verdict, prove};
-    use crate::{Mode, Sequent};
+    use crate::{Member, Mode, Sequent};
 
     /// The inferences, the characters of the sequents, the height and the
     /// widest sequent of a derivation, counted on the derivation itself.
     fn counted(derivation: &Derivation) -> (u64, u64, u64, u64) {
-        let forest = derivation.forest();
         let mut heights = vec![0u64; derivation.inferences().len()];
         let (mut characters, mut widest) = (0, 0);
         for (i, inference) in derivation.inferences().iter().enumerate() {
@@ -824,7 +1058,7 @@ mod tests {
             let width: u64 = inference
                 .sequent
                 .iter()
-                .map(|&o| forest.formula(o.occ()).to_string().chars().count() as u64 + 2)
+                .map(|&o| written(derivation, o) + 2)
                 .sum();
             characters += width;
             widest = widest.max(width);
@@ -835,6 +1069,19 @@ mod tests {
             heights[derivation.root().index()],
             widest,
         )
+    }
+
+    /// The characters of a member of a derivation: an occurrence as the
+    /// one-sided sequent writes it, an instance of a first-order proof
+    /// with its frame's terms, as the derivation writes it.
+    fn written(derivation: &Derivation, member: Member) -> u64 {
+        let forest = derivation.forest();
+        let text = if member.index() < forest.len() {
+            forest.formula(member.occ()).to_string()
+        } else {
+            derivation.formula(member).to_string()
+        };
+        text.chars().count() as u64
     }
 
     /// The size computed from a proof is the size of the derivation built
@@ -866,6 +1113,12 @@ mod tests {
             ("0 -o 0 * D, 0 |- C * C * C", Mode::INTUITIONISTIC),
             ("0, 0, (D * 0) -o 0 |- C * C * C", Mode::INTUITIONISTIC),
             ("0 + 0, !A |- (A * A) * C", Mode::INTUITIONISTIC),
+            // A bound name longer than its index's `#0`, and a binder in
+            // brackets under `?`: exact, since no instance is written.
+            (
+                "|- top, ?(forall long. p(long, c)), exists v10. q(v10)",
+                Mode::CLASSICAL,
+            ),
             (
                 "(c -o a), ((a -o a) -o (c -o c)), c, (c -o c) |- (a * ((b -o top) -o (((c -o \
                  top) & (top + a)) -o ((c + (top -o a)) -o (((top * b) & b) + (((c * a) + (b & \
@@ -952,6 +1205,46 @@ mod tests {
         assert!(bounds > 0, "no sample whose sum is a bound");
     }
 
+    /// Binders as the printer names them: one whose name an
+    /// eigenvariable takes, renamed inside its instance; two of one name
+    /// side by side, as a cut formula stands beside its dual; and one a
+    /// document gives no name, written `x`. The characters bound the
+    /// derivation's from above and the width from below.
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn binder_names_are_counted_as_written() {
+        let mut sequents: Vec<Sequent> = [
+            "|- (forall z. exists a. ~p(a)), forall b. p(b)",
+            "|- exists x. p(x), forall x. ~p(x)",
+        ]
+        .iter()
+        .map(|text| text.parse().unwrap())
+        .collect();
+        sequents.push(
+            serde_json::from_str(r#"{"version":7,"terms":["1",{"∀":0}],"roots":[1],"atoms":[]}"#)
+                .unwrap(),
+        );
+        for sequent in sequents {
+            let outcome = prove(&sequent, Mode::CLASSICAL, &Options::default()).unwrap();
+            let Verdict::Proved(proof) = outcome.verdict else {
+                panic!("{sequent} is provable");
+            };
+            let derivation = Derivation::new(
+                &proof,
+                &ViewOptions::default(),
+                &crate::Limits::default().with_derivation_bytes(None),
+                |_| false,
+            )
+            .unwrap();
+            let size = proof.size_of(false).unwrap();
+            let (_, characters, _, widest) = counted(&derivation);
+            assert!(
+                size.characters >= characters && size.width <= widest,
+                "{sequent}: {size:?} against {characters} and {widest}"
+            );
+        }
+    }
+
     /// A formula of more characters than a weight counts makes the sums
     /// it enters too low, so the size says that it could not count them:
     /// here a tree of 4 096 atoms whose name has a mebibyte of characters,
@@ -987,12 +1280,11 @@ mod tests {
 
     /// The characters of a derivation's conclusion.
     fn counted_root(derivation: &Derivation) -> u64 {
-        let forest = derivation.forest();
         derivation
             .inference(derivation.root())
             .sequent
             .iter()
-            .map(|&o| forest.formula(o.occ()).to_string().chars().count() as u64 + 2)
+            .map(|&o| written(derivation, o) + 2)
             .sum()
     }
 }

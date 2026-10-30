@@ -790,10 +790,23 @@ step. What the code relies on:
   name is renamed. It writes through `Apart`, a writer type of its own,
   so that `term_in`'s walk stays instantiated once for a propositional
   print with its iterator inlined.
-- The size counts an instance at most (`Weights`, one vector by member:
-  the occurrence's characters plus, per bound variable its atoms hold,
-  the widest term of its frame); `exact` is false for a proof with
-  instances.
+- The size counts the members of a sequent with binders as the
+  printer writes them (`Weights`, one vector by member): an occurrence
+  per occurrence, with the names `printed_names` computes by
+  `Scope::enter`'s renaming inside its root (`x` for a binder without a
+  name), since an open atom's key writes `#i` and one atom term sits
+  under binders of different names, and a nested binder in brackets; an
+  instance as its occurrence with each loose variable's name replaced
+  by its frame's term (`loose_variables`, level 0 the nearest binder
+  above), plus a bound per written name where an eigenvariable's name
+  can rename a binder inside it (an instance's scope holds them).
+  `exact` is false for a proof with instances. Where an inner binder was
+  renamed in its root only because an enclosing binder of its name was
+  open (shadowing), the instance writes it shorter: its weight is then a
+  bound, and the width may pass the widest sequent, the one case where
+  `Size::width` is not a lower bound. Any change of the printers'
+  naming or bracketing changes these weights with it
+  (`binder_names_are_counted_as_written`, the size test's samples).
 - An eigenvariable is written `a`, `b`, … `z`, `a_1`, … in the order of
   its number, skipping every symbol's name (`instances::eigen_names`),
   so a derivation's sequent reads as a sequent with those constants.
