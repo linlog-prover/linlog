@@ -200,7 +200,17 @@ and completeness, the stops. Measured at one, two and four threads and
 put to the author as "The keep-or-revert measurement" above says.
 
 **42k, the web page** (Opus 5.5 at `high`; the last session, the
-author's instruction of 2026-10-23). Input with quantifiers and terms,
+author's instruction of 2026-10-23). **First, in linlog, before the page:** `undo`
+after a session is read back from its JSON must truncate as it does in a
+live session (found 2026-10-30 by a side agent's note, confirmed on the
+command: with a save and a load between steps, as the page makes on every
+click, the fresh eigenvariable after an undo drifts `a`, `b`, `c`, `d`
+and the session's table grows with every apply/undo cycle toward its term
+limit; 42e left the marks out of the JSON, a departure). Either the
+session's JSON carries each step's marks (wire level 7 is not released
+yet) or reading a session rebuilds them from its history; a test drives
+apply, save, load, undo, apply through the JSON and the bindings and
+finds the same letters and the same table as a live session. Input with quantifiers and terms,
 the quantifier rules in interactive proving (the student gives the
 witness at `∃R` and `∀L`, the page checks the eigenvariable condition
 through the library), the drawing of a first-order derivation, the

@@ -4062,3 +4062,11 @@ client follows it (step 32).
   a signature a type of symbols with arities implicit; certificates
   naming the optional rules by module. Next: 42h, the first-order
   families and LinearOne.
+- 2026-10-30: found by a side agent's note and confirmed here on the
+  command: 42e's `undo` marks are not in a session's JSON, so after a
+  save and a load (what the web page does on every click) an undo does
+  not truncate: the next fresh eigenvariable drifts (`a`, then `b`, `c`,
+  `d` across three apply/save/load/undo cycles) and the table grows
+  toward the term limit. Proofs stay checked. 42k's linlog part fixes it
+  first (`plan/first-order/README.md`, 42k), before the page relies on
+  it.
