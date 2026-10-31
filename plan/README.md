@@ -4235,3 +4235,23 @@ client follows it (step 32).
   again alone, ground terms named by ids of a search-wide table. Next:
   42k, first order on the web page (linlog's part first: the undo fix,
   cut at first order, the bindings).
+- 2026-10-31: session 42k's linlog part reviewed and pushed (02:30;
+  Opus 5.5 at high, unattended): a first-order session's undo marks in
+  its JSON (undo after a reload truncates as a live one: checked here,
+  the letter stays `a` and the file 418 bytes across three
+  save/load/undo cycles, where it drifted `b`, `c`, `d` and grew);
+  cut in a first-order session, with a cut formula naming the goal's
+  eigenvariables held closed as `∀a. p(a)` and the proof's cut on its
+  instance (a heads-up box found the gap; the planning session decided
+  to support it, 42b's cut on an instance carrying the condition;
+  checked here: `∀x.p(x), ∀x.(p(x) ⊸ q(x)) ⊢ ∀x.q(x)` with `p(a)` cut
+  under `∀R`, both premises closed, the proof valid; a symbol the
+  sequent lacks refused in words); the bindings' first-order calls with
+  28 tests under Node; the view's `opened` and `forest` for the page's
+  replay, which compares each quantifier step's term (a second heads-up
+  box). Its reviewer's four findings (three panics and a forged mark)
+  fixed with tests. The checker and the search untouched; both target
+  sets equal to 42j's (0 of 145, 0 of 64). Departure, accepted by the
+  planning session: a first-order cut formula takes no new symbol, since
+  a symbol added mid-session would change the signature under it. The
+  client's part follows on `olvxtklw`.
