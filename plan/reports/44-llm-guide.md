@@ -414,3 +414,232 @@ cut, brings cut into the guide under this rule.
 - [x] The client: `llms.txt`, About's link, a browser test, its `nix
   flake check` passed at its last commit (exit 0).
 - [x] `jj st` clean in both workspaces; nothing pushed by this session.
+
+## Session 44b: the manual
+
+### Outcome
+
+README is a front page of 149 lines (what linlog is, install, a first
+proof and a refutation, where to go next: the manual, the web page, the
+guide for AI models, the API documentation and the changelog; citing;
+licence), and the reference is an mdBook manual under `docs/`, built by
+the flake into the Pages site beside the rustdoc at
+`linlog-prover.github.io/linlog/manual/`. README's sections moved into
+the chapters whole: every line of the old README is in the front page
+or a chapter, apart from headings re-levelled or renamed as chapter
+titles and cross-references made links (the reviewer checked it line
+by line). The chapters: the introduction (README's opening, first proof
+and documentation list), Installation; under "Using linlog" The
+commands (README's usage of `prove` and `check`) with Output formats,
+Rocq certificates, The syntax, Cyclic linear logic and The Lambek
+calculus beneath it, Interactive proving, Cut and its elimination,
+Proof nets, First-order logic, Ordinary logic, Many sequents in one
+call; under "Results" Benchmarks and the comparison (README's harness
+section and "Beside the other provers") with three results chapters,
+The baseline of 2026-10-17, Beside the other provers 2026-10-15 and
+First order against LinearOne 2026-10-30; under "The project" What
+exists and what is planned, Architecture and Development. The theme is
+the page's: its tokens on mdBook's light and navy themes (the other
+three hidden from the menu, as the page has two schemes), the violet
+accent, the word mark of the page in the menu bar and the square mark
+as the tab's icon, each in both schemes.
+
+`cli/tests/readme.rs` runs every `console` block of README and of every
+chapter `SUMMARY.md` lists (174 command lines, 165 of them run; the
+rest are the harness, pdfLaTeX and Rocq, as before, and one block
+marked `skip`), fails on a Markdown file under `docs/src` that
+`SUMMARY.md` does not list, and holds README and the chapters to the
+names the guide is held to; `bench/tests/manual.rs` checks the
+harness's names in the benchmark chapters. Made-up names planted in
+chapters (`linlog prove --copy`, `linlog seq show`, the key
+`search.speed`, `linlog-bench run --familly`, `linlog-bench rerun`)
+each failed a test, and the chapters restored passed.
+
+Every figure is drawn by `bench/plots.py` from the CSV rows when the
+manual is built (`docs/figures.sh`, run by the flake's `manual`
+package), in the light and the dark scheme, and none is committed. The
+check `manual-links` resolves every link of the manual and README into
+the manual, the repository and the site offline (721 links, 0 errors);
+a planted broken fragment, missing repository file, missing page of the
+site and missing anchor each failed it.
+
+### Decisions, and what was read
+
+- **mdBook 0.5.4**, the version the locked nixpkgs pins, adopted through
+  the `new-tool` skill: its guide at that version (the renderer options,
+  the theme, the general configuration, continuous integration) and its
+  changelog from 0.5.0 (unknown configuration fields are errors,
+  `smart-punctuation` on by default, hashed asset names, `--dest-dir`
+  relative to the working directory). `smart-punctuation` is off, since
+  the text is README's, written for GitHub's rendering;
+  `create-missing = false`, so a listed chapter that is missing fails
+  the build; `site-url = "/linlog/manual/"` for the 404 page.
+- **The link checker is lychee** (nixpkgs' 0.24.2), not
+  `mdbook-linkcheck2`, which mdBook's guide recommends since 0.5.4:
+  lychee checks the built HTML, fragments included, and its `--remap`
+  turns the repository's GitHub URLs into files of the tree and the
+  site's URLs into files of the `doc` package, so links that leave the
+  book are checked too, offline. It needs `cacert` in the sandbox even
+  offline.
+- **The figures are drawn at build time, not committed**, so that no
+  figure can drift from its rows or be drawn by hand; `svg.hashsalt` and
+  no date make the SVGs a function of the rows. `bench/plots.py` gained
+  subcommands (`comparison`, as before; `families`; `growth`) and
+  `--theme`; the palette is the `dataviz` skill's categorical slots,
+  validated by its script against the manual's two surfaces (light: every
+  check passes, three slots below 3:1 contrast, relieved by a marker per
+  series and the tables beside each figure; dark: every check passes).
+  The figures are static images, so the skill's hover layer does not
+  apply; each figure's table view is the chapter's table.
+- **The figures**: the baseline's `families.svg` (time against size of
+  every family under the engine the command chooses, one panel per
+  family, a line per engine) and `engines.svg` (the focused against the
+  net engine on the families `engines.csv` forces both on); the
+  comparison's two cactus plots and twelve scatter plots; the first
+  order's `growth.svg` (time against size of each shape, a line per
+  tool), its scatter plot and its cactus plot. Each caption says what
+  is measured, on which machine, at which commit and date (the first
+  order's commit is not recorded by its run, and the chapter says so,
+  naming the commit that holds the rows), and what it shows; every
+  "what it shows" was computed from the rows, and the reviewer computed
+  them again.
+- **A line per engine** (departs from the design): `families.csv` holds
+  one engine per family, the one the command chooses, so its figure
+  colours each family's line by that engine, and a second figure from
+  the same baseline's `engines.csv` draws the focused and the net engine
+  side by side where the baseline forces both.
+- **A released version's manual is the `docs/` of its tag**, as the
+  release's API is docs.rs: the practice read was mdBook's own guide
+  (no version selector; it describes deploying at every push or at a
+  tag) and the Docs workflow's `deploy-pages`, which replaces the site
+  whole at every deployment, so a directory per release would mean
+  building every tag's manual at every push. The introduction and README
+  say so. Nothing in GitHub's Pages settings changes: the site's source
+  is already "GitHub Actions", and the manual appears under `manual/` at
+  the next deployment of `main`.
+- **The logo stays out of the repository**: the menu bar's word mark
+  and the tab's icon are the page's files by URL, as README's licence
+  section says of the logo (CC BY 4.0, served by the page). The icon is
+  set by a few lines of script, since mdBook writes its own favicon link
+  unless the theme carries the file (departs from the design only in
+  the means).
+- **Links both ways with the page**: the introduction, README and the
+  guide link the page; the page's About links the manual (the client's
+  part).
+- **The names of the harness's chapters** are the harness's: the CLI's
+  test checks only the calls of `linlog` in `benchmarks.md` and
+  `results/` (`HARNESS_CHAPTERS`), and `bench/tests/manual.rs` checks
+  the rest against `linlog-bench`'s help and the scripts' text, since
+  the command's tests cannot run the harness.
+- **A settings key in README or the manual passes when the settings
+  file can hold it** (`settings_know`), where the guide's must be in a
+  flag's help: README already named `ordinary.logic`, which the file
+  holds and no flag sets, and the help that would name it is pinned by
+  the behaviour lock.
+- **README's test asserts more than 150 commands**, README's and the
+  manual's together, where it asserted more than 40 of README's alone
+  (the commit says so).
+- **The crate's `documentation` key** is set on `linlog-cli` to the
+  manual (Cargo's reference: a URL of the package's documentation,
+  docs.rs when unset); the library keeps docs.rs. No `homepage`, which
+  Cargo's reference reserves for a site other than the repository and
+  the documentation.
+- **The `doc` package is the rustdoc and the manual put together** after
+  both are built, so a change of the manual does not rebuild the
+  rustdoc. The `conventions` check now also fails on a line of the
+  manual that names the plan.
+- **The plan names `bench/COMPARISON.md` for the comparison with the
+  other provers**; that comparison is `bench/TOOLS.md` (COMPARISON.md
+  compares the baselines), which the provers chapter follows.
+
+### The reviewer
+
+A fresh-context reviewer on Opus 5.5 checked the six requirements
+(every old section present, the front page, every example run, every
+link resolving, every figure from the rows with true captions, room for
+later runs) and ran both tests. Its findings and the answers:
+
+- README's licence section named "Beside the other provers", no longer
+  in README, without a link: holds; it links the manual's section now.
+- The baseline's figure caption said the partitions rise ever more
+  steeply, but the four 3-Partition families are flat: holds; the
+  caption names `partition-yes` and `partition-no` and says the
+  3-Partition families stay flat.
+- The engines figure's caption said the net engine leaves
+  `3-partition-mll-no` undecided past its smallest size, but it decides
+  sizes 4 and 5: holds; it says past size 5.
+- Headings renamed as chapter titles (`Usage` as "The commands",
+  `First-order sequents` as "First-order logic", `Benchmarks` as
+  "Benchmarks and the comparison"): by design, a chapter per area as
+  the plan lists them; the text under them is unchanged.
+- Links to the page outside `/linlog/` (the logo, the web page) are not
+  checked by `manual-links`: true, offline they cannot be; the check's
+  comment and the rules say so. The reviewer could not run lychee; this
+  session did, with the planted breaks above.
+- The comparison's committed light SVGs in
+  `bench/comparison/2026-10-15/figures/`, which `bench/TOOLS.md` embeds:
+  they are the comparison script's own output, not the manual's, and
+  stay.
+- A new run adds an item to the benchmark chapter's opening sentence,
+  and "Beside the other provers" (README's text) states the 2026-10-15
+  numbers as current: the first is the one line a new run adds besides
+  its chapter; the second is for the session that runs the next
+  comparison (below).
+
+### What the next sessions must know
+
+- **45b's growing families join** as a chapter
+  `docs/src/results/<name>-<date>.md` listed in `SUMMARY.md` under
+  "Benchmarks and the comparison", its figures a few lines of
+  `docs/figures.sh` (`plots.py growth` for `run --tools` rows, a line
+  per tool per shape; `plots.py families` for a baseline's
+  `families.csv` and `engines.csv`), and an item in the benchmark
+  chapter's opening sentence; the existing chapters stay as they are.
+- **45c's fourth baseline** is a chapter `results/baseline-<date>.md`
+  drawn the same way; `bench/RESULTS.md` and `bench/COMPARISON.md` stay
+  the full tables.
+- **45d prepares the front page and the manual for 0.2.0**: README's
+  Install (`linlog = "0.1"`) and the Installation chapter's tag
+  (`v0.1.0`) and Rust version; the introduction and README say a
+  release's manual is its tag's `docs/`; "Beside the other provers" in
+  `benchmarks.md` is README's old summary of the 2026-10-15 run and
+  becomes stale with a new comparison.
+- **A step that adds a command, flag or format** adds it to its chapter
+  (`plan/conduct.md`, CLAUDE.md's verification table); a new area gets a
+  chapter in `SUMMARY.md`. A chapter cannot drop out of the test: the
+  test fails on a Markdown file `SUMMARY.md` does not list.
+- **Locally**: `manual` in the devshell draws the figures into
+  `docs/src/figures/` (ignored) and serves the book; `nix build
+  .#manual` builds it as CI does.
+
+### What is left open
+
+- Links to the web page outside `/linlog/` are not checked, since the
+  check is offline and the page is another repository's build.
+- The figures are static SVGs: no hover, no table inside the figure.
+
+### Checklist
+
+- [x] README a front page of about 150 lines (149).
+- [x] The manual under `docs/` (mdBook 0.5.4 through `new-tool`), a
+  chapter per area, README's sections moved whole, the page's violet
+  and logo in both schemes.
+- [x] `cli/tests/readme.rs` runs every chapter's examples and checks
+  every name; `bench/tests/manual.rs` the harness's; planted names fail.
+- [x] The benchmark chapter: the third baseline in brief, the comparison
+  with its cactus and scatter plots, linlog against LinearOne at first
+  order, time against size for the families; every figure by
+  `bench/plots.py` from the rows in both schemes, with what, where,
+  when and what it shows.
+- [x] Built into the Pages site beside the rustdoc (`doc`), checks
+  `manual` and `manual-links`, every link resolving.
+- [x] The rules (`cli.md`, `ci.md`, `flake.md`, `bench.md`),
+  `plan/conduct.md` and CLAUDE.md name the manual.
+- [x] The fresh-context reviewer's round, each finding answered above.
+- [x] The gate passed (`gate: passed`) at the manual's commits.
+- [x] `nix flake check` passed at the manual's commits (`c92d43d8`, exit
+  0; a first run failed on the spell check, `typos`, for mdBook's own
+  variable `--sidebar-non-existant`, now ignored by a pattern, and a
+  made-up flag of a test, now a word) and again at the report's commit.
+- [ ] The client's About links the manual (after linlog's push).
+- [x] Nothing pushed by this session.
