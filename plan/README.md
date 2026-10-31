@@ -4310,3 +4310,27 @@ client follows it (step 32).
   124) by its message. Pushed, linlog's report first. Departure, decided
   on the author's mandate: D60's numbering (two lessons inserted).
   Next: 44b, the manual.
+- 2026-10-31: review of session 44b, the manual (Opus 5.5 at high, 04:05
+  to 05:10, unattended): README a front page of 148 lines; the
+  reference an mdBook manual under `docs/` (Using linlog, Results, The
+  project), README's sections moved whole, built into the Pages site at
+  `/linlog/manual/` by the flake's `doc` package (no Pages setting
+  needed), its theme in the page's violet with the wordmark; README's
+  test running every chapter SUMMARY.md lists (165 commands) and
+  failing on an unlisted page or a name that does not exist; the
+  benchmark chapter with the third baseline, step 29's comparison with
+  its cactus and scatter plots, and first order against LinearOne, every
+  figure drawn at build time by `bench/plots.py` from the rows in both
+  themes; links checked offline by lychee (721, none broken); the
+  client's About linking the manual. Its reviewer's three caption and
+  link findings fixed. Judged here not a loosening: a settings key in
+  README or the manual passes when the settings file holds it (a real
+  key no help names, `ordinary.logic`, was refused before; a made-up
+  one still fails). Checked here: the front page's length, the chapters,
+  the doc package built and its families figure rendered and read.
+  Departures, accepted on the author's mandate: the families figure
+  coloured by each family's chosen engine with a second figure for the
+  focused against the net engine (the baseline holds one engine per
+  family); the logo by URL. Both parts pushed. Next: step 45, its prompt
+  finished first; 45b (the growing families) runs before 45a, whose
+  repository needs a `gh` call the author is present for.
