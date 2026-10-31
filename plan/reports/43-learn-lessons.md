@@ -997,3 +997,280 @@ Its findings, each answered:
 - The evidence: `/home/tux/Projects/own/linlog-step43c-screenshots/` (`outline.md`,
   `outline-answer.txt`, `review.md`, `before/`, `after/`, `evidence/`, `scripts/`,
   `shots.mjs`, `run-shots.sh`, `linlog-cli` the command at the client's pinned input).
+
+## Session 43d: cut and the quantifiers
+
+### The checklist
+
+| requirement (the brief and the section "Fixed now") | status | evidence |
+|---|---|---|
+| The outline of both lessons sent to `linlog-orchestrator` before they were written, and its answer | done: decided as sent, with three additions | sent 2026-10-31 03:10 (`/home/tux/Projects/own/linlog-step43d-screenshots/outline.md`, `outline-sent.txt`); the answer a few minutes later (`outline-answer.txt`): the order 1–8, 9 cut, 10 quantifiers, 11 ordinary logic, and everything as sent; the practice asks for the cut and counts inferences, the hinge's `A ⊗ B ⊢ A` says "in linear logic", the new order marked as a departure |
+| Both lessons in D56's sequence, placed in D60's order where the outline argued: a worked proof with a reason per inference and "predict the next rule", the faded proof, practice from the store, a self-explanation prompt, a hinge question whose wrong answers each name a misconception | done | `src/content/lessons/9-cut.md`, `10-quantifiers.md`; Vitest `src/content/lessons.test.ts`, Playwright `tests/lessons.spec.ts` |
+| The cut lesson steps a cut's elimination on the derivation and on the net | done | the part "Eliminate the cut"; Playwright "a lesson plays a cut on its lemma, and eliminates it step by step on the derivation and on the net, each case explained"; Vitest "…eliminates to a cut-free proof on the derivation and on the net, a reason for each step's case" |
+| The quantifier lesson gives witnesses and shows the eigenvariable condition refuse a step | done | the worked proof's `∃R` and `∀L` with their witnesses; the part "A step linlog refuses" (`10-quantifiers.refusal.json`); Playwright "a quantifier lesson plays its witnesses, and the eigenvariable condition refuses an attempt's last step"; Vitest "…whose last step linlog refuses" |
+| The reference's rule schemas the lessons use (cut, `∀`, `∃`) and the frame's hover explanations | done | `src/content/rules/33-cut.md` to `40-ill-exists-l.md`; `READINGS` and `connective` in `src/lib/words.ts`; Playwright "the reference draws every rule…" and "with Learn on, a quantified formula shows its reading and a quantifier rule its schema" |
+| Every lesson's sequent a store problem with linlog's verdict and session, decided well inside the page's budget; the store's flake check passing | done | sixteen new problems, `evidence/new-problems.txt` (every verdict and fragment the command's), `evidence/*.interact.txt` (each session `proof` accepts), `evidence/budget.txt` (at most 124 of 2²⁶ units); `check-problems` in the flake check (Verification) |
+| The education skills and `frontend-design` used | done | below, "Decisions" |
+| One fresh-context reviewer, one round, each finding answered | done: one finding, held and answered | below, "The review"; `/home/tux/Projects/own/linlog-step43d-screenshots/review.md` |
+| Before-and-after screenshots of each lesson at a phone's and a desktop's width in both themes | done | `/home/tux/Projects/own/linlog-step43d-screenshots/before/` (20) and `after/` (64) |
+| The client's `nix flake check` at its last commit; `jj st` clean in both workspaces | done | exit status 0 at `ooyvskyv` (4006119f); below, "Verification" |
+
+### Outcome
+
+Learn's tutorial has eleven lessons. The two new ones stand where the outline argued and the
+supervisor decided: **9, Cut and its elimination**, after proof nets, and **10, The
+quantifiers**, before ordinary logic, which moved from 9 to 11 and stays last (departs from
+the design: D60 has nine lessons, ordinary logic the ninth). Each follows lessons 1 to 8: a
+short opening; a worked proof of the store played on the stage one inference at a time, the
+visitor predicting each rule before the page plays it and writes its reason beside the
+inference; a self-explanation prompt with a model answer; the same proof left to the visitor;
+the lesson's practice; and a hinge question whose wrong answers each name their
+misconception.
+
+- **Lesson 9** proves the lemma `!C` once from `!(A ⊸ B), !(B ⊸ C), !A` and uses it twice for
+  `C ⊗ C`: sixteen inferences with the cut, twenty cut-free. A new part, "Eliminate the cut",
+  shows the finished proof and has the visitor eliminate its cut with the stage's own
+  elimination, on the derivation and then on the net, five steps each; each step's case
+  (contraction, which copies the lemma's proof once per use, dereliction, the axiom case) has
+  its reason under the step's line in the stage's cluster, and the lesson counts the
+  cut-free derivation's inferences against the cut's. The practice's problems with a lemma ask
+  for the cut and, once the visitor has proved one, count that proof's inferences beside those
+  with the cut and without (17 against 21, 20 against 32), as the supervisor added.
+- **Lesson 10** plays `∃y. ∀x. r(x, y) ⊢ ∀x. ∃y. r(x, y)`: the eigenvariables first (`∀R`
+  makes `a`, `∃L` makes `b`), then the witnesses (`∃R` takes `b`, `∀L` takes `a`). A new part,
+  "A step linlog refuses", plays an attempt at the converse with its author's reasons (an open
+  witness `$1`, then the eigenvariables), asks the visitor to predict whether linlog accepts
+  its last step, plays the axiom on `r(a, b) ⊢ r(a, $1)`, which linlog refuses at the goal
+  ("ax refused: the eigenvariable condition"), says why, and asks linlog about the sequent:
+  unprovable, the search exhaustive.
+
+The reference draws eight new schemas, the cut, `∀` and `∃` one-sided (the Handbook's Table
+1.4) and the cut, `∀R`, `∀L`, `∃R` and `∃L` two-sided (Table 1.5); with Learn on, the
+popover's rule shows its schema on hover and a quantified formula its reading. Sixteen problems
+joined the store (452 problems, 407 provable), each decided by the command and checked by the
+flake's `problems` check, and Practice files the first-order ones under a new category,
+Quantifiers.
+
+### The lessons
+
+| lesson | worked proof (store) | faded: played, then the visitor's | self-explanation (after step) | hinge | misconceptions named |
+|---|---|---|---|---|---|
+| 9 Cut and its elimination | `lemma-twice`, `!(A ⊸ B), !(B ⊸ C), !A ⊢ C ⊗ C`: cut on `!C`, then !R, !L, ⊸L, ax, !L, ⊸L, ax, !L, ax (the lemma), !c, ⊗R, !L, ax, !L, ax (its uses) | none played; the cut and both premises | why the lemma is `!C` and not `C`, and why its proof may end with `!R` (11, the !c) | which of four things a cut can do | a lemma once proved may be used as often as needed; a cut can prove what has no proof without one; a cut always makes a proof shorter |
+| 10 The quantifiers | `exists-forall`, `∃y. ∀x. r(x, y) ⊢ ∀x. ∃y. r(x, y)`: ∀R, ∃L, ∃R `b`, ∀L `a`, ax | none played; the order and both witnesses | why `∃R` may take `b` here and could not have come first (3, the ∃R) | which of four sequents has a proof | a `∀` hypothesis gives every instance as often as needed; `∃L` lets you name the witness you need; quantifiers may change places |
+
+Practice, easiest first, provable and unprovable mixed: lesson 9 has 6 (`cut-chain`,
+`lemma-without-bang`, `lemma-twice`, `promotion-refused`, `lemma-thrice-short`,
+`lemma-thrice`), lesson 10 has 10 (`modus-forall`, `exists-named`, `exists-forall`,
+`forall-distributes`, `forall-once`, `exists-split`, `forall-swap`, `bang-forall`,
+`exists-join`, `successor-twice`). Every one is intuitionistic, typed in the syntax 42k's page
+reads (`forall x.`, `exists x.`, `-o`).
+
+### Decisions
+
+- **The order** (`learning-progression-builder`, as 43b and 43c applied it, and the outline's
+  argument): cut needs the nets of lesson 8, since it is eliminated on the net, and its
+  elimination's cases revisit lessons 2 to 5; the quantifiers need lessons 1 to 6 (the axiom,
+  the split, `&` and `⊕` as their analogy, `!` to use a `∀` twice, two sides), and nets refuse
+  first-order sequents, so they cannot go before 8 without breaking 8's continuation into 9.
+  Ordinary logic stays last, as D60 says.
+- **Where a cut pays.** Measured with the command (`scripts/cutsize.sh`, inferences of the
+  drawn derivation with the cut, after `eliminate`, and of the search's proof): without `!` no
+  candidate came out shorter with a cut (`A + B, (A -o C) & (B -o C) |- C & C`: 13 with the cut,
+  13 after elimination, since the elimination permutes rather than copies), and with `!` a
+  lemma pays only when its proof is longer than the copying costs: `!A, !(A -o B) |- B * B` is
+  13 either way, the two-step chain used twice 16 against 20, three times 20 against 32. The
+  worked proof is the chain used twice (sixteen steps, as long as a worked proof should be);
+  three uses are the practice and the hinge. The supervisor's heads-up said the same.
+- **The worked proof is read with its session's view** (`prover.worked` asks `view` of the
+  stored session): without the view a cut has no formula to replay and a witness replays
+  open, which 42k left for this session.
+- **The elimination is the stage's, not the lesson's.** The lesson shows the finished proof
+  and says how far each view has come; the visitor takes the steps with the stage's own
+  cluster, which already names each step's case and shows "Before". The lesson's reason for
+  the case stands in that cluster under the step's line, in Learn's colour (`ui.cases`,
+  `.case-why`, only with Learn on), not in Learn's panel (D22). It reuses the cluster rather
+  than duplicating its buttons in the panel.
+- **The counts** (`counts` in the lesson): the inferences with the cut are the session's, the
+  cut-free ones those of the derivation `eliminate` reaches (its drawn inferences, `i<n>`),
+  both held by `lessons.test.ts` to the module; the command's text derivation gives the same
+  numbers (`scripts/cutsize.sh`).
+- **The refused step is a part of its own** (`refusal`, with an unfinished session
+  `10-quantifiers.refusal.json` that `linlog interact` wrote, `evidence/refusal.interact.txt`),
+  played by Redo as 43c's attempt is; its sequent is not the worked proof's, so 43c's
+  `attempt` (an attempt at the worked proof's own sequent with a wrong step to find) did not
+  fit. The test holds that linlog refuses the step with the eigenvariable condition.
+- **The quantifiers on the page's hover and tab**: `READINGS` gains `∀` and `∃` with the
+  reference table's words (the test now holds nine signs to the table), `connective` takes a
+  leading quantifier as the formula's own, and `displayed` writes `forall x.` and `exists x.`
+  as `∀x.` and `∃x.`, which the lesson's sequents and the tab needed.
+- **The store's checks and sessions with cuts**: a session with cuts keeps its cut formulas in
+  its sequent (`cuts`, wire level 6), so `problems.test.ts` and the flake's `problems.py` now
+  compare such a session's conclusion, the sequent linlog starts from (`start`) or prints
+  (`seq print`), with the cut formulas left out; every other session must still equal the
+  problem's sequent exactly. A planted session of another sequent with a cut fails the check
+  ("lemma-thrice: its session is not of its sequent in intuitionistic mode").
+- **Levels**: provable problems by 43a's measure on the hints' cut-free proof
+  (`evidence/levels.txt`): the three lemma problems are Very hard (scores 78 to 149: every copy
+  and split is a choice cut-free), the quantifier ones Easy to Hard; unprovable ones by hand
+  (2 or 3).
+- **The schemas** are the Handbook's (the LLHandbook project's draft of 6 March 2026, read in
+  its text, `refs/handbook.txt` of 43b's evidence): Table 1.4 (p. 22) has `(cut)`, `(∀₁)` with
+  "x must not occur free in Γ" and `(∃₁)` with `F[t/x]`; Table 1.5 (p. 48) the two-sided cut and
+  `(∀₁L)`, `(∀₁R)`, `(∃₁L)`, `(∃₁R)` with "x must not occur free in Γ nor in K". The
+  reference's text now says it draws the cut and the first-order quantifiers.
+- **The education skills**: `hinge-question-designer` and `erroneous-example-designer` were
+  read in this session and the lessons checked against them (one concept per question,
+  parallel options, each distractor one misconception; one realistic error after the correct
+  example, and an explanation asked of the student, which added the prediction before the
+  refused step). The worked-example, fading, self-explanation, progression and cognitive-load
+  skills were applied as 43b and 43c did (one prompt at a time, the reason at the inference,
+  the faded proof starting before the lesson's own choice, why-questions at the densest step).
+  `frontend-design`: the new parts use the lessons' grammar alone (the parts' rule in Learn's
+  colour, `btn` controls of 44 pixels, the hinge's status box for the refusal); one new class,
+  `.case-why`, from existing tokens; the touch-target walk measures both new states.
+
+### Judgement calls
+
+- **`cut-chain` is a four-step chain** (`A, A ⊸ B, B ⊸ C, C ⊸ D ⊢ D`, the cut on `C`: nine
+  inferences against seven), not the outline's `A, A ⊸ B, B ⊸ C ⊢ C`, which is lesson 8's
+  `essential` already; the store writes no sequent twice in one calculus (its test failed on
+  the outline's sequent, and the sequent changed, not the test).
+- **The worked proof uses two uses, not three**: three uses show the gain more plainly (20
+  against 32) but make a worked proof of twenty steps; two give sixteen against twenty, and
+  three are the practice's and the hinge's right answer. Said in the outline; the supervisor
+  kept it.
+- **The faded proofs play nothing**: each lesson's new choice is its first step (the cut and
+  its formula; the order of the quantifier steps), and 43b's rule starts the faded proof
+  before the lesson's own choice.
+- **The elimination's reason is in the stage's cluster**, under the step's line, rather than
+  beside the reduced cut in the drawing: an elimination step is no inference of the session,
+  and the cluster is where the step is named; it is on the stage, never in Learn's panel.
+- **The hinge questions' misconceptions can make two options look right** (a student who
+  believes a cut always shortens sees the right answer and option D as true). It is the "which
+  of these" form lessons 2 to 8 use, and the supervisor decided these hinges; each wrong
+  answer is still the one that misconception leads to.
+- **A prediction before the refused step** ("Will linlog accept it? Decide, and say why to
+  yourself, before you try it"), added after reading `erroneous-example-designer`, which asks
+  the student to explain the error, not only to see it.
+- **`displayed` and the hover readings learn the quantifiers** (a small change of the page,
+  not content): the lessons' sequents and the tab showed `forall x.` as typed, and a
+  quantified formula's hover read it as an atom.
+- **The store's two checks learn sessions with cuts**: the rule they enforce is unchanged (a
+  session proves its problem's sequent), the comparison for a session with cuts is of its
+  conclusion; every other session is compared exactly as before.
+- **No problem was measured for the first-order hints differently**: 43a's measure runs on
+  first-order sessions as on propositional ones (a witness step counts as one move per rule
+  and formula, its term not enumerated), so the quantifier problems' levels may understate a
+  witness's choice; `successor-twice` and `bang-forall` are Hard by it, which matches their
+  copies.
+
+### Departures from the design
+
+- **D60's order** (departs from the design): two lessons inserted as 9 and 10, ordinary logic
+  renumbered from 9 to 11 (its file `11-ordinary.md` and its seven problems), at the
+  supervisor's decision. Every test that named nine lessons now names eleven, on purpose
+  (`lessons.test.ts`, `learn.spec.ts`, `engines.spec.ts`); the page keeps no lesson number
+  across visits, so no stored state or link names lesson 9.
+- None from D21, D22, D47 or D56.
+
+### The review
+
+One round, a fresh-context reviewer (`linlog-43d-reviewer`, Opus 5.5 at `high`), briefed with
+D21, D22, D47, D56, D60, the step's goal, the decided outline and its three additions, the
+accepted departures, and the machine's rules (linlog's command alone, through the capped
+wrapper on cores 4 to 7, bounded), told to report only what breaks a stated requirement or a
+fact (`/home/tux/Projects/own/linlog-step43d-screenshots/review.md`). It confirmed every
+verdict and fragment of the sixteen problems and of the two hinge options without one, every
+inference count (16/20, 17/21, 20/32, 9/7, and nine against four for the cut on `B ⊗ A`), the
+elimination's cases on both views, the refusal, every reason, model answer, hinge line and
+store explanation, the eight schemas against Tables 1.4 and 1.5, the three additions, and
+that the tests hold what they claim. Its one finding, answered:
+
+1. **Lesson 9's faded proof never asked for the cut**: "every step is yours", and the hints,
+   which never cut, lead to the cut-free proof, which the page called proved. **Holds**, against
+   the decided outline. The part now says "The same proof, from its sequent, with its cut on
+   `!C` (the stage's Cut): every step is yours", and once the visitor's proof is finished it
+   counts that proof's inferences beside the cut's 16 and the cut-free 20, as the practice's
+   cards do (client `ooyvskyv`; Playwright's elimination test checks the line).
+
+It also noted, without counting it, that lesson 9's practice is not strictly easiest first
+(`lemma-twice`, level 4, before `promotion-refused`, level 3): strict order cannot hold with
+"never three alike in a row" for these six, as in earlier lessons.
+
+### Verification
+
+- **The client's `nix flake check`** passed, exit status 0, at its last commit `ooyvskyv`
+  (4006119f), under the machine lock
+  (`/home/tux/Projects/own/linlog-step43d-screenshots/evidence/flake-check.log`): Vitest 557
+  passed, Playwright 124 passed, and the store's `problems` check, whose log at that commit
+  (`nix log .#checks.x86_64-linux.problems`; the store is unchanged since `nzozmtyp`, so its
+  build was reused) says "all 452 problems are as linlog's command decides them; 407
+  provable, each with a session that `proof` accepts". It passed before the review too, at
+  `nzozmtyp` (`evidence/flake-check-1.log`).
+- **The store's check on a planted session**: `problems.py` over a store holding
+  `lemma-thrice` with `lemma-twice`'s session (a session with a cut, of another sequent)
+  fails: "lemma-thrice: its session is not of its sequent in intuitionistic mode"; over the
+  store it passes.
+- **Vitest** (557): `lessons.test.ts` holds the eleven lessons in their order, each worked
+  proof to its session (the cut and the quantifier steps among the rules, each with its
+  two-sided schema), the elimination's cases on both views to their reasons, the counts to the
+  module (the session's inferences and the drawn cut-free derivation's), the refusal (an
+  unfinished session of an unprovable problem of the lesson whose step linlog refuses with the
+  eigenvariable condition), the hinges, and every lesson problem within a hundredth of the
+  page's budget; `problems.test.ts` the sixteen problems, their categories with
+  `quantifiers`, and sessions with cuts by their conclusion; `words.test.ts` the signs and the
+  readings.
+- **Playwright** (124): in `tests/lessons.spec.ts` four new tests (the cut played and
+  eliminated on the derivation and on the net with each case's reason and the counts, and the
+  faded proof asking for the cut; a practice problem's counts after Watch; the witnesses and
+  the refused step with linlog's verdict after; a quantified formula's reading and `∀R`'s
+  schema on hover) and the reference test extended to the new schemas; the touch-target walk
+  (`tests/targets.spec.ts`) measures lesson 9's elimination and lesson 10's refusal at every
+  width. Three tests changed on purpose, because there are eleven lessons: the reference's
+  counts of schemas (16 and 24), `learn.spec.ts` and `engines.spec.ts`.
+- **The sequents**: every new problem by `linlog prove -i` and `seq fragment -i`, and the
+  hinge's `A ⊗ B ⊢ A` and `A ⊗ B ⊢ B ⊗ A` in both logics (`evidence/new-problems.txt`, no
+  mismatch); each session by `linlog interact`, from linlog's hints or, for a cut or a chosen
+  order, from the steps given, then `proof` ("valid proof", `evidence/*.interact.txt`); the
+  refusal's session and both refusals (`evidence/refusal.interact.txt`); the inference counts
+  (`scripts/cutsize.sh`); the levels (`evidence/levels.txt`); the work at the page's budget by
+  the page's module (`evidence/budget.txt`, at most 124 of 2²⁶ units).
+- **Signing**: a signature was tested before each commit; every commit is signed.
+- **The screenshots**, by `shots.mjs` (`shots-after.mjs` for the later parts) from the site
+  built at `xpztmwtk` (`site-before`) and at `ooyvskyv` (`site-after`), each at a phone's width
+  (Pixel 7) and a desktop's (1280 × 800), light and dark:
+  `/home/tux/Projects/own/linlog-step43d-screenshots/before/` (20: the tutorial, the cut and
+  quantifier lessons, which before are the tutorial's list since they did not exist, ordinary
+  logic as lesson 9, the reference) and `after/` (64: the same five names, ordinary logic as
+  lesson 11, and for each new lesson its worked proof in progress, its faded proof and its
+  hinge answered; lesson 9's elimination on the derivation and on the net and a practice
+  problem's counts; lesson 10's refused step and a quantified formula's reading on hover).
+- **The client's commits**, above `xpztmwtk`:
+
+  | change | what |
+  |---|---|
+  | `quxxrqst` | the quantifiers in signs, and read on Learn's hover |
+  | `nzozmtyp` | the lessons on cut and on the quantifiers, their problems, schemas and checks |
+  | `mytltyst` | a prediction asked before the step linlog refuses |
+  | `ooyvskyv` | the review's answer |
+
+### What is left open
+
+- The before-and-after pictures are for the author to judge.
+- A first-order problem's level counts a witness step as one move, its term not enumerated
+  (43a's measure); the levels of lesson 10's problems may understate that choice.
+- Lesson 9's practice is not strictly easiest first (the review's note); strict order and
+  "never three alike in a row" cannot both hold for its six problems.
+- A lesson's progress is not remembered across visits, as for lessons 1 to 9.
+
+### Repositories and workspaces
+
+- The client: `/home/tux/Projects/own/linlog-prover.github.io-43d`, the jj workspace
+  `step43d` on `xpztmwtk`, its commits above; nothing pushed.
+- linlog: `../linlog-step43d` on `xpkpypry`, this report's commit; no code changed, and no
+  change of linlog was needed: the page had every call (the cut, the elimination on both
+  views, witnesses, the refusal).
+- The evidence: `/home/tux/Projects/own/linlog-step43d-screenshots/` (`outline.md`,
+  `outline-sent.txt`, `outline-answer.txt`, `review.md`, `before/`, `after/`, `evidence/`,
+  `scripts/`, `shots.mjs`, `shots-after.mjs`, `run-shots.sh`, `linlog-cli` the command at the
+  client's pinned input `f0449491`).
