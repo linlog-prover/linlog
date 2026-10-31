@@ -882,8 +882,14 @@ calls. The calls are `about`, `defaults`, `read`, `read_as`, `start`,
 `net_eliminate` (cut elimination step by step and to the end, on terms
 and on nets), `export`, `render` and `certificate`; each takes the page's settings,
 the JSON of the library's `Settings` laid over a browser tab's defaults,
-and a failed call throws the error's JSON (section 8). An agent with a
-shell uses the command instead.
+and a failed call throws the error's JSON (section 8). A sequent with
+quantifiers is typed as for the command; a step's JSON `{"position",
+"rule", "left", "witness"}` takes the witness of `∃R`/`∀L` as text
+(left out: open, `$1`), `rules` marks such a rule `"witness": true`,
+`hint` on a goal of instances closes it in a copy of the session, and
+the first-order bounds are the settings `search.witness_depth`,
+`search.instances` and `limits.terms`. An agent with a shell uses the
+command instead.
 
 ## 18. Rocq certificates and the Rocq library
 

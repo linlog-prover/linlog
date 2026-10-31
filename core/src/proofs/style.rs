@@ -313,9 +313,13 @@ impl Drawn for Derivation<'_> {
     #[cfg(feature = "svg")]
     fn positions(&self, id: InfId) -> Vec<usize> {
         let sequent = &self.inference(id).sequent;
-        match self.reading() {
-            Some(reading) => reading.written(sequent).collect(),
-            None => (0..sequent.len()).collect(),
+        match (self.reading(), self.framing()) {
+            // An instance's side is its occurrence's.
+            (Some(reading), Some(framing)) => reading
+                .written_by(sequent, |m| framing.occurrence(m))
+                .collect(),
+            (Some(reading), None) => reading.written(sequent).collect(),
+            (None, _) => (0..sequent.len()).collect(),
         }
     }
 }

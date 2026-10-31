@@ -30,8 +30,58 @@ fn step(position: usize, rule: &str, left: Option<Vec<usize>>) -> String {
         position,
         rule: rule.into(),
         left,
+        witness: None,
     })
     .unwrap()
+}
+
+/// A quantifier step's JSON, its witness given as text or left open.
+fn witnessed(position: usize, rule: &str, witness: Option<&str>) -> String {
+    serde_json::to_string(&StepForm {
+        position,
+        rule: rule.into(),
+        left: None,
+        witness: witness.map(Into::into),
+    })
+    .unwrap()
+}
+
+/// The position in a goal of the view of the formula written `text`.
+fn at(answer: &str, goal: u32, text: &str) -> usize {
+    let view = value(answer);
+    let view = if view["view"].is_null() {
+        view
+    } else {
+        view["view"].clone()
+    };
+    let goal = view["goals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["goal"] == goal)
+        .unwrap_or_else(|| panic!("no goal {goal} in {view}"))
+        .clone();
+    let formulas = goal["formulas"].as_array().unwrap();
+    formulas
+        .iter()
+        .position(|f| f["text"] == text)
+        .unwrap_or_else(|| panic!("no {text} in {goal}"))
+}
+
+/// The open goals of a call's answer.
+fn open_goals(answer: &str) -> Vec<u32> {
+    let view = value(answer);
+    let view = if view["view"].is_null() {
+        view
+    } else {
+        view["view"].clone()
+    };
+    view["goals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["goal"].as_u64().unwrap() as u32)
+        .collect()
 }
 
 /// The session of a call's answer, as the page keeps it.
@@ -1044,4 +1094,292 @@ fn a_net_with_cuts_is_eliminated_step_by_step() {
     assert_eq!(view["cuts"].as_array().unwrap().len(), 2);
     let ran = value(&calls::net_eliminate(&twice, &proof.to_string(), "").unwrap());
     assert_eq!(ran["end"], "cut_free");
+}
+
+/// A first-order session through the calls: a sequent with quantifiers and
+/// terms read and written back, the four quantifier rules offered (a
+/// witness taken by `∃R` and `∀L` alone), `∃L` and `∀R` making
+/// eigenvariables, `∀L` with its witness left open as `$1` and `∃R` with
+/// one given as text, the axiom filling the open one, the finished proof
+/// checked, drawn and exported; a witness that does not read and the
+/// eigenvariable condition are refused in words.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_first_order_session_takes_the_quantifier_rules() {
+    let text = "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)";
+    let read = value(&calls::read_as(text, "intuitionistic", "").unwrap());
+    assert_eq!(read["text"], "∃y. (∀x. r(x, y)) ⊢ ∀x. (∃y. r(x, y))");
+    let answer = calls::start(text, "intuitionistic", "").unwrap();
+    assert_eq!(value(&answer)["view"]["fragment"], "IMLL1");
+    let root = open_goals(&answer)[0];
+    let state = session(&answer);
+    let hypothesis = at(&answer, root, "∃y. (∀x. r(x, y))");
+    assert_eq!(
+        value(&calls::rules(&state, root, hypothesis as u32, "").unwrap()),
+        json!([{"rule": "∃L", "split": false}])
+    );
+    let answer = calls::apply(&state, root, &witnessed(hypothesis, "∃L", None), "").unwrap();
+    let goal = open_goals(&answer)[0];
+    let answer = calls::apply(
+        &session(&answer),
+        goal,
+        &witnessed(at(&answer, goal, "∀x. (∃y. r(x, y))"), "∀R", None),
+        "",
+    )
+    .unwrap();
+    let goal = open_goals(&answer)[0];
+    let state = session(&answer);
+    let position = at(&answer, goal, "∀x. r(x, a)");
+    assert_eq!(
+        value(&calls::rules(&state, goal, position as u32, "").unwrap()),
+        json!([{"rule": "∀L", "split": false, "witness": true}])
+    );
+    let error =
+        calls::apply(&state, goal, &witnessed(position, "∀L", Some("g(a)")), "").unwrap_err();
+    assert_eq!(failure(&error)["details"]["kind"], "witness", "{}", error.0);
+    let answer = calls::apply(&state, goal, &witnessed(position, "∀L", None), "").unwrap();
+    let goal = open_goals(&answer)[0];
+    at(&answer, goal, "r($1, a)");
+    let answer = calls::apply(
+        &session(&answer),
+        goal,
+        &witnessed(at(&answer, goal, "∃y. r(b, y)"), "∃R", Some("a")),
+        "",
+    )
+    .unwrap();
+    let goal = open_goals(&answer)[0];
+    at(&answer, goal, "r(b, a)");
+    let answer = calls::apply(&session(&answer), goal, &step(0, "ax", None), "").unwrap();
+    let state = session(&answer);
+    assert_eq!(value(&answer)["view"]["complete"], true);
+    assert_eq!(value(&calls::proof(&state, "").unwrap())["version"], 7);
+    // No text of the intuitionistic session is one-sided.
+    let shown = calls::draw(&state, "").unwrap();
+    assert!(!shown.contains('⅋') && !shown.contains('~'), "{shown}");
+    let drawing = calls::draw(&state, "").unwrap();
+    assert!(
+        drawing.contains("∀L") && drawing.contains("r(b, a)"),
+        "{drawing}"
+    );
+    let latex = calls::export(&state, "latex", "").unwrap();
+    assert!(latex.contains("forall"), "{latex}");
+
+    // `$1` is made before `b`, which it would name.
+    let text = "forall x. exists y. r(x, y) |- exists y. forall x. r(x, y)";
+    let answer = calls::start(text, "intuitionistic", "").unwrap();
+    let mut answer = answer;
+    for (formula, rule, witness) in [
+        ("∃y. (∀x. r(x, y))", "∃R", None),
+        ("∀x. r(x, $1)", "∀R", None),
+        ("∀x. (∃y. r(x, y))", "∀L", Some("a")),
+        ("∃y. r(a, y)", "∃L", None),
+    ] {
+        let goal = open_goals(&answer)[0];
+        let position = at(&answer, goal, formula);
+        answer = calls::apply(
+            &session(&answer),
+            goal,
+            &witnessed(position, rule, witness),
+            "",
+        )
+        .unwrap();
+    }
+    let goal = open_goals(&answer)[0];
+    let error = calls::apply(&session(&answer), goal, &step(0, "ax", None), "").unwrap_err();
+    let error = failure(&error);
+    assert_eq!(error["details"]["kind"], "eigenvariable", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("eigenvariable b cannot stand there"),
+        "{error}"
+    );
+}
+
+/// Undo after the session went through its JSON, as every call takes it,
+/// gives the eigenvariable letters and the table of a session that never
+/// left memory.
+#[wasm_bindgen_test(unsupported = test)]
+fn undo_through_the_calls_keeps_a_live_session_s_letters() {
+    use linlog::{Interactive, Mode, Rule, Sequent, Step};
+    let text = "|- forall x. exists y. p(f(x), y) -o p(f(x), y)";
+    let sequent: Sequent = text.parse().unwrap();
+    let mut live = Interactive::new(&sequent, Mode::CLASSICAL).unwrap();
+    let mut answer = calls::start(text, "classical", "").unwrap();
+    for round in 0..3 {
+        let goal = open_goals(&answer)[0];
+        answer = calls::apply(&session(&answer), goal, &witnessed(0, "∀", None), "").unwrap();
+        let g = live.goals().next().unwrap();
+        live.apply(g, &Step::new(0, Rule::Forall)).unwrap();
+        let goal = open_goals(&answer)[0];
+        at(&answer, goal, "∃y. (~p(f(a), y) ⅋ p(f(a), y))");
+        answer = calls::apply(
+            &session(&answer),
+            goal,
+            &witnessed(0, "∃", Some("f(a)")),
+            "",
+        )
+        .unwrap();
+        let g = live.goals().next().unwrap();
+        let w = live.witness("f(a)").unwrap();
+        live.apply(g, &Step::new(0, Rule::Exists).with_witness(w))
+            .unwrap();
+        for _ in 0..2 {
+            answer = calls::undo(&session(&answer), "").unwrap();
+            live.undo();
+        }
+        let (page, live) = (
+            value(&session(&answer)),
+            serde_json::to_value(&live).unwrap(),
+        );
+        for key in ["inferences", "history", "instances"] {
+            assert_eq!(page[key], live[key], "round {round}");
+        }
+    }
+    let goal = open_goals(&answer)[0];
+    answer = calls::apply(&session(&answer), goal, &witnessed(0, "∀", None), "").unwrap();
+    at(
+        &answer,
+        open_goals(&answer)[0],
+        "∃y. (~p(f(a), y) ⅋ p(f(a), y))",
+    );
+}
+
+/// A hint on a goal of instances: the goal closed in a copy of the
+/// session, its first steps read from it, an `∃R` with the witness the
+/// search chose; following the hints proves the sequent.
+#[wasm_bindgen_test(unsupported = test)]
+fn following_first_order_hints_proves_a_sequent() {
+    let text = "forall x. (p(x) -o q(x)), forall x. p(x) |- forall y. q(y)";
+    let mut answer = calls::start(text, "intuitionistic", "").unwrap();
+    let mut witnesses = Vec::new();
+    for _ in 0..20 {
+        let Some(&goal) = open_goals(&answer).first() else {
+            break;
+        };
+        let state = session(&answer);
+        let hint = value(&calls::hint(&state, goal, "").unwrap());
+        assert_eq!(hint["outcome"]["verdict"], "proved", "{hint}");
+        let steps = hint["steps"].as_array().unwrap().clone();
+        let mut goal = goal;
+        let mut state = state;
+        for step in &steps {
+            if let Some(w) = step["witness"].as_str() {
+                witnesses.push(w.to_owned());
+            }
+            answer = calls::apply(&state, goal, &step.to_string(), "").unwrap();
+            state = session(&answer);
+            if let Some(next) = value(&answer)["opened"][0].as_u64() {
+                goal = next as u32;
+            }
+        }
+    }
+    assert_eq!(value(&answer)["view"]["complete"], true, "{answer}");
+    assert!(witnesses.iter().any(|w| w == "a"), "{witnesses:?}");
+    calls::proof(&session(&answer), "").unwrap();
+}
+
+/// A cut at first order through the calls: on `p(a)` under the `∀R` that
+/// made `a`, its view's formula as typed, the finished proof checked and
+/// its cut eliminated step by step to the end; an eigenvariable of another
+/// branch refused in words.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_first_order_cut_is_made_and_eliminated() {
+    let text = "forall x. (p(x) -o q(x)), forall x. p(x) |- forall y. q(y)";
+    let answer = calls::start(text, "intuitionistic", "").unwrap();
+    let root = open_goals(&answer)[0];
+    let answer = calls::apply(
+        &session(&answer),
+        root,
+        &witnessed(at(&answer, root, "∀y. q(y)"), "∀R", None),
+        "",
+    )
+    .unwrap();
+    let goal = open_goals(&answer)[0];
+    let left = at(&answer, goal, "∀x. p(x)");
+    let answer = calls::cut(&session(&answer), goal, "p(a)", &format!("[{left}]"), "").unwrap();
+    assert_eq!(
+        value(&answer)["view"]["cuts"][0]["formula"],
+        "p(a)",
+        "{answer}"
+    );
+    let error =
+        calls::cut(&session(&answer), open_goals(&answer)[0], "r(a)", "[]", "").unwrap_err();
+    assert_eq!(
+        failure(&error)["details"]["kind"],
+        "cut_symbol",
+        "{}",
+        error.0
+    );
+    let answer = calls::close_all(&session(&answer), "").unwrap();
+    let state = session(&answer);
+    assert_eq!(value(&answer)["view"]["complete"], true, "{answer}");
+    calls::proof(&state, "").unwrap();
+    assert!(calls::draw(&state, "").unwrap().contains("cut"));
+    let cuts = value(&calls::cuts(&state, "", "").unwrap());
+    assert_eq!(cuts["cuts"][0]["formula"], "p(a)", "{cuts}");
+    let end = value(&calls::eliminate(&state, "", "").unwrap());
+    assert_eq!(end["end"], "cut_free", "{end}");
+    assert_ne!(end["steps"], json!([]), "{end}");
+
+    let text = "forall x. p(x), forall x. q(x) |- (forall y. p(y)) * (forall y. q(y))";
+    let answer = calls::start(text, "intuitionistic", "").unwrap();
+    let root = open_goals(&answer)[0];
+    let tensor = at(&answer, root, "(∀y. p(y)) ⊗ (∀y. q(y))");
+    let left = at(&answer, root, "∀x. p(x)");
+    let answer = calls::apply(
+        &session(&answer),
+        root,
+        &step(tensor, "⊗R", Some(vec![left])),
+        "",
+    )
+    .unwrap();
+    let [first, second] = open_goals(&answer)[..] else {
+        panic!("two goals");
+    };
+    let answer = calls::apply(
+        &session(&answer),
+        first,
+        &witnessed(at(&answer, first, "∀y. p(y)"), "∀R", None),
+        "",
+    )
+    .unwrap();
+    let error = calls::cut(&session(&answer), second, "q(a)", "[0]", "").unwrap_err();
+    let error = failure(&error);
+    assert_eq!(error["details"]["kind"], "eigenvariable", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("eigenvariable a"),
+        "{error}"
+    );
+}
+
+/// The first-order bounds are the tab's settings: the term limit the
+/// tab's occurrences, read over by the page's `limits.terms`, which
+/// refuses a witness past it; `search.witness_depth` stops a search
+/// that needs deeper witnesses; `search.instances` is read.
+#[wasm_bindgen_test(unsupported = test)]
+fn the_first_order_bounds_are_settings() {
+    let defaults = value(&calls::defaults());
+    assert_eq!(defaults["limits"]["terms"], tab::TERMS);
+    assert!(defaults["search"]["witness_depth"].is_u64(), "{defaults}");
+    let text = "forall x. p(x) |- p(f(f(f(a))))";
+    let answer = calls::start(text, "intuitionistic", "").unwrap();
+    let root = open_goals(&answer)[0];
+    let small = settings(&json!({"limits": {"terms": 3}}));
+    let error = calls::apply(
+        &session(&answer),
+        root,
+        &witnessed(0, "∀L", Some("f(f(f(f(a))))")),
+        &small,
+    )
+    .unwrap_err();
+    assert_eq!(failure(&error)["details"]["kind"], "witness", "{}", error.0);
+    let shallow = settings(&json!({"search": {"witness_depth": 1, "instances": 8}}));
+    let closed = value(&calls::close(&session(&answer), root, &shallow).unwrap());
+    assert_eq!(closed["outcome"]["verdict"], "unknown", "{closed}");
+    let closed = value(&calls::close(&session(&answer), root, "").unwrap());
+    assert_eq!(closed["outcome"]["verdict"], "proved", "{closed}");
 }

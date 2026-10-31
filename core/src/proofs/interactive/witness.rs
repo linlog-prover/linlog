@@ -227,6 +227,34 @@ impl Interactive {
             .copied()
     }
 
+    /// Returns the term a closed `∀` or `∃` step on `goal` opened its
+    /// formula with, as the session writes terms: an eigenvariable by its
+    /// letter, an open witness as `$1`, a bound one as what fills it; what
+    /// [`witness`](Self::witness) reads back to take the step again.
+    /// `None` for a goal that no quantifier step closed.
+    pub fn opened_term(&self, goal: GoalId) -> Option<String> {
+        let id = goal.inf();
+        if !matches!(
+            self.inferences.get(id.index())?.rule.rule,
+            Rule::Forall | Rule::Exists
+        ) {
+            return None;
+        }
+        let q = self.fo.as_ref()?;
+        let (_, frame) = q.shown.instance(self.body(id)?)?;
+        let (_, term) = q.shown.frame_parts(frame);
+        let framing =
+            crate::occurrences::instances::Framing::new(&self.forest.sequent().fo, &q.shown);
+        let mut text = String::new();
+        framing
+            .write_term(&mut text, term, &mut |out: &mut String, name: &str| {
+                out.push_str(name);
+                Ok(())
+            })
+            .ok()?;
+        Some(text)
+    }
+
     /// Returns the term a closed `∀` or `∃` inference put for its bound
     /// variable, as the table holds it: the innermost term of its body
     /// member's frame.

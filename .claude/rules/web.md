@@ -216,6 +216,28 @@ for `THIRD-PARTY-NOTICES.txt`.
   go on drawn; the drawing of the proof or net reached is the view's,
   outside the bound, as the command writes `FILE` anyway.
 
+- **First-order sessions**: a step's `witness` is text the session
+  reads (`Interactive::witness`, the session's letters for its
+  eigenvariables), left out for an open one; `rules` writes `"witness":
+  true` only where a rule takes one, so propositional answers are as
+  before. A goal formula's `reading` is the session's text (the reading
+  of the occurrence alone would print an instance's open formula,
+  `p(#0)`), and a cut's formula of the elimination calls an instance's
+  text (`member_in`, `Proof::formula`).
+- **`hint` at first order** closes the goal in a clone of the session
+  (`Interactive::close`, which takes a goal of instances through its
+  written sequent; `Goal::new` refuses members past the forest) and
+  reads the steps off the clone's derivation above the goal
+  (`read_steps`, as `first_steps` does for a propositional proof). An
+  `∃R`/`∀L` step carries the witness the search chose
+  (`Interactive::opened_term`) only where the session reads it: a
+  witness nothing constrained is a constant the search made in the copy,
+  so it stays open (`following_first_order_hints_proves_a_sequent`).
+- **The tab's `limits.terms` is its occurrences** (`tab::TERMS`): the
+  library's fifty million would pass the tab's memory before a session's
+  table refused a step. `search.witness_depth` and `search.instances`
+  are the library's.
+
 ## The build (`modules/web.nix`)
 
 - The `wasm-bindgen` CLI is nixpkgs' `wasm-bindgen-cli_X_Y_Z` for the

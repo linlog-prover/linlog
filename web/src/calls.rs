@@ -243,8 +243,8 @@ impl View {
                     .iter()
                     .map(|&member| {
                         let occurrence = state.occurrence(member);
+                        let text = state.formula(member).to_string();
                         Formula {
-                            text: state.formula(member).to_string(),
                             occurrence: occurrence.get(),
                             side: reading.as_ref().map(|reading| {
                                 match reading.position(occurrence) {
@@ -252,9 +252,10 @@ impl View {
                                     Side::Output => "output",
                                 }
                             }),
-                            reading: reading
-                                .as_ref()
-                                .map(|reading| reading.formula(occurrence).to_string()),
+                            // The session writes under its reading, an
+                            // instance with its frame's terms.
+                            reading: reading.as_ref().map(|_| text.clone()),
+                            text,
                         }
                     })
                     .collect(),
@@ -408,20 +409,26 @@ struct Offered {
     rule: Named,
     /// Whether a step of it needs a split: `⊗` and Mix.
     split: bool,
+    /// Whether a step of it takes a witness, given or left open: `∃R`
+    /// and `∀L` (`∃` one-sided); left out when not.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    witness: bool,
 }
 
 impl From<Applicable> for Offered {
-    /// The rule and whether it needs a split.
+    /// The rule and whether it needs a split or takes a witness.
     fn from(applicable: Applicable) -> Self {
         Self {
             rule: applicable.rule,
             split: matches!(applicable.needs, Needs::Split),
+            witness: matches!(applicable.needs, Needs::Witness),
         }
     }
 }
 
 /// Returns the rules that act on the formula at a position of a goal, by
-/// its connective and the mode: `[{"rule", "split"}]`. A rule listed may
+/// its connective and the mode: `[{"rule", "split"}]`, with `"witness":
+/// true` for a rule that takes a witness. A rule listed may
 /// still be refused by the context, with the reason.
 ///
 /// # Errors
@@ -436,9 +443,12 @@ pub fn rules(session: &str, goal: u32, position: u32, settings: &str) -> Result<
     written(&rules.into_iter().map(Offered::from).collect::<Vec<_>>())
 }
 
-/// A step as the page sends it: `{"position", "rule", "left"}`, `left` the
-/// positions that go to the left premise of a `⊗` or Mix and left out for
-/// every other rule.
+/// A step as the page sends it: `{"position", "rule", "left", "witness"}`,
+/// `left` the positions that go to the left premise of a `⊗` or Mix and
+/// left out for every other rule, `witness` the term of a `∃R` or `∀L`
+/// step (`∃` one-sided) as text, `f(a, b)` with the sequent's symbols and
+/// the session's eigenvariables by their letters, left out for a witness
+/// left open, written `$1`, `$2`, … until an axiom or the search fills it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StepForm {
@@ -449,20 +459,31 @@ pub struct StepForm {
     /// The positions that go to the left premise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub left: Option<Vec<usize>>,
+    /// The witness as text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub witness: Option<String>,
 }
 
 impl StepForm {
-    /// Returns the step it names.
-    fn step(&self) -> Result<Step, Failure> {
+    /// Returns the step it names, its witness read in the session.
+    fn step(&self, state: &Interactive) -> Result<Step, Failure> {
         let rule: Named = self.rule.parse().map_err(Failure::from)?;
         let step = Step::new(self.position, rule);
-        Ok(match &self.left {
+        let step = match &self.left {
             Some(left) => step.left(left),
+            None => step,
+        };
+        Ok(match &self.witness {
+            Some(text) => step.with_witness(
+                state
+                    .witness(text)
+                    .map_err(|e| Failure::described(&Error::from(e), state))?,
+            ),
             None => step,
         })
     }
 
-    /// Returns the form of a step.
+    /// Returns the form of a step, with no witness.
     fn of(step: &Step) -> Self {
         Self {
             position: step.position,
@@ -471,15 +492,16 @@ impl StepForm {
                 Split::Left { positions, .. } => Some(positions.clone()),
                 _ => None,
             },
+            witness: None,
         }
     }
 }
 
-/// Reads a step's JSON.
-fn step_of(step: &str) -> Result<Step, Failure> {
+/// Reads a step's JSON, its witness in the session.
+fn step_of(step: &str, state: &Interactive) -> Result<Step, Failure> {
     serde_json::from_str::<StepForm>(step)
         .map_err(Failure::json)?
-        .step()
+        .step(state)
 }
 
 /// Returns whether a split can pass the counts: `false` means the step
@@ -492,7 +514,7 @@ pub fn split_passes(session: &str, goal: u32, step: &str, settings: &str) -> Res
     let settings = tab::read(settings)?;
     let state = session_of(session, &settings)?;
     state
-        .split_passes(GoalId::new(goal), &step_of(step)?)
+        .split_passes(GoalId::new(goal), &step_of(step, &state)?)
         .map_err(|e| Failure::described(&Error::from(e), &state))
 }
 
@@ -556,7 +578,7 @@ pub fn apply(session: &str, goal: u32, step: &str, settings: &str) -> Result<Str
     let settings = tab::read(settings)?;
     let mut state = session_of(session, &settings)?;
     let mut opened = state
-        .apply(GoalId::new(goal), &step_of(step)?)
+        .apply(GoalId::new(goal), &step_of(step, &state)?)
         .map_err(|e| Failure::described(&Error::from(e), &state))?;
     let mut automatic = Automatic::default();
     if settings.interactive.invertible {
@@ -844,6 +866,9 @@ pub fn hint(session: &str, goal: u32, settings: &str) -> Result<String, Failure>
     let members = state
         .goal(GoalId::new(goal))
         .map_err(|e| Failure::described(&Error::from(e), &state))?;
+    if state.forest().has_binders() {
+        return first_order_hint(&state, GoalId::new(goal), &settings);
+    }
     let target = linlog::Goal::new(state.forest(), members).map_err(Failure::from)?;
     let outcome = linlog::prove_goal(
         target,
@@ -865,6 +890,69 @@ pub fn hint(session: &str, goal: u32, settings: &str) -> Result<String, Failure>
     })
 }
 
+/// Returns the hint on a goal of a session with quantifiers, whose
+/// members a search cannot take as they are: the goal closed in a copy of
+/// the session (`Interactive::close`, which searches the goal written as
+/// a sequent of its own, its open witnesses bound by `∃`), and the first
+/// steps read off the copy's derivation above the goal, each `∃R` and
+/// `∀L` with the witness the search chose as text.
+fn first_order_hint(
+    state: &Interactive,
+    goal: GoalId,
+    settings: &Settings,
+) -> Result<String, Failure> {
+    let mut copy = state.clone();
+    let closed = copy
+        .close(
+            goal,
+            &settings.search,
+            &settings.view,
+            &settings.limits,
+            never,
+        )
+        .map_err(|e| Failure::described(&e, &copy))?;
+    let first = match (&closed.outcome.verdict, closed.grafted) {
+        (Verdict::Proved(_), Ok(())) => {
+            let derivation = match copy.derivation_within(
+                &settings.view.with_compact(Compact::Never),
+                &settings.limits,
+                never,
+            ) {
+                Ok(derivation) => Some(derivation),
+                Err(error) if error.is_refusal() => None,
+                Err(error) => return Err(Failure::from(error)),
+            };
+            match derivation {
+                Some(derivation) => {
+                    let ids = copy.derivation_ids();
+                    let at = ids.iter().position(|&g| g == goal).map(|i| {
+                        // A derivation numbers fewer inferences than a
+                        // `u32` counts, as the session does.
+                        linlog::proofs::derivation::InfId::new(i as u32)
+                    });
+                    match at {
+                        // A witness the search made a constant of reads
+                        // as nothing in the session: it stays open there.
+                        Some(at) => read_steps(&copy, &derivation, at, |id| {
+                            copy.opened_term(ids[id.index()])
+                                .filter(|text| state.witness(text).is_ok())
+                        }),
+                        None => None,
+                    }
+                }
+                None => None,
+            }
+        }
+        _ => None,
+    };
+    let (steps, invertible) = first.unzip();
+    written(&Hint {
+        outcome: closed.outcome,
+        steps,
+        invertible,
+    })
+}
+
 /// Returns the steps a proof of a goal of a session begins with, as
 /// [`Hint::steps`] says, with whether the last is invertible, or `None`
 /// when the bounds refuse its derivation.
@@ -879,8 +967,22 @@ fn first_steps(
         Err(error) if error.is_refusal() => return Ok(None),
         Err(error) => return Err(Failure::from(error)),
     };
+    Ok(read_steps(state, &derivation, derivation.root(), |_| None))
+}
+
+/// Returns the steps of a derivation from the inference `at` up, as
+/// [`Hint::steps`] says, with whether the last is invertible in the
+/// session; `witness` gives the term a quantifier step at an inference
+/// opened its formula with, as text. `None` for a Mix with no formula
+/// on its left.
+fn read_steps(
+    state: &Interactive,
+    derivation: &linlog::Derivation<'_>,
+    from: linlog::proofs::derivation::InfId,
+    witness: impl Fn(linlog::proofs::derivation::InfId) -> Option<String>,
+) -> Option<(Vec<StepForm>, bool)> {
     let mut steps = Vec::new();
-    let mut at = derivation.root();
+    let mut at = from;
     loop {
         let inference = derivation.inference(at);
         let members = inference.sequent();
@@ -890,9 +992,7 @@ fn first_steps(
             (Rule::Mix, _) => {
                 let mut taken = vec![false; members.len()];
                 let positions = positions_of(premise(0), members, &mut taken);
-                let Some((&first, rest)) = positions.split_first() else {
-                    return Ok(None);
-                };
+                let (&first, rest) = positions.split_first()?;
                 Step::new(first, rule).left(rest)
             }
             (Rule::Tensor, Some(position)) => {
@@ -912,10 +1012,14 @@ fn first_steps(
             (_, Some(position)) => Step::new(position, rule),
             (_, None) => Step::new(0, rule),
         };
-        steps.push(StepForm::of(&step));
+        let mut form = StepForm::of(&step);
+        if rule.rule == Rule::Exists {
+            form.witness = witness(at);
+        }
+        steps.push(form);
         match inference.premises() {
             [premise] if rule.is_structural() => at = *premise,
-            _ => return Ok(Some((steps, state.is_invertible(members, &step)))),
+            _ => return Some((steps, state.is_invertible(members, &step))),
         }
     }
 }
@@ -1405,6 +1509,17 @@ fn drawn(proof: &Proof, state: &Interactive, settings: &Settings) -> Result<Draw
     })
 }
 
+/// Returns the text of a member of a proof as `mode` reads it, as
+/// [`formula_in`] writes an occurrence; an instance with its frame's
+/// terms, under the reading the proof's mode gives.
+fn member_in(proof: &Proof, member: Member, mode: Mode) -> String {
+    if member.index() >= proof.forest().len() {
+        proof.formula(member).to_string()
+    } else {
+        formula_in(proof.forest(), proof.occurrence(member), mode)
+    }
+}
+
 /// Returns the text of an occurrence as `mode` reads it: under the
 /// intuitionistic reading in an intuitionistic mode, else one-sided.
 fn formula_in(forest: &linlog::Forest, occurrence: linlog::OccId, mode: Mode) -> String {
@@ -1430,7 +1545,7 @@ impl<'a> CutsView<'a> {
             .filter_map(|(id, &node)| match node {
                 Node::Cut(a, ..) => Some(CutShown {
                     node: id,
-                    formula: formula_in(proof.forest(), proof.occurrence(a), state.mode()),
+                    formula: member_in(proof, a, state.mode()),
                     inferences: drawing
                         .as_ref()
                         .map_or_else(Vec::new, |d| d.showing(NodeId::new(id))),
@@ -1503,7 +1618,7 @@ impl Taken {
     fn term(step: &cut::Step, proof: &Proof, mode: Mode, drawn: Option<&Drawn>) -> Self {
         Self {
             cut: step.cut.get().into(),
-            formula: formula_in(proof.forest(), proof.occurrence(step.formula), mode),
+            formula: member_in(proof, step.formula, mode),
             case: step.case,
             name: step.case.name(),
             above: step.above.map(NodeId::get),

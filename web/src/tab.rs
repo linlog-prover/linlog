@@ -23,6 +23,12 @@ pub const MEMORY_BYTES: u64 = 96 << 20;
 /// about 25 MB, and a session, a proof and a net each hold a copy of it.
 pub const OCCURRENCES: u64 = 1_000_000;
 
+/// The tab's bound on first-order terms (`limits.terms`): as many as its
+/// occurrences, the library's rule, so that a sequent's or a session's
+/// terms take no more than its forest; the library's fifty million would
+/// pass the tab's memory before a session's table refused a step.
+pub const TERMS: u64 = OCCURRENCES;
+
 /// The bound on a derivation's estimated size: 4 MiB, a sixteenth of the
 /// command's. A drawing's peak is several times its estimate, and a tree
 /// of that size is far wider than a screen.
@@ -61,6 +67,7 @@ pub fn defaults() -> Settings {
     let limits = Limits::default()
         .with_memory_bytes(Some(MEMORY_BYTES))
         .with_occurrences(Some(OCCURRENCES))
+        .with_terms(Some(TERMS))
         .with_derivation_bytes(Some(DERIVATION_BYTES))
         .with_work(Some(WORK))
         .with_recursion_depth(RECURSION_DEPTH);

@@ -533,6 +533,18 @@ second number (0.1.x to 0.2.0), anything else the third.
   such a session two-sided when the settings' `view.classical` is
   `"two"`.
 
+- The web bindings take first-order sessions: a step's JSON has
+  `witness`, the term of an `∃R`/`∀L` step as text or left out for an
+  open witness; `rules` marks such a rule `"witness": true`; `hint` on
+  a goal of instances closes it in a copy of the session and reads its
+  first steps, with the witness the search chose where the session
+  reads it; a goal formula's `reading` and an elimination's cut formula
+  write an instance with its terms; the tab's `limits.terms` is a
+  million, as its occurrences. `Interactive::opened_term` returns the
+  term a quantifier step opened its formula with. The SVG drawing of a
+  first-order session's two-sided derivation placed an instance by its
+  member's number and panicked; it places it by its occurrence.
+
 ### Wire forms
 
 - Level 7 adds the first-order sequent: `symbols` (each a name with its
