@@ -602,7 +602,9 @@ code relies on:
   the trail by step number); `read_marks` refuses a mark that would drop
   what an entry, a binding, a level or an inference before its step
   names, after `replay_binders`, so the older refusals keep their
-  reasons.
+  reasons; and one that drops a constant or an eigenvariable's term
+  numbered below the eigenvariables it keeps (what a step makes is made
+  fresh, so numbered from the mark's count on).
 - **Every term of a session unfolds to at most `limits.terms`, and its
   table holds at most that many entries** (members, frames and terms, as
   the reader counts them; the session's start's limit,
@@ -700,10 +702,17 @@ code relies on:
   numbered past the larger arena (the join re-interns the sequent's
   terms, so the old ones are found again by what they are, not by id),
   and the arena's new closed terms are registered where the table has
-  no equal one; `uncut` moves them back, `pop_cut` trimming the
-  first-order tables to what the formulas left reach (`FirstOrder::trim`;
-  a stale symbol would have been renamed apart by the next join). The
-  marks count entries, so they stay. A table term
+  no equal one; `uncut` moves them back, every inference's `cut` member
+  with the sequents' (an earlier cut on an instance is past the forest
+  too). `pop_cut_keeping` trims the first-order tables to what the
+  formulas left and the table reach (`FirstOrder::trim`, `arena_reach`:
+  a table read without its marks keeps an undone step's entries, which
+  may name a term the cut brought) and, while binders are left, keeps
+  every symbol (a cut in a session with quantifiers adds none, and a
+  symbol no atom uses, which a JSON sequent may have, still takes a
+  letter from the eigenvariables); a stale symbol would have been
+  renamed apart by the next join. The marks count entries, so they
+  stay. A table term
   equal to a closed term a later cut brought into the arena is what a
   live session holds, so the reader takes such a term
   (`Quantified::from_parts`) and refuses only a table term repeating a

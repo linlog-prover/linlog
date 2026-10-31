@@ -1484,6 +1484,50 @@ fn a_cut_formula_names_the_goals_eigenvariables() {
         assert_eq!(proof.check(mode), Ok(()));
     }
 
+    // A second cut on an instance while the first stands: the first's
+    // member moves past the second's trees with every other.
+    let sequent: Sequent = "forall x. (p(x) -o q(x)), forall x. p(x) |- forall y. q(y)"
+        .parse()
+        .unwrap();
+    let fresh = serde_json::to_string(&Interactive::new(&sequent, mode).unwrap()).unwrap();
+    let mut state: Interactive = serde_json::from_str(&fresh).unwrap();
+    step(&mut state, "∀y. q(y)", Rule::Forall, None);
+    let goal = state.goals().next().unwrap();
+    let left = at(&state, goal, "∀x. p(x)");
+    let [_, second] = state
+        .cut(
+            goal,
+            &cut_formula("p(a)", mode),
+            &[left],
+            &Limits::default(),
+        )
+        .unwrap();
+    let left = at(&state, second, "∀x. (p(x) ⊸ q(x))");
+    state
+        .cut(
+            second,
+            &cut_formula("p(a) -o q(a)", mode),
+            &[left],
+            &Limits::default(),
+        )
+        .unwrap();
+    let json = serde_json::to_string(&state).unwrap();
+    let back: Interactive = serde_json::from_str(&json).unwrap();
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    let goals: Vec<GoalId> = state.goals().collect();
+    for goal in goals {
+        let closed = state
+            .close(goal, &options, &view, &limits, |_| false)
+            .unwrap();
+        assert!(matches!(closed.outcome.verdict, Verdict::Proved(_)));
+    }
+    let proof = state.proof(&Limits::default(), |_| false).unwrap();
+    assert_eq!(proof.check(mode), Ok(()));
+    let mut back: Interactive =
+        serde_json::from_str(&serde_json::to_string(&state).unwrap()).unwrap();
+    while back.undo().is_some() {}
+    assert_eq!(serde_json::to_string(&back).unwrap(), fresh);
+
     // `a` belongs to the left premise of the `⊗`.
     let sequent: Sequent = "forall x. p(x), forall x. q(x) |- (forall y. p(y)) * (forall y. q(y))"
         .parse()
@@ -1512,6 +1556,58 @@ fn a_cut_formula_names_the_goals_eigenvariables() {
         "{error}"
     );
     assert!(error.to_string().contains("eigenvariable a"), "{error}");
+}
+
+/// Undoing a cut keeps every arena term and symbol the session's table
+/// still names: in a session read without its marks, whose undone step
+/// left a witness naming a term the cut brought, and in one whose
+/// sequent, read from JSON, has a symbol no atom uses but a witness does.
+#[test]
+fn undoing_a_cut_keeps_what_the_table_names() {
+    let mode = Mode::INTUITIONISTIC;
+    let sequent: Sequent = "p(f(c)) |- exists y. p(y)".parse().unwrap();
+    let mut state = Interactive::new(&sequent, mode).unwrap();
+    let root = state.goals().next().unwrap();
+    let [_, second] = state
+        .cut(
+            root,
+            &cut_formula("p(f(f(c)))", mode),
+            &[],
+            &Limits::default(),
+        )
+        .unwrap();
+    let p = at(&state, second, "∃y. p(y)");
+    let witness = state.witness("f(f(c))").unwrap();
+    state
+        .apply(second, &Step::new(p, Rule::Exists).with_witness(witness))
+        .unwrap();
+    let mut json: serde_json::Value = serde_json::to_value(&state).unwrap();
+    json["instances"].as_object_mut().unwrap().remove("marks");
+    let mut read: Interactive = serde_json::from_value(json).unwrap();
+    assert!(read.undo().is_some() && read.undo().is_some());
+    let again = serde_json::to_string(&read).unwrap();
+    serde_json::from_str::<Interactive>(&again).unwrap();
+
+    let mut sequent =
+        serde_json::to_value("p(c) |- exists y. p(y)".parse::<Sequent>().unwrap()).unwrap();
+    sequent["symbols"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!(["g", 1]));
+    let sequent: Sequent = serde_json::from_value(sequent).unwrap();
+    let mut state = Interactive::new(&sequent, mode).unwrap();
+    let root = state.goals().next().unwrap();
+    let p = at(&state, root, "∃y. p(y)");
+    let witness = state.witness("g(c)").unwrap();
+    let goal = state
+        .apply(root, &Step::new(p, Rule::Exists).with_witness(witness))
+        .unwrap()[0];
+    let before = serde_json::to_string(&state).unwrap();
+    state
+        .cut(goal, &cut_formula("p(c)", mode), &[], &Limits::default())
+        .unwrap();
+    assert_eq!(state.undo(), Some(goal));
+    assert_eq!(serde_json::to_string(&state).unwrap(), before);
 }
 
 /// A session refuses what none of its steps could make: a witness that
@@ -1600,4 +1696,29 @@ fn a_session_refuses_what_no_step_could_make() {
     assert!(serde_json::from_str::<Interactive>(&json).is_ok());
     let error = serde_json::from_str::<Interactive>(&forged).unwrap_err();
     assert!(error.to_string().contains("level"), "{error}");
+
+    // A mark that drops the constant `close` made, keeping the
+    // eigenvariable it is.
+    let sequent: Sequent = "|- (exists x. 1) & (forall y. 1)".parse().unwrap();
+    let mut state = Interactive::new(&sequent, Mode::CLASSICAL).unwrap();
+    let root = state.goals().next().unwrap();
+    let goals = state.apply(root, &Step::new(0, Rule::With)).unwrap();
+    let opened = state.apply(goals[0], &Step::new(0, Rule::Exists)).unwrap();
+    let closed = state
+        .close(
+            opened[0],
+            &Options::default(),
+            &linlog::ViewOptions::default(),
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
+    assert!(closed.grafted.is_ok());
+    let goal = state.goals().next().unwrap();
+    state.apply(goal, &Step::new(0, Rule::Forall)).unwrap();
+    let json = serde_json::to_string(&state).unwrap();
+    let forged = json.replace("[3,1,1,2,1,1]", "[3,1,1,2,1,0]");
+    assert_ne!(forged, json, "{json}");
+    let error = serde_json::from_str::<Interactive>(&forged).unwrap_err();
+    assert!(error.to_string().contains("mark"), "{error}");
 }

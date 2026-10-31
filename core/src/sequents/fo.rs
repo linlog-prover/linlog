@@ -173,14 +173,17 @@ impl FirstOrder {
         self.atoms.is_empty() && self.binders.is_empty()
     }
 
-    /// Drops what no atom reaches, once the atoms and the binders are cut
-    /// back to a sequent's kept formulas: the terms, lists and symbols
-    /// past the last that a kept atom reaches (a cut formula joined to a
-    /// sequent brings its own after the sequent's), and every table where
-    /// no binder is left and every atom left is nullary, which the
+    /// Drops what nothing reaches, once the atoms and the binders are cut
+    /// back to a sequent's kept formulas: the terms past the last that a
+    /// kept atom reaches and past the first `keep` (a cut formula joined
+    /// to a sequent brings its own after the sequent's), the lists past
+    /// the last a kept term or atom names, the symbols past the last one
+    /// of those names unless `all_symbols` keeps them while a binder is
+    /// left; and every table
+    /// where no binder is left and every atom left is nullary, which the
     /// tables' invariant asks.
     #[cfg(feature = "interactive")]
-    pub(crate) fn trim(&mut self) {
+    pub(crate) fn trim(&mut self, keep: usize, all_symbols: bool) {
         let nullary = self
             .atoms
             .iter()
@@ -189,7 +192,7 @@ impl FirstOrder {
             *self = Self::new();
             return;
         }
-        let (mut terms, mut lists, mut symbols) = (0, 0, 0);
+        let (mut terms, mut lists, mut symbols) = (keep.min(self.terms.len()), 0, 0);
         for &(p, args) in &self.atoms {
             symbols = symbols.max(p.index() + 1);
             lists = lists.max(args.index() + 1);
@@ -212,7 +215,10 @@ impl FirstOrder {
             .map(|&(start, len)| (start + len) as usize);
         let args = args.max().unwrap_or(0);
         self.args.truncate(args);
-        self.symbols.truncate(symbols);
+        // A table left without binders belongs to no session's table.
+        if !all_symbols || self.binders.is_empty() {
+            self.symbols.truncate(symbols);
+        }
     }
 
     /// Returns the terms of the argument list `args`.

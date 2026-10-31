@@ -297,6 +297,14 @@ impl Sequent {
     /// added last brought: the arena as it was before the cut was added.
     #[cfg(feature = "interactive")]
     pub(crate) fn pop_cut(&mut self) {
+        self.pop_cut_keeping(0, false);
+    }
+
+    /// Takes the last cut formula away as [`pop_cut`](Self::pop_cut)
+    /// does, keeping the first-order arena's first `terms` terms and,
+    /// with `symbols`, every symbol: what a session's table still names.
+    #[cfg(feature = "interactive")]
+    pub(crate) fn pop_cut_keeping(&mut self, terms: usize, symbols: bool) {
         self.cuts.pop();
         // A subterm precedes its parent, so the highest term any kept
         // formula reaches is a root or a cut formula itself.
@@ -321,7 +329,7 @@ impl Sequent {
         self.fo.atoms.truncate(atoms.min(self.fo.atoms.len()));
         self.fo.binders.retain(|&(t, _)| t.index() < end);
         if !self.fo.is_empty() {
-            self.fo.trim();
+            self.fo.trim(terms, symbols);
         }
     }
 

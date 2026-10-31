@@ -325,6 +325,17 @@ impl Quantified {
         self.show(new);
     }
 
+    /// Returns how many of the sequent's arena terms the table names: one
+    /// past the last that a term's arguments, a frame or a binding names.
+    pub(super) fn arena_reach(&self) -> usize {
+        let base = self.table.base_terms;
+        let below = |t: FoTermId| if t.get() < base { t.index() + 1 } else { 0 };
+        let args = self.table.args.iter().map(|&t| below(t));
+        let frames = self.table.frames.iter().map(|&(_, t)| below(t));
+        let bound = self.metas.iter().filter_map(|m| m.bound).map(below);
+        args.chain(frames).chain(bound).max().unwrap_or(0)
+    }
+
     /// Records that the step numbered `step` made entries from `mark` on,
     /// for its undo.
     pub(super) fn made(&mut self, step: u32, mark: Mark) {
@@ -872,6 +883,14 @@ impl Quantified {
             lists.push(l);
         }
         let constants = prefix_max(self.constants.iter().map(|a| a.get() as usize + 1));
+        // What a mark drops is made after it, so numbered from its
+        // eigenvariables on: per suffix, the least eigenvariable its terms
+        // and constants hold.
+        let dropped_terms = suffix_min(self.table.terms.iter().map(|t| match *t {
+            FoTerm::Eigen(e) => e.get() as usize,
+            FoTerm::App(..) | FoTerm::Meta(_) | FoTerm::Bound(_) => usize::MAX,
+        }));
+        let dropped_constants = suffix_min(self.constants.iter().map(|a| a.get() as usize));
         let bound = prefix_max(self.trail.iter().map(|&(_, trailed)| match trailed {
             Trailed::Bound(k) => {
                 let meta = &self.metas[k as usize];
@@ -899,7 +918,9 @@ impl Quantified {
                 && terms[f] <= t
                 && bound[trail] <= t
                 && eigens[t] <= eigen_count as usize
-                && constants[c] <= eigen_count as usize;
+                && constants[c] <= eigen_count as usize
+                && dropped_terms[t] >= eigen_count as usize
+                && dropped_constants[c] >= eigen_count as usize;
             let after = last.is_none_or(|(s, before)| {
                 s < step
                     && before.members <= m
@@ -1224,6 +1245,17 @@ pub(crate) struct Parts {
     /// Where the table stood before each step that made entries: step,
     /// members, frames, terms, eigenvariables, constants.
     pub(crate) marks: Vec<(u32, u32, u32, u32, u32, u32)>,
+}
+
+/// Returns, for each suffix of `values`, the least of them: entry `i`
+/// for the values from `i` on, `usize::MAX` for none.
+#[cfg(feature = "serialize")]
+fn suffix_min(values: impl DoubleEndedIterator<Item = usize> + ExactSizeIterator) -> Vec<usize> {
+    let mut minima = vec![usize::MAX; values.len() + 1];
+    for (i, v) in values.enumerate().rev() {
+        minima[i] = minima[i + 1].min(v);
+    }
+    minima
 }
 
 /// Returns, for each prefix of `reach`, the largest of its values: entry

@@ -358,6 +358,9 @@ impl Interactive {
                     for m in &mut inference.sequent {
                         *m = shift(*m);
                     }
+                    // An earlier cut on an instance names a member past
+                    // the forest too.
+                    inference.cut = inference.cut.map(shift);
                 }
                 if !named.is_empty() {
                     let mut frame = None;
@@ -512,7 +515,11 @@ impl Interactive {
     /// retracted before it.
     pub(super) fn uncut(&mut self) {
         let mut sequent = self.forest.sequent().clone();
-        sequent.pop_cut();
+        // The arena keeps every term the table still names, and in a
+        // session with quantifiers every symbol: its cuts add none, and a
+        // symbol no atom uses still takes a letter from its eigenvariables.
+        let reach = self.fo.as_ref().map_or(0, |q| q.arena_reach());
+        sequent.pop_cut_keeping(reach, self.fo.is_some());
         // A forest of fewer occurrences than the one it had.
         let forest = Forest::within(&sequent, &Limits::UNBOUNDED).expect("a smaller forest");
         if !forest.has_binders() {
@@ -523,12 +530,18 @@ impl Interactive {
             // The members past the forest move back over the cut formula's
             // trees, which no inference left names.
             let (from, to) = (self.forest.len() as u32, forest.len() as u32);
+            let back = |m: Member| {
+                if m.get() >= from {
+                    Member::new(m.get() - from + to)
+                } else {
+                    m
+                }
+            };
             for inference in &mut self.inferences {
                 for m in &mut inference.sequent {
-                    if m.get() >= from {
-                        *m = Member::new(m.get() - from + to);
-                    }
+                    *m = back(*m);
                 }
+                inference.cut = inference.cut.map(back);
             }
         }
         self.forest = forest;
