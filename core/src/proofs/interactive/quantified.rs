@@ -6,11 +6,11 @@
 //! the witnesses its `∃` steps left open as metavariables, with what the
 //! axioms and the search bound them to.
 //!
-//! The table only grows: an undone step leaves its entries behind, unused,
-//! and takes back the bindings it made, which the trail records with the
-//! step's number. Equal instances, frames and closed terms are one entry
-//! each, so that a member stands for one instance and a step done again
-//! names the members it named before.
+//! An undone step takes back the bindings it made, which the trail
+//! records with the step's number, and drops the entries it made, from
+//! the mark it took before them. Equal instances, frames and closed terms
+//! are one entry each, so that a member stands for one instance and a
+//! step done again names the members it named before.
 
 use crate::Instances;
 use crate::hash::HashMap;
@@ -98,8 +98,8 @@ pub(super) struct Quantified {
     trail: Vec<(u32, Trailed)>,
     /// Where the table, the metavariables, the eigenvariables and the
     /// constants stood before each step that made entries, with the step's
-    /// number: what its undo truncates to. A session read from JSON has
-    /// none for its steps, whose undo leaves their entries unused.
+    /// number: what its undo truncates to. A session's JSON carries them,
+    /// so a session read back undoes as the one written would.
     marks: Vec<(u32, Mark)>,
     /// The most terms a term of the session may unfold to: `limits.terms`
     /// of the session's start.
@@ -690,6 +690,124 @@ impl Quantified {
         Ok(q)
     }
 
+    /// Reads the marks of a session's written form, each step's with the
+    /// table's lengths before it, and derives what the table's order
+    /// fixes: its argument lists and metavariables, which every term
+    /// before the mark made, and the trail, the steps before it. Refuses
+    /// marks of steps out of order or past the history, lengths that fall
+    /// or pass the table's, and a mark that would drop what an entry
+    /// before it, a binding of an earlier step or a level names; the
+    /// inferences' members are [`marked_members`](Self::marked_members)'
+    /// to check.
+    #[cfg(feature = "serialize")]
+    pub(super) fn read_marks(
+        &mut self,
+        written: &[(u32, u32, u32, u32, u32, u32)],
+        steps: usize,
+    ) -> Result<(), crate::Error> {
+        let bad = || crate::Error::InconsistentSession {
+            reason: "a mark is out of order, past the table, or drops what a step before it made",
+        };
+        let base = self.table.base_terms;
+        // How many of the table's terms a term reaches into: none for the
+        // sequent's own.
+        let reach = |t: FoTermId| t.get().checked_sub(base).map_or(0, |n| n as usize + 1);
+        let frames = prefix_max(self.table.members.iter().map(|&(_, f)| f.index() + 1));
+        let terms = prefix_max(self.table.frames.iter().map(|&(_, t)| reach(t)));
+        // Per prefix of the terms: the eigenvariables its terms and its
+        // metavariables' levels need made, its metavariables, arguments
+        // and lists.
+        let (mut eigens, mut metas, mut args, mut lists) = (vec![0], vec![0], vec![0], vec![0]);
+        let mut made = 0;
+        for term in &self.table.terms {
+            let (mut m, mut a, mut l) = (
+                *metas.last().expect("never empty"),
+                *args.last().expect("never empty"),
+                *lists.last().expect("never empty"),
+            );
+            match *term {
+                FoTerm::Eigen(e) => made = made.max(e.get() as usize + 1),
+                FoTerm::Meta(k) => {
+                    made = made.max(self.metas[k as usize].made as usize);
+                    m += 1;
+                }
+                FoTerm::App(_, list) => {
+                    let (_, len) = self.table.lists[(list.get() - self.table.base_lists) as usize];
+                    a += len as usize;
+                    l += 1;
+                }
+                FoTerm::Bound(_) => unreachable!("a table's term is closed"),
+            }
+            eigens.push(made);
+            metas.push(m);
+            args.push(a);
+            lists.push(l);
+        }
+        let constants = prefix_max(self.constants.iter().map(|a| a.get() as usize + 1));
+        let bound = prefix_max(self.trail.iter().map(|&(_, trailed)| match trailed {
+            Trailed::Bound(k) => {
+                let meta = &self.metas[k as usize];
+                reach(meta.term).max(meta.bound.map_or(0, reach))
+            }
+            Trailed::Lowered(k, _) => reach(self.metas[k as usize].term),
+        }));
+        let mut marks = Vec::with_capacity(written.len());
+        let mut last: Option<(u32, Mark)> = None;
+        for &(step, members, frame_count, term_count, eigen_count, constant_count) in written {
+            let (m, f, t, c) = (
+                members as usize,
+                frame_count as usize,
+                term_count as usize,
+                constant_count as usize,
+            );
+            let trail = self.trail.partition_point(|&(s, _)| s < step);
+            let fits = (step as usize) < steps
+                && m <= self.table.members.len()
+                && f <= self.table.frames.len()
+                && t <= self.table.terms.len()
+                && eigen_count <= self.eigens
+                && c <= self.constants.len()
+                && frames[m] <= f
+                && terms[f] <= t
+                && bound[trail] <= t
+                && eigens[t] <= eigen_count as usize
+                && constants[c] <= eigen_count as usize;
+            let after = last.is_none_or(|(s, before)| {
+                s < step
+                    && before.members <= m
+                    && before.frames <= f
+                    && before.terms <= t
+                    && before.eigens <= eigen_count
+                    && before.constants <= c
+            });
+            if !fits || !after {
+                return Err(bad());
+            }
+            let mark = Mark {
+                members: m,
+                frames: f,
+                terms: t,
+                args: args[t],
+                lists: lists[t],
+                metas: metas[t],
+                eigens: eigen_count,
+                constants: c,
+                trail,
+            };
+            marks.push((step, mark));
+            last = Some((step, mark));
+        }
+        self.marks = marks;
+        Ok(())
+    }
+
+    /// Returns each mark's step with the members before it: what the
+    /// inferences before that step may name past the forest.
+    #[cfg(feature = "serialize")]
+    pub(super) fn marked_members(&self) -> impl Iterator<Item = (u32, usize)> + '_ {
+        self.marks.iter().map(|&(step, mark)| (step, mark.members))
+    }
+
     /// Returns the written form of the first-order part.
     #[cfg(feature = "serialize")]
     pub(super) fn parts(&self, forest: &Forest) -> Parts {
@@ -726,6 +844,21 @@ impl Quantified {
             bindings: self
                 .bindings()
                 .map(|(k, t, step)| (k, t.get(), step))
+                .collect(),
+            // The table's lengths fit a `u32`, as its ids do.
+            marks: self
+                .marks
+                .iter()
+                .map(|&(step, m)| {
+                    (
+                        step,
+                        m.members as u32,
+                        m.frames as u32,
+                        m.terms as u32,
+                        m.eigens,
+                        m.constants as u32,
+                    )
+                })
                 .collect(),
         }
     }
@@ -960,4 +1093,19 @@ pub(crate) struct Parts {
     pub(crate) constants: Vec<u32>,
     /// The bindings in the order made: metavariable, term, step.
     pub(crate) bindings: Vec<(u32, u32, u32)>,
+    /// Where the table stood before each step that made entries: step,
+    /// members, frames, terms, eigenvariables, constants.
+    pub(crate) marks: Vec<(u32, u32, u32, u32, u32, u32)>,
+}
+
+/// Returns, for each prefix of `reach`, the largest of its values: entry
+/// `i` for the first `i` values, `0` for none.
+#[cfg(feature = "serialize")]
+pub(super) fn prefix_max(reach: impl Iterator<Item = usize>) -> Vec<usize> {
+    let mut maxima = vec![0];
+    for r in reach {
+        let last = *maxima.last().expect("never empty");
+        maxima.push(last.max(r));
+    }
+    maxima
 }

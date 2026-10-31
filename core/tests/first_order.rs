@@ -1177,6 +1177,62 @@ fn undo_drops_what_its_step_made() {
     assert!(matches!(state.witness("a"), Err(StepError::Witness { .. })));
 }
 
+/// `undo` after a session is written and read back truncates its table as
+/// it does in the session written: steps, undos and steps again, each
+/// through the JSON, give the eigenvariable letters, the table and the
+/// document of the session that never left memory, and a forged mark is
+/// refused.
+#[test]
+fn a_session_read_back_undoes_as_it_was_written() {
+    let sequent: Sequent = "|- forall x. exists y. p(f(x), y) -o p(f(x), y)"
+        .parse()
+        .unwrap();
+    let mut live = Interactive::new(&sequent, Mode::CLASSICAL).unwrap();
+    let mut json = serde_json::to_string(&live).unwrap();
+    let forall = "∀x. (∃y. (~p(f(x), y) ⅋ p(f(x), y)))";
+    let exists = "∃y. (~p(f(a), y) ⅋ p(f(a), y))";
+    for round in 0..3 {
+        let witness = if round == 1 { None } else { Some("f(a)") };
+        let ops: [&dyn Fn(&mut Interactive); 5] = [
+            &|state| drop(step(state, forall, Rule::Forall, None)),
+            &|state| drop(step(state, exists, Rule::Exists, witness)),
+            &|state| assert!(state.undo().is_some()),
+            &|state| assert!(state.undo().is_some()),
+            &|state| drop(step(state, forall, Rule::Forall, None)),
+        ];
+        for op in ops {
+            op(&mut live);
+            let mut read: Interactive = serde_json::from_str(&json).unwrap();
+            op(&mut read);
+            json = serde_json::to_string(&read).unwrap();
+            assert_eq!(json, serde_json::to_string(&live).unwrap(), "round {round}");
+        }
+        let goal = live.goals().next().unwrap();
+        assert_eq!(at(&live, goal, exists), 0);
+        assert!(live.undo().is_some());
+        let mut read: Interactive = serde_json::from_str(&json).unwrap();
+        assert!(read.undo().is_some());
+        json = serde_json::to_string(&read).unwrap();
+    }
+    assert_eq!(json, serde_json::to_string(&live).unwrap());
+    assert_eq!(
+        json,
+        serde_json::to_string(&Interactive::new(&sequent, Mode::CLASSICAL).unwrap()).unwrap()
+    );
+
+    // A mark that would drop the eigenvariable its step's goal names.
+    step(&mut live, forall, Rule::Forall, None);
+    step(&mut live, exists, Rule::Exists, Some("f(a)"));
+    let json = serde_json::to_string(&live).unwrap();
+    assert!(
+        json.contains(r#""marks":[[0,0,0,0,0,0],[1,1,1,1,1,0]]"#),
+        "{json}"
+    );
+    let forged = json.replace("[1,1,1,1,1,0]", "[1,1,1,0,1,0]");
+    let error = serde_json::from_str::<Interactive>(&forged).unwrap_err();
+    assert!(error.to_string().contains("mark"), "{error}");
+}
+
 /// A session refuses what none of its steps could make: a witness that
 /// unfolds past `limits.terms` (a term of shared halves, a hundred
 /// thousand nodes written out to 2⁴⁰), and in its JSON a binding at a

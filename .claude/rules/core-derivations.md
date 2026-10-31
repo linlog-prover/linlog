@@ -591,8 +591,18 @@ code relies on:
   live derivation's entries only, and 20 000 apply/undo cycles cost what
   one does (the panel's integers reviewer measured them quadratic and
   the table unbounded when undo left entries behind; `close`'s constants
-  outlived its undo). A session read from JSON has no marks for its
-  steps: their undo leaves their entries unused.
+  outlived its undo). The session's JSON carries the marks (`"marks":
+  [[step, members, frames, terms, eigenvariables, constants]]`): a
+  front end that saves and reads the session between every two calls
+  undoes as a live session does, with the same letters and table
+  (`a_session_read_back_undoes_as_it_was_written`); without them every
+  apply/undo cycle grew the table and drifted the next eigenvariable's
+  letter. A mark's argument lists, metavariables and trail are derived
+  on reading (each `App` term made one list, each metavariable its term,
+  the trail by step number); `read_marks` refuses a mark that would drop
+  what an entry, a binding, a level or an inference before its step
+  names, after `replay_binders`, so the older refusals keep their
+  reasons.
 - **Every term of a session unfolds to at most `limits.terms`, and its
   table holds at most that many entries** (members, frames and terms, as
   the reader counts them; the session's start's limit,

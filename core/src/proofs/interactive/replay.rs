@@ -5,7 +5,7 @@
 //! against the rules, as its JSON form is read back.
 
 use super::Interactive;
-use super::quantified::{Parts, Quantified};
+use super::quantified::{Parts, Quantified, prefix_max};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::hash::HashMap;
@@ -36,6 +36,7 @@ impl Interactive {
         limits: &crate::Limits,
     ) -> Result<Self, Error> {
         let mut state = Self::from_forest(forest, mode)?;
+        let marks = parts.as_ref().map(|parts| parts.marks.clone());
         match (state.fo.is_some(), parts) {
             (true, Some(parts)) => {
                 let q = Quantified::from_parts(&state.forest, parts, history.len(), limits.terms)?;
@@ -197,6 +198,27 @@ impl Interactive {
         state.history = history;
         if state.fo.is_some() {
             state.replay_binders(&added_by)?;
+        }
+        if let (Some(q), Some(marks)) = (state.fo.as_mut(), marks) {
+            q.read_marks(&marks, state.history.len())?;
+            // The members past the forest that the inferences before each
+            // step name: what the step's mark must keep.
+            let occurrences = state.forest.len();
+            let named = prefix_max(state.inferences.iter().map(|inference| {
+                inference
+                    .sequent
+                    .iter()
+                    .map(|m| (m.index() + 1).saturating_sub(occurrences))
+                    .max()
+                    .unwrap_or(0)
+            }));
+            for (step, members) in q.marked_members() {
+                if named[added_by[step as usize].0] > members {
+                    return Err(Error::InconsistentSession {
+                        reason: "a mark is out of order, past the table, or drops what a step before it made",
+                    });
+                }
+            }
         }
         Ok(state)
     }

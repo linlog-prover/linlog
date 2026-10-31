@@ -147,8 +147,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   proof. The session's JSON (wire level 7) gains `instances`: its
   members past the sequent's occurrences as `[occurrence, frame]`,
   frames, terms (an open witness `{"M": k}`), the metavariables' levels,
-  the eigenvariables made and the `bindings` in the order made, all
-  replayed and checked when read. A cut in such a session is refused
+  the eigenvariables made, the `bindings` in the order made and the
+  `marks`, where the table stood before each step that made entries,
+  so that `undo` in a session read back drops what its step made as it
+  does in the session written; all replayed and checked when read. A cut in such a session is refused
   (`Error::Quantifiers`). The command's `interact` takes the witness
   after `∃R`/`∀L` (`apply G P RULE [TERM]`) and `close` searches such a
   goal on one thread.

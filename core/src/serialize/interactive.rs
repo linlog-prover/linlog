@@ -69,7 +69,9 @@ pub(super) struct Interactive {
 /// n}`, an open witness `{"M": k}`), the level each metavariable was made
 /// at, how many eigenvariables were made, those that are constants, and
 /// the bindings in force in the order made, each `[metavariable, term,
-/// step]`.
+/// step]`, and where the table stood before each step that made entries,
+/// each `[step, members, frames, terms, eigenvariables, constants]`,
+/// which that step's undo truncates to.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct InstancesForm {
     /// The members past the forest.
@@ -89,6 +91,9 @@ struct InstancesForm {
     /// The bindings in force, in the order made.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     bindings: Vec<(u32, u32, u32)>,
+    /// Where the table stood before each step that made entries.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    marks: Vec<(u32, u32, u32, u32, u32, u32)>,
 }
 
 /// The serialized form of a term of a session's table.
@@ -125,6 +130,7 @@ impl From<Parts> for InstancesForm {
             eigens: parts.eigens,
             constants: parts.constants,
             bindings: parts.bindings,
+            marks: parts.marks,
         }
     }
 }
@@ -148,6 +154,7 @@ impl From<InstancesForm> for Parts {
             eigens: form.eigens,
             constants: form.constants,
             bindings: form.bindings,
+            marks: form.marks,
         }
     }
 }
