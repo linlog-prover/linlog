@@ -137,5 +137,5 @@ done
   done
 } >"$out/runs.csv"
 linlog-bench ranking "$out/runs.csv" >"$out/ranking.md"
-python3 -I "$root/bench/plots.py" "$out/runs.csv" "$out/figures"
+python3 -I "$root/bench/plots.py" comparison "$out/runs.csv" "$out/figures"
 exit "$status"
