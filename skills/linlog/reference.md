@@ -5,7 +5,9 @@ JSON forms and the exit statuses, then the Rust library, the WebAssembly
 bindings and the Rocq library. Every example below is a real call with
 its real output (a time a search took varies). `linlog COMMAND --help`
 documents every flag; a flag that sets a key of the settings file names
-it in parentheses there.
+it in parentheses there. The manual for people,
+<https://linlog-prover.github.io/linlog/manual/>, says the same at more
+length, with the benchmarks.
 
 Contents:
 

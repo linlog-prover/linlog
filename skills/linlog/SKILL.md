@@ -90,7 +90,7 @@ valid proof (classical)
 ## Docs
 
 - [Reference](reference.md): every command, flag, format and JSON form, with examples
-- [README](https://github.com/linlog-prover/linlog#usage): the usage section, with every command's output
+- [Manual](https://linlog-prover.github.io/linlog/manual/): every command, format and engine with its output, and the benchmarks
 - [Library API](https://linlog-prover.github.io/linlog/linlog/): the Rust crate's documentation, with the text syntax and every JSON form
 
 ## Optional

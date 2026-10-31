@@ -125,12 +125,19 @@ prompt, the plan, its steps or its decision numbers: they say what the
 code does or why, in terms a reader of the repository alone understands.
 The plan and the reports are where the organisation of the work lives.
 
-`README.md` is the public face of the repository and must describe what
-exists after your step: extend its usage section with the commands, flags
-and formats you added (real invocations with their output), and keep its
-"What exists and what is planned" section true, moving what you built from
-planned to built. Do not mention the plan, its steps or these sessions
-there.
+`README.md` is the public face of the repository, a front page of about
+150 lines, and the manual under `docs/src/` (an mdBook, a chapter per
+area, published beside the API documentation) is its reference; both
+must describe what exists after your step: extend the manual's chapter
+with the commands, flags and formats you added (real invocations with
+their output; a new area gets a chapter of its own in `SUMMARY.md`), and
+keep its "What exists and what is planned" chapter (`status.md`) true,
+moving what you built from planned to built; README changes only where
+the front page's few lines stop being true. A new benchmark run's
+results go in a chapter of their own under `docs/src/results/`, its
+figures drawn by `bench/plots.py` from the rows and listed in
+`docs/figures.sh`. Do not mention the plan, its steps or these sessions
+in README or the manual (the `conventions` check fails on it).
 
 The guide for AI models, `skills/linlog/` (its summary `SKILL.md`, an
 Agent Skill served as `llms.txt`, and `reference.md`), describes the same
@@ -139,7 +146,7 @@ JSON form, an exit status, a verdict's wording or a library entry point
 the guide describes changes the guide in the same commit, as it does
 README, and adds a feature it builds there in a sentence and, where
 there is output, an example. `cli/tests/readme.rs` runs every example of
-the guide and fails on a command, flag, session command or settings key
+README, the manual and the guide and fails on a command, flag, session command or settings key
 it names that does not exist; the summary keeps within its budget
 (fewer than 100 lines, 8 000 bytes), so a new feature goes into
 `reference.md` and into the summary only where a model needs it to
