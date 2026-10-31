@@ -53,6 +53,26 @@ and `systems.nix` are what their names say.
   lock alone (crane's dummy source), so it is the same derivation for
   every change but a manifest's or the lock's.
 
+`manual.nix` is the manual (`docs/`): the package `manual` runs
+`docs/figures.sh`, which draws every figure with `bench/plots.py` from
+the benchmarks' CSV rows (Python with matplotlib, the comparison's), and
+`mdbook build` (nixpkgs' mdBook; `create-missing = false`, so a chapter
+`SUMMARY.md` lists and the tree lacks fails the build); the check
+`manual` is that package, and `manual-links` runs lychee offline over
+the manual's pages and README with `--include-fragments`, remapping the
+repository's GitHub URLs (`blob`, `tree`, `edit`, raw) to the tree and
+`linlog-prover.github.io/linlog/` to the `doc` package, so a link to a
+file, a heading or a page of the site that does not exist fails; links
+elsewhere (the web page among them) are not fetched. lychee needs
+`cacert` even offline, to build its client. The figures are drawn at
+every build and never committed: `svg.hashsalt` and no date make them a
+function of the rows. `workspace.nix`'s `doc` puts the rustdoc (the
+`rustdoc` binding) and the manual together after both are built, so a
+change of the manual leaves the rustdoc's derivation as it was, and
+the reverse. The `cli-tests` part keeps `docs/src` (README's test runs
+the manual's examples) and `bench-tests` keeps `docs/src` and the
+scripts `bench/*.sh` (the harness's test of the manual's names).
+
 `doc` is the published site and `doc-private` the
 docs of every item with `--document-private-items`, both with
 rustdoc's warnings denied, so a link in a private item's doc resolves too

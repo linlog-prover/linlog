@@ -1,8 +1,9 @@
 # linlog © Fabian Lukas Grubmüller 2026
 # Licensed under the EUPL
 
-# Publishes the rustdoc of `main` to GitHub Pages: the flake's `doc' package,
-# the same derivation the `doc' check builds.
+# Publishes the rustdoc of `main` and the manual (docs/, under `manual/') to
+# GitHub Pages: the flake's `doc' package, the same derivation the `doc' check
+# builds. The `manual-links' check, not this workflow, resolves its links.
 name: Docs
 
 on:

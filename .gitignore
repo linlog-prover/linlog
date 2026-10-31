@@ -60,3 +60,9 @@ CLAUDE.local.md
 /bench/comparison/*/work-*
 /bench/comparison/*/seq-*.csv
 /bench/comparison/*/default-*.csv
+
+# The manual: mdBook's output and the figures docs/figures.sh draws, and
+# its chapters on results, which `result*` above would hide
+/docs/book
+/docs/src/figures
+!/docs/src/results/

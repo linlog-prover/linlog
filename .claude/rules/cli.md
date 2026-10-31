@@ -395,6 +395,24 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   note a machine of fewer threads than an example's `-j` writes, so the
   test passes on one of any size. The crane source keeps `README.md` for it
   (`modules/workspace.nix`).
+- **The manual's examples are README's test too**: README is a front
+  page, and the reference is the mdBook manual under `docs/src/`
+  (`SUMMARY.md` its table of contents, a chapter per area, the results
+  under `results/`), published under `manual/` of the Pages site.
+  `readme_examples` runs README and every chapter `SUMMARY.md` lists,
+  read from `docs/src` at run time (the crane source of the CLI's tests
+  keeps it), and fails on a Markdown file there that `SUMMARY.md` does
+  not list. `readme_names_what_exists` holds README and the chapters to
+  the names the guide is held to (`names_that_do_not_exist`), with one
+  difference: a settings key passes when the settings file can hold it
+  (`settings_know`: the command, given a file with the key set to
+  `null`, does not call it an unknown field), where the guide's key
+  must be in a flag's help. In `HARNESS_CHAPTERS` (`benchmarks.md`,
+  `results/`) only the calls of `linlog` are checked here; the
+  harness's subcommands and flags and its scripts' flags are checked by
+  `bench/tests/manual.rs` against `linlog-bench`'s help and the scripts'
+  text. A command, flag or format a step adds goes into its chapter with
+  a real invocation, as it went into README's usage section.
 - **The guide for AI models is a test too** (`skills/linlog/`, in
   `cli/tests/readme.rs`): `guide_examples` runs the `console` blocks of
   `SKILL.md` and `reference.md` as README's (`printf` beside `cat` and

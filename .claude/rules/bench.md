@@ -548,7 +548,24 @@ serde_json, which the CLI and the core's tests already have.
   judges the same way, so the figures count what the tables count.
   `tools_ranked_and_contradictions_listed` pins it on a planted
   disagreement. `bench/plots.py` draws the cactus and scatter figures
-  from the CSV by column names.
+  from the CSV by column names (`plots.py comparison`).
+- **`bench/plots.py` draws every figure of the manual too**, from the
+  rows alone, in the light or the dark scheme (`--theme`, the manual's
+  surfaces and the categorical slots in their fixed order, a marker per
+  series): `comparison` (the cactus and scatter plots of `run --tools`
+  rows), `families` (a baseline's `families.csv` and `engines.csv`:
+  time against size, small multiples, a line per engine, an engine's
+  colour the same in every figure, `ENGINES`) and `growth` (`run
+  --tools` rows on families: time against size per shape, a line per
+  tool). A size's time is the median of its problems', a problem solved
+  when most of its runs solved it; a size not decided is a hollow marker
+  on the limit's line; a refused row is no point. `docs/figures.sh` is
+  the one list of the manual's figures, each results chapter's in a
+  directory named like the chapter; the manual's build draws them, so a
+  new run's figures are a line there and a chapter under
+  `docs/src/results/` named by its date, the earlier chapters left as
+  they are. The comparison's own `figures/` (`comparison.sh`) stay light
+  only.
 - **Rerunning a few published rows** (done once, on the author's word,
   for the default's six runs of `SYJ206+1.020` and `SYJ212+1.020`,
   2026-10-17): `run --tools TOOL --lltp FILE…` with the comparison's
@@ -557,8 +574,9 @@ serde_json, which the CLI and the core's tests already have.
   an empty `family`, so it is set (`ILL/ILLTP-SYJ-01`) before the rows
   replace theirs in `runs.csv` by family, problem and tool; then
   `ranking` again, and the run's `env.json` beside the others
-  (`default-rerun.env.json`). `plots.py`'s SVGs differ in every file at
-  every drawing (matplotlib's ids), and a run not solved is drawn at the
+  (`default-rerun.env.json`). `plots.py`'s SVGs drawn before 2026-10-31
+  differ in every file at every drawing (matplotlib's ids; `svg.hashsalt`
+  fixes them since), and a run not solved is drawn at the
   limit whatever ended it, so the figures are drawn again only when a
   solved verdict or its time changed.
 - **`bench/comparison.sh`** is the one script of the published numbers

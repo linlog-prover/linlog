@@ -12,7 +12,7 @@ every pull request and weekly: `nix flake check`, and the online
 `cargo deny check advisories` in the devshell. A workflow installs nothing
 but Nix, so CI checks with exactly the tools flake.lock pins.
 `.github/workflows/docs.yml` publishes the flake's `doc` package, the rustdoc
-of `main`, to GitHub Pages on every push to `main`. `.github/workflows/release.yml`
+of `main` with the manual under `manual/`, to GitHub Pages on every push to `main`. `.github/workflows/release.yml`
 releases a version tag `vX.Y.Z` (below).
 
 - **Every tool comes from the flake.** A job installs Nix and runs
@@ -70,6 +70,12 @@ releases a version tag `vX.Y.Z` (below).
   past the plan's storage.
 - **Docs** deploys `result/share/doc` of `nix build .#doc` with GitHub's own
   Pages actions. The repository's Pages source must be "GitHub Actions".
+  The site is `main`'s alone: `deploy-pages` replaces it whole at every
+  deployment, so a released version's manual is the `docs/` of its tag
+  (and its API docs.rs), not a directory of the site; keeping one per
+  release would mean building every tag's manual at every push. The
+  manual's links are checked by the flake check `manual-links`, not by
+  this workflow, which only builds.
 - **Comparison** (`comparison.yml`, `workflow_dispatch` only, inputs
   `timeout` and `quick`) runs `bench/comparison.sh` in ten shards, one
   job each (two sequential streams on cores 0 and 1, linlog's default on

@@ -1,0 +1,27 @@
+# linlog © Fabian Lukas Grubmüller 2026
+# Licensed under the EUPL
+
+# The manual, built by mdBook into the Pages site beside the API documentation.
+[book]
+title = "linlog"
+authors = ["Fabian Lukas Grubmüller"]
+description = "The manual of linlog, a linear logic suite: the command, its formats and engines, and the benchmarks."
+language = "en"
+
+[build]
+# A chapter SUMMARY.md names and the tree lacks is an error, not an empty page.
+create-missing = false
+
+[output.html]
+# The page's light and dark, its violet and its logo (theme/linlog.css).
+default-theme = "light"
+preferred-dark-theme = "navy"
+additional-css = ["theme/linlog.css"]
+additional-js = ["theme/linlog.js"]
+# The text is README's, written for GitHub's rendering, which keeps
+# straight quotes and `--`.
+smart-punctuation = false
+git-repository-url = "https://github.com/linlog-prover/linlog"
+edit-url-template = "https://github.com/linlog-prover/linlog/edit/main/docs/{path}"
+# Served under the API documentation's site, linlog-prover.github.io/linlog/.
+site-url = "/linlog/manual/"

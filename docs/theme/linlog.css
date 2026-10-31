@@ -1,0 +1,98 @@
+/* linlog © Fabian Lukas Grubmüller 2026
+   Licensed under the EUPL */
+
+/*
+ * The manual in the colours of linlog's web page (its design tokens: the
+ * field, the panels, the ink and the violet accent), on mdBook's light
+ * theme by day and its navy theme by night. The page has these two
+ * schemes only, so the theme menu offers the system's choice and these two.
+ */
+.light,
+html:not(.js) {
+  --bg: #fbfcfe;
+  --fg: #121a2e;
+  --sidebar-bg: #f1f4fa;
+  --sidebar-fg: #121a2e;
+  --sidebar-non-existant: #5a6482;
+  --sidebar-active: #6b46cf;
+  --sidebar-spacer: #b9c1d4;
+  --sidebar-header-border-color: #6b46cf;
+  --icons: #46506c;
+  --icons-hover: #121a2e;
+  --links: #6b46cf;
+  --inline-code-color: #121a2e;
+  --theme-popup-bg: #fbfcfe;
+  --theme-popup-border: #7d86a0;
+  --theme-hover: #e9edf4;
+  --quote-bg: #f1f4fa;
+  --quote-border: #b9c1d4;
+  --table-border-color: #b9c1d4;
+  --table-header-bg: #e9edf4;
+  --table-alternate-bg: #f1f4fa;
+  --searchbar-border-color: #7d86a0;
+  --searchbar-bg: #fbfcfe;
+  --searchbar-fg: #121a2e;
+  --searchresults-header-fg: #46506c;
+  --searchresults-border-color: #b9c1d4;
+  --searchresults-li-bg: #f1f4fa;
+  --search-mark-bg: rgb(107 70 207 / 0.25);
+  --footnote-highlight: #6b46cf;
+  --logo: url("https://linlog-prover.github.io/logo/wordmark-light.svg");
+}
+
+.navy {
+  --bg: #0c1222;
+  --fg: #e3e8f4;
+  --sidebar-bg: #151c30;
+  --sidebar-fg: #e3e8f4;
+  --sidebar-non-existant: #7d88a8;
+  --sidebar-active: #958ad5;
+  --sidebar-spacer: #2a3352;
+  --sidebar-header-border-color: #958ad5;
+  --icons: #9ba5c2;
+  --icons-hover: #e3e8f4;
+  --links: #958ad5;
+  --inline-code-color: #e3e8f4;
+  --theme-popup-bg: #151c30;
+  --theme-popup-border: #5e6a90;
+  --theme-hover: #1b2340;
+  --quote-bg: #151c30;
+  --quote-border: #2a3352;
+  --table-border-color: #2a3352;
+  --table-header-bg: #1b2340;
+  --table-alternate-bg: #121a2c;
+  --searchbar-border-color: #5e6a90;
+  --searchbar-bg: #151c30;
+  --searchbar-fg: #e3e8f4;
+  --searchresults-header-fg: #9ba5c2;
+  --searchresults-border-color: #2a3352;
+  --searchresults-li-bg: #151c30;
+  --search-mark-bg: rgb(149 138 213 / 0.3);
+  --footnote-highlight: #958ad5;
+  --logo: url("https://linlog-prover.github.io/logo/wordmark-dark.svg");
+}
+
+#mdbook-theme-rust,
+#mdbook-theme-coal,
+#mdbook-theme-ayu {
+  display: none;
+}
+
+/* The word mark in place of the title, which stays for screen readers. */
+.menu-title {
+  color: transparent;
+  background: var(--logo) center / auto 60% no-repeat;
+}
+
+/* A figure is drawn twice by the plot script, once for each scheme. */
+.light .figure-dark,
+.navy .figure-light {
+  display: none;
+}
+
+/* The comparison's scatter plots side by side. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1rem;
+}

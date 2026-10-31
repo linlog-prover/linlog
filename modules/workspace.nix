@@ -20,9 +20,9 @@
       # What each crate is built and tested from. A check's source is the
       # parts it needs, so that a change elsewhere leaves its derivation,
       # and its cached result, as they were: the core crate's tests do not
-      # see the command's code, and no Rust check sees the prose (README
-      # and the guide for AI models aside, whose examples the command's
-      # tests run), the scripts or the
+      # see the command's code, and no Rust check sees the prose (README,
+      # the manual and the guide for AI models aside, whose examples the
+      # command's tests run), the scripts or the
       # benchmark data. The core crate's export tests draw with the font the
       # command embeds, and its tests of the fonts' tables read the fonts'
       # files.
@@ -45,6 +45,7 @@
           ../cli/tests
           ../README.md
           ../skills
+          ../docs/src
         ];
         # The guide for AI models, an Agent Skill, which the rustdoc site
         # serves.
@@ -53,7 +54,13 @@
           ../bench/Cargo.toml
           (craneLib.fileset.commonCargoSources ../bench/src)
         ];
-        bench-tests = ../bench/tests;
+        # The harness's tests check the manual's chapters on it against its
+        # help and its scripts.
+        bench-tests = fileset.unions [
+          ../bench/tests
+          ../docs/src
+          (fileset.fileFilter (file: file.hasExt "sh") ../bench)
+        ];
         web = fileset.unions [
           ../web/Cargo.toml
           ../web/build.rs
@@ -153,6 +160,37 @@
 
       cargoArtifacts = depsOnly commonArgs;
 
+      # The API documentation: both crates' rustdoc in one tree. rustdoc
+      # writes no top-level index, so one redirects to the core crate.
+      # Beside it the guide for AI models: its summary as `llms.txt' (the
+      # Agent Skill's body, without its front matter) and its reference as
+      # `llms-full.txt' and as the `reference.md' the summary links to.
+      rustdoc = craneLib.cargoDoc (
+        argsOf [
+          "core"
+          "cli"
+          "guide"
+        ]
+        // {
+          inherit cargoArtifacts;
+          cargoDocExtraArgs = "--no-deps --package linlog --package linlog-cli";
+          env.RUSTDOCFLAGS = "--deny warnings";
+          postInstall = ''
+            cat > $out/share/doc/index.html <<'EOF'
+            <!DOCTYPE html>
+            <meta charset="utf-8">
+            <title>linlog</title>
+            <meta http-equiv="refresh" content="0; url=linlog/">
+            <a href="linlog/">linlog</a>
+            EOF
+            awk 'n >= 2 && (body || NF) { body = 1; print } /^---$/ { n++ }' \
+              skills/linlog/SKILL.md > $out/share/doc/llms.txt
+            install -Dm644 skills/linlog/reference.md $out/share/doc/reference.md
+            install -Dm644 skills/linlog/reference.md $out/share/doc/llms-full.txt
+          '';
+        }
+      );
+
       # The dependencies once more with the debug assertions and overflow
       # checks the `test-debug-assertions-*' checks turn on: the flags are
       # part of every artifact, so each of those checks would rebuild them.
@@ -207,38 +245,17 @@
           }
         );
 
-        # The rustdoc site the Docs workflow publishes, which the `doc' check
-        # also builds: both crates, `linlog' and `linlog_cli', in one tree.
-        # rustdoc writes no top-level index, so one redirects to the core
-        # crate. Beside it the guide for AI models: its summary as
-        # `llms.txt' (the Agent Skill's body, without its front matter) and
-        # its reference as `llms-full.txt' and as the `reference.md' the
-        # summary links to.
-        doc = craneLib.cargoDoc (
-          argsOf [
-            "core"
-            "cli"
-            "guide"
-          ]
-          // {
-            inherit cargoArtifacts;
-            cargoDocExtraArgs = "--no-deps --package linlog --package linlog-cli";
-            env.RUSTDOCFLAGS = "--deny warnings";
-            postInstall = ''
-              cat > $out/share/doc/index.html <<'EOF'
-              <!DOCTYPE html>
-              <meta charset="utf-8">
-              <title>linlog</title>
-              <meta http-equiv="refresh" content="0; url=linlog/">
-              <a href="linlog/">linlog</a>
-              EOF
-              awk 'n >= 2 && (body || NF) { body = 1; print } /^---$/ { n++ }' \
-                skills/linlog/SKILL.md > $out/share/doc/llms.txt
-              install -Dm644 skills/linlog/reference.md $out/share/doc/reference.md
-              install -Dm644 skills/linlog/reference.md $out/share/doc/llms-full.txt
-            '';
-          }
-        );
+        # The site the Docs workflow publishes, which the `doc' check also
+        # builds: the rustdoc of both crates, `linlog' and `linlog_cli', in
+        # one tree, and the manual under `manual/' (`manual.nix'), put
+        # together after both are built, so that a change of either leaves
+        # the other's build as it was.
+        doc = pkgs.runCommand "linlog-doc" { } ''
+          mkdir -p $out/share
+          cp -r ${rustdoc}/share/doc $out/share/doc
+          chmod u+w $out/share/doc
+          cp -r ${config.packages.manual} $out/share/doc/manual
+        '';
 
         default = config.packages.linlog-cli;
       };

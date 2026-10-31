@@ -3,7 +3,7 @@
 
 # The repository's conventions as checks, so that they never regress:
 # `conventions' (every source file starts with the licence header, and no
-# comment or README line names the plan that organised the work),
+# comment, README line or line of the manual names the plan that organised the work),
 # `typos' (spelling, configured by typos.toml) and `shear' (no
 # dependency a crate declares and never uses).
 { lib, ... }:
@@ -58,8 +58,8 @@
             echo "a comment names the plan"
             status=1
           fi
-          if rg --line-number 'plan/|\b[Ss]teps? [0-9]+\b' README.md; then
-            echo "README names the plan"
+          if rg --line-number 'plan/|\b[Ss]teps? [0-9]+\b' README.md docs/src; then
+            echo "README or the manual names the plan"
             status=1
           fi
           [ "$status" = 0 ] && touch $out

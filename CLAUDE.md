@@ -15,8 +15,8 @@ rules, conventions and pointers. Guidance for one area of the tree goes in
 linlog is a linear logic suite: it decides, checks, proves step by step
 and exports sequents of classical and intuitionistic linear logic and
 of cyclic MLL (the order of the formulas kept), and
-decides ordinary propositional logic through its embeddings (README's
-"What exists and what is planned"). It is written in Rust with
+decides ordinary propositional logic through its embeddings (the
+manual's "What exists and what is planned", `docs/src/status.md`). It is written in Rust with
 WebAssembly in mind for a planned `linlog-web` crate: the library reads
 no clock and uses threads only behind a feature. Performance is a stated
 goal: the data structures are compact and cache-friendly.
@@ -33,9 +33,11 @@ Workspace crates:
 - `cli/` is package **`linlog-cli`**, library **`linlog_cli`** and binary
   **`linlog`** (one call into the library; `doc = false` because it shares
   the core crate's name): `prove` (one sequent, or a batch of many),
-  `check`, `interact` and `seq print|json|fragment`. README's usage section shows every command and
+  `check`, `interact` and `seq print|json|fragment`. README is a front
+  page; the manual under `docs/` (mdBook, `docs/src/SUMMARY.md` its
+  chapters, published at `linlog-prover.github.io/linlog/manual/`) shows every command and
   format and the main flags with their output, and `cli/tests/readme.rs`
-  runs those examples; `linlog <command> --help` is the doc comments of
+  runs those examples, README's and the guide's; `linlog <command> --help` is the doc comments of
   `cli/src/argument_parsing.rs`, every flag that sets a key naming
   it. The guide for AI models, `skills/linlog/` (an Agent Skill:
   `SKILL.md` the summary, `reference.md` the full reference, served on
@@ -89,7 +91,7 @@ per bullet, what a later session must know and cannot see in the code.
 | rules file | loads for | holds |
 |---|---|---|
 | `core.md` | `core/**` | the crate's layout and API in brief, its crate-wide rules, and the table of the fourteen module files `core-*.md` (sequents and parsing, the forest, proofs and the checker, derivations and interactive proving, the search's front door, the focused engine, the Horn engine, the inverse method, the parallel runtime, proof nets and the net engine, the exports, the batch, the benchmark inputs, ordinary logic), each loaded for its own module |
-| `cli.md` | `cli/**` | the command's layout, exit statuses, defaults, time limit, outputs, README's examples as a test, extension points |
+| `cli.md` | `cli/**` | the command's layout, exit statuses, defaults, time limit, outputs, README's and the manual's examples as a test, extension points |
 | `bench.md` | `bench/**` | the harness, the CSV columns as its interface, the baselines, the target set, extension points |
 | `rocq.md` | `rocq/**` | the Rocq library's layout, its trusted base, the modules, how the checker reads the Rust algorithm, the certificates, extension points |
 | `web.md` | `web/**`, `modules/web.nix` | the bindings' layout, why nothing is kept between calls, the tab's settings, the errors, the stack measured, the build and its checks, extension points |
@@ -105,7 +107,7 @@ toolchain `rust-toolchain.toml` names (edition 2024; rustfmt, clippy and
 rust-analyzer included), cargo-hack, cargo-deny, cargo-mutants,
 cargo-nextest, valgrind, bacon and treefmt; the `fuzz` devshell has a nightly
 compiler and cargo-fuzz for `fuzz/` alone. `menu`
-lists its commands: `check`, `gate`, `tests`, `ratchet`, `launch` (the CLI),
+lists its commands: `check`, `gate`, `tests`, `ratchet`, `launch` (the CLI), `manual` (the manual served locally),
 `live` (bacon), `dev` (zellij) and `up`.
 
 ```sh
@@ -129,7 +131,7 @@ bench/net-targets.sh LABEL        # the net engine's target set into bench/targe
 python3 bench/pinned-time.py run BASE LIFT RUNS.csv   # two builds' pinned CPU time side by side on cores 2 and 3, resumable (in a user unit under the machine lock; `summary RUNS.csv OUT.csv` after)
 bench/baseline.sh --detach --fresh   # the whole baseline in a user unit, started when the author gives the machine (about 3 h; --arm waits for the night slot): bench/results/DAY/, bench/RESULTS.md
 
-nix flake check   # build, clippy-CRATE, test-CRATE, test-debug-assertions-CRATE (the tests with debug_assert! on, which the release profile drops; CRATE is core, cli, bench or web, each from its own crate's sources), doc, doc-private (the docs of private items, whose links must resolve), wasm (the library built for wasm32 with every feature but parallel), web-package, web-wasm-tests (the bindings' tests under Node), web-core-wasm32 (the checker's, size estimate's, memo's and memory account's tests on wasm32-wasip1), web-bindgen (the CLI's version against Cargo.lock's), deny, features (cargo-hack), package (both crates packaged and built as crates.io gets them), msrv (the workspace on the `rust-version` toolchain), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), rocq-linlog (the Rocq library built and its certificates compiled, the soundness theorems closed under the global context), rocq-bridges (the library's equivalences with NanoYalla and nanoill.v, closed under the global context), bench (the harness on the smallest problems), ratchet (the journeys' instruction counts against their ceilings), deadnix, actionlint, treefmt, claude-hooks, conventions (licence headers, no comment naming the plan), typos (spelling, typos.toml), shear (no unused dependency)
+nix flake check   # build, clippy-CRATE, test-CRATE, test-debug-assertions-CRATE (the tests with debug_assert! on, which the release profile drops; CRATE is core, cli, bench or web, each from its own crate's sources), doc, doc-private (the docs of private items, whose links must resolve), manual (the manual built, its figures drawn), manual-links (every link of the manual and README into the repository or the site resolves, offline), wasm (the library built for wasm32 with every feature but parallel), web-package, web-wasm-tests (the bindings' tests under Node), web-core-wasm32 (the checker's, size estimate's, memo's and memory account's tests on wasm32-wasip1), web-bindgen (the CLI's version against Cargo.lock's), deny, features (cargo-hack), package (both crates packaged and built as crates.io gets them), msrv (the workspace on the `rust-version` toolchain), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), rocq-linlog (the Rocq library built and its certificates compiled, the soundness theorems closed under the global context), rocq-bridges (the library's equivalences with NanoYalla and nanoill.v, closed under the global context), bench (the harness on the smallest problems), ratchet (the journeys' instruction counts against their ceilings), deadnix, actionlint, treefmt, claude-hooks, conventions (licence headers, no comment, README line or line of the manual naming the plan), typos (spelling, typos.toml), shear (no unused dependency)
 nix build .#checks.x86_64-linux.rocq   # the certificates alone: Rocq is a 1.2 GB closure from the binary cache
 gate              # what every commit that touches code passes: clippy, the tests (the behaviour lock among them), both cargo hack runs, the ratchet (about 4 min on four cores)
 ratchet           # the journeys' instruction counts under callgrind against bench/ceilings.csv, and the cache model's misses beside them (bench/misses.csv, never a failure); ratchet --lower after a count went down, --record-misses after misses moved on purpose
@@ -139,7 +141,8 @@ nix fmt           # nixfmt, rustfmt, taplo, shfmt, shellcheck, ruff-format (a ho
 nix build         # linlog-cli, whose binary is result/bin/linlog
 nix build .#linlog-web   # the web bindings: linlog_web.js, linlog_web_bg.wasm, LICENSE, THIRD-PARTY-NOTICES.txt
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner cargo test -p linlog-web --target wasm32-unknown-unknown   # the bindings' tests under Node
-nix build .#doc   # the rustdoc site, as the Docs workflow publishes it
+nix build .#doc   # the Pages site, as the Docs workflow publishes it: the rustdoc and the manual under manual/
+nix build .#manual   # the manual alone (docs/, mdBook), its figures drawn by bench/plots.py; `manual` in the devshell draws them and serves it
 ```
 
 Verify as much as the change needs:
@@ -152,8 +155,10 @@ Verify as much as the change needs:
 | touches `bench/` or `core/src/families.rs` | add `cargo run --release -p linlog-bench -- run --all-families --timeout 5` for the verdicts (a `MISMATCH` in `summary` is a bug); timings only from `bench/baseline.sh` on an idle machine |
 | changes how the focused engine searches, or must not (a refactoring) | add `bench/targets.sh LABEL` and compare `bench/targets/LABEL.csv` with the oracle, `bench/targets/after-efficiency.csv` (`bench/TARGETS.md` says why it is the one): `linlog-bench summary --against bench/targets/after-efficiency.csv bench/targets/LABEL.csv --counters` lists the verdicts that differ and every row decided alike whose `nodes`, `splits`, `memo_hits` or `memo_entries` differ; on one thread they are a function of the input, so a decided row has them equal exactly when the search is |
 | changes how the net engine searches, or must not (a retype of `ProofStructure`) | add `bench/net-targets.sh LABEL` and compare the columns `verdict`, `links` and `tests` of `bench/targets/net-LABEL.csv` with the oracle `bench/targets/net-after-prunes.csv` on every decided row (`summary --against … --counters` compares them) |
-| changes what the command prints, or a console block of README | `cargo test --workspace` runs README's examples (`cli/tests/readme.rs`); a change of output changes README in the same commit |
-| changes a feature the guide for AI models describes (a command, flag, format, JSON form, exit status, verdict or library entry point) | change `skills/linlog/` in the same commit, as README; `cargo test -p linlog-cli --test readme` runs its examples, checks every command, flag, session command and settings key it names, and holds the summary to its budget |
+| changes what the command prints, or a console block of README or the manual | `cargo test --workspace` runs README's and the manual's examples (`cli/tests/readme.rs`); a change of output changes the chapter that shows it in the same commit |
+| adds a command, flag or format | add it to its chapter of the manual (`docs/src/`) with a real invocation, as README's usage section was; `cargo test -p linlog-cli --test readme` runs it and checks every name, and `nix build .#checks.x86_64-linux.manual .#checks.x86_64-linux.manual-links` builds the manual and resolves its links |
+| touches `docs/`, `bench/plots.py` or a CSV a figure reads | `nix build .#checks.x86_64-linux.manual .#checks.x86_64-linux.manual-links`; the harness's chapters' names are `cargo test -p linlog-bench --test manual` |
+| changes a feature the guide for AI models describes (a command, flag, format, JSON form, exit status, verdict or library entry point) | change `skills/linlog/` in the same commit, as the manual; `cargo test -p linlog-cli --test readme` runs its examples, checks every command, flag, session command and settings key it names, and holds the summary to its budget |
 | touches `search/parallel.rs`, `focus/parallel.rs` or `net::parallel` | `cargo test --workspace` covers them (the CLI depends on `parallel`, and cargo unifies features across a workspace run); `cargo test -p linlog` alone needs `--features parallel` |
 | touches `rocq/` | `nix build .#checks.x86_64-linux.rocq-linlog .#checks.x86_64-linux.rocq-bridges` (the library, every certificate under `rocq/tests/`, the bridges, the theorems' assumptions), under the machine lock while a timed run may hold it |
 | adds or changes a dependency | add `cargo deny check`. New deps must use a license `deny.toml` allows: EUPL-1.2, MIT, Apache-2.0 (± LLVM-exception), Unicode-3.0, Zlib, BSD-2-Clause or BSD-3-Clause |

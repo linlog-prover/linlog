@@ -1,10 +1,11 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! The examples of README and of the guide for AI models
-//! (`skills/linlog/`) against the binary: every command of every `console`
-//! block of `README.md`, `SKILL.md` and `reference.md` is run in a
-//! directory of its block's own, through
+//! The examples of README, of the manual (`docs/src/`, every chapter
+//! `SUMMARY.md` lists) and of the guide for AI models (`skills/linlog/`)
+//! against the binary: every command of every `console` block of
+//! `README.md`, the manual's chapters, `SKILL.md` and `reference.md` is
+//! run in a directory of its block's own, through
 //! `sh` so that pipes and redirections work, and its output (standard
 //! output and standard error together) is compared with the lines that
 //! follow it in the block. Lines of the block that start with `> ` are
@@ -26,8 +27,9 @@
 //! afterwards) must exist and be of the kind its extension names; its bytes are not compared, since a PDF carries the
 //! date it was made.
 //!
-//! The guide is held to more: every command, flag, session command and
-//! settings key it names exists, its Rust example is a doctest of the
+//! Every command, flag, session command and settings key that README, the
+//! manual or the guide names exists. The guide is held to more: its
+//! defaults are the command's, its Rust example is a doctest of the
 //! library's, and its summary keeps within its budget.
 
 use std::path::{Path, PathBuf};
@@ -47,6 +49,44 @@ const REFERENCE: &str = include_str!("../../skills/linlog/reference.md");
 
 /// The guide's documents by their names.
 const GUIDE: [(&str, &str); 2] = [("SKILL.md", SUMMARY), ("reference.md", REFERENCE)];
+
+/// The manual's sources, mdBook's `src` directory.
+const MANUAL: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/src");
+
+/// Returns the manual's chapters, each with its path under `docs/src/`,
+/// in the order its `SUMMARY.md` lists them; every Markdown file there is
+/// listed, so that no chapter's examples go untested.
+fn manual() -> Vec<(String, String)> {
+    let directory = Path::new(MANUAL);
+    let summary = std::fs::read_to_string(directory.join("SUMMARY.md")).unwrap();
+    let listed: Vec<String> = summary
+        .lines()
+        .filter_map(|line| Some(line.split_once("](")?.1.split_once(')')?.0.to_owned()))
+        .collect();
+    let mut files = Vec::new();
+    walk(directory, &mut files);
+    let mut unlisted: Vec<String> = files
+        .iter()
+        .filter(|file| file.extension().is_some_and(|extension| extension == "md"))
+        .map(|file| {
+            let path = file.strip_prefix(directory).unwrap();
+            path.to_str().unwrap().to_owned()
+        })
+        .filter(|path| path != "SUMMARY.md" && !listed.contains(path))
+        .collect();
+    unlisted.sort();
+    assert!(
+        unlisted.is_empty(),
+        "chapters SUMMARY.md does not list: {unlisted:?}"
+    );
+    listed
+        .into_iter()
+        .map(|path| {
+            let text = std::fs::read_to_string(directory.join(&path)).unwrap();
+            (format!("docs/src/{path}"), text)
+        })
+        .collect()
+}
 
 /// The programs other than `linlog` that the README's examples call and
 /// this test does not run: the harness has the flake's `bench` check, and
@@ -328,12 +368,24 @@ fn examples(name: &str, text: &str, root: &Path) -> (usize, Vec<String>) {
     (ran, failures)
 }
 
-/// Every example of the README gives the output the README shows.
+/// Every example of README and of the manual gives the output it shows.
 #[test]
 fn readme_examples() {
     let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("readme");
-    let (ran, failures) = examples("README.md", README, &root);
-    assert!(ran > 40, "only {ran} of the README's commands ran");
+    let mut ran = 0;
+    let mut failures = Vec::new();
+    for (name, text) in [("README.md".to_owned(), README.to_owned())]
+        .into_iter()
+        .chain(manual())
+    {
+        let (each, failed) = examples(&name, &text, &root.join(&name));
+        ran += each;
+        failures.extend(failed);
+    }
+    assert!(
+        ran > 150,
+        "only {ran} of README's and the manual's commands ran"
+    );
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
 
@@ -364,9 +416,15 @@ const COMMANDS: [&[&str]; 7] = [
     &["seq", "fragment"],
 ];
 
-/// The programs other than `linlog` whose calls the guide shows, and
+/// The programs other than `linlog` whose calls the documents show, and
 /// whose flags are theirs.
-const TOOLS: [&str; 3] = ["cargo", "nix", "rocq"];
+const TOOLS: [&str; 5] = ["cargo", "nix", "rocq", "linlog-bench", "journalctl"];
+
+/// The manual's chapters on the benchmark harness, `linlog-bench`: a flag
+/// they name outside a call of `linlog` is the harness's or one of its
+/// scripts', which `bench/tests/manual.rs` checks against the harness's
+/// help.
+const HARNESS_CHAPTERS: [&str; 2] = ["docs/src/benchmarks.md", "docs/src/results/"];
 
 /// The top-level keys of the settings that a flag's help names a field of.
 const SETTINGS: [&str; 8] = [
@@ -390,6 +448,30 @@ fn linlog(arguments: &[&str], input: &str) -> String {
     let mut text = String::from_utf8(out.stdout).unwrap();
     text.push_str(&String::from_utf8(out.stderr).unwrap());
     text
+}
+
+/// Whether a settings file can hold the key, such as `search.copies`: the
+/// command, given a file with the key set to `null`, says that it holds
+/// an unknown field when it does not know the key, and something else (a
+/// value of the wrong type) or nothing when it does.
+fn settings_know(key: &str) -> bool {
+    let mut json = "null".to_owned();
+    for part in key.rsplit('.') {
+        json = format!(r#"{{"{part}": {json}}}"#);
+    }
+    let file = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("settings-{key}.json"));
+    std::fs::write(&file, json).unwrap();
+    let out = linlog(
+        &[
+            "seq",
+            "print",
+            "--settings",
+            file.to_str().unwrap(),
+            "a |- a",
+        ],
+        "",
+    );
+    !out.contains("unknown field")
 }
 
 /// Whether `text` holds `word` with no letter, digit, `-` or `_` right
@@ -497,12 +579,35 @@ fn names_flag(help: &str, flag: &str) -> bool {
 }
 
 /// Every command, flag, session command and settings key the guide names
-/// exists: a flag after `linlog COMMAND` in the command's help, any other
-/// in some command's help or the session's, a session command in the
-/// list `help` prints in a session, and a settings key in the help of the
-/// flag that sets it.
+/// exists.
 #[test]
 fn guide_names_what_exists() {
+    let documents = GUIDE.map(|(name, text)| (name.to_owned(), text.to_owned()));
+    let failures = names_that_do_not_exist(&documents, true);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Every command, flag, session command and settings key that README and
+/// the manual name exists.
+#[test]
+fn readme_names_what_exists() {
+    let documents: Vec<(String, String)> = [("README.md".to_owned(), README.to_owned())]
+        .into_iter()
+        .chain(manual())
+        .collect();
+    let failures = names_that_do_not_exist(&documents, false);
+    // The settings reader tells a key it knows from one it does not.
+    assert!(settings_know("search.copies") && !settings_know("search.speed"));
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Returns what the documents, each a name and its text, name that does
+/// not exist: a flag after `linlog COMMAND` not in the command's help, any
+/// other not in some command's help or the session's, a session command
+/// not in the list `help` prints in a session, and a settings key that the
+/// help of no flag names (`keys_in_help`) or else that a settings file
+/// cannot hold.
+fn names_that_do_not_exist(documents: &[(String, String)], keys_in_help: bool) -> Vec<String> {
     let helps: Vec<(&[&str], String)> = COMMANDS
         .iter()
         .map(|command| {
@@ -523,9 +628,12 @@ fn guide_names_what_exists() {
         .collect::<String>()
         + &session;
     let mut failures = Vec::new();
-    for (name, text) in GUIDE {
+    for (name, text) in documents {
         let (code, prose) = code_of(text);
-        for flag in flags_in(&prose) {
+        let harness = HARNESS_CHAPTERS
+            .iter()
+            .any(|chapter| name.starts_with(chapter));
+        for flag in flags_in(&prose).into_iter().filter(|_| !harness) {
             if !names_flag(&every_help, &flag) {
                 failures.push(format!("{name}: the flag {flag} is in no command's help"));
             }
@@ -535,7 +643,7 @@ fn guide_names_what_exists() {
             let first = piece.split_whitespace().next().unwrap_or("");
             for flag in flags_in(piece)
                 .into_iter()
-                .filter(|_| !TOOLS.contains(&first))
+                .filter(|_| !TOOLS.contains(&first) && !harness)
             {
                 if !names_flag(&every_help, &flag) {
                     failures.push(format!(
@@ -581,9 +689,12 @@ fn guide_names_what_exists() {
                 && piece
                     .chars()
                     .all(|c| c.is_ascii_lowercase() || c == '.' || c == '_')
-                && !holds_word(&every_help, piece)
             {
-                failures.push(format!("{name}:{line}: no flag sets the key {piece}"));
+                if keys_in_help && !holds_word(&every_help, piece) {
+                    failures.push(format!("{name}:{line}: no flag sets the key {piece}"));
+                } else if !keys_in_help && !settings_know(piece) {
+                    failures.push(format!("{name}:{line}: the settings have no key {piece}"));
+                }
             }
         }
         // The session commands: the first column of the reference's table
@@ -613,7 +724,7 @@ fn guide_names_what_exists() {
     assert!(session_commands.contains(&"apply"), "{session}");
     assert!(names_flag(&helps[0].1, "--copies") && names_flag(&helps[0].1, "-q"));
     assert!(!names_flag(&every_help, "--copy") && !names_flag(&every_help, "-z"));
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    failures
 }
 
 /// Every Rust example of the guide is one of the library's crate-level
