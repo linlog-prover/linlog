@@ -4275,3 +4275,16 @@ client follows it (step 32).
   pushed, linlog's first. Follow-ups in `later.md`. Next: 43d, Learn's
   lessons on cut and the quantifiers; its outline is the planning
   session's to decide on the author's mandate of 2026-10-30.
+- 2026-10-31: 43d's outline, decided by the planning session on the
+  author's mandate of 2026-10-30: Learn's order 1 to 8 unchanged, 9 Cut
+  and its elimination, 10 The quantifiers, 11 Ordinary logic (was 9,
+  still last as D60 says; departs from D60's numbering). Lesson 9 a
+  lemma under `!` used twice (`!(A ⊸ B), !(B ⊸ C), !A ⊢ C ⊗ C`, 16
+  inferences with the cut and 20 without; a heads-up box in the
+  session's pane found that without `!` a cut rarely shortens a linear
+  proof), its elimination stepped on the derivation and on the net (the
+  lemma's proof copied once per use); lesson 10 `∃y. ∀x. r(x, y) ⊢
+  ∀x. ∃y. r(x, y)` worked, its converse the erroneous example the
+  eigenvariable condition refuses. Added: the cut lesson's practice
+  asks for the cut and shows both inference counts; every hinge option's
+  verdict checked in the mode the page shows.
