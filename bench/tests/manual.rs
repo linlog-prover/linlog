@@ -223,7 +223,7 @@ fn the_manual_names_what_exists() {
         }
     }
     // The check finds what it looks for.
-    assert!(holds_word(&everything, "--family") && !holds_word(&everything, "--familly"));
+    assert!(holds_word(&everything, "--family") && !holds_word(&everything, "--kin"));
     assert!(checked > 20, "only {checked} flags were checked");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

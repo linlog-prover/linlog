@@ -21,6 +21,11 @@ extend-exclude = [
   "*.csv",
 ]
 
+[default]
+# A variable of mdBook's theme, spelt so there, which the manual's theme
+# sets.
+extend-ignore-re = ["--sidebar-non-existant"]
+
 # Words of the domain that look like misspellings.
 [default.extend-words]
 # TPTP's first-order form, `fof(name, role, formula)`.
