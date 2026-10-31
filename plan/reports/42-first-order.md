@@ -3565,3 +3565,316 @@ engine. The private enums `Undone` (`Named`), `Named`, `Head`, `Naming`,
   an id too.
 - **The `&` rule at first order stays sequential** on the pool; dividing
   it would need two zones merged.
+
+## Session 42k: first-order logic on the web page
+
+Opus 5.5 at `high`, unattended, supervised by `linlog-orchestrator`;
+linlog's part in the jj workspace `../linlog-step42k` (from `ttzmnnwu`),
+the client's in `../linlog-prover.github.io-42k`.
+
+### Outcome
+
+**linlog's part is done.** A first-order session undoes after a save and
+a read exactly as a live session does; a first-order session cuts, on a
+closed formula of the sequent's symbols or on an instance naming the
+goal's eigenvariables, in the library and in `interact`, every finished
+proof checked; the web bindings take first-order sessions (witnesses,
+the eigenvariable refusal, hints on goals of instances, the drawing, cut
+and its elimination, the first-order bounds as settings), their tests
+passing natively and under Node. Both target sets equal 42j's counters
+on every decided row, the ratchet within its ceilings with none raised,
+every code commit gated, the fresh-context reviewer's four findings
+fixed at their causes with tests.
+
+### What was built in linlog
+
+- **Undo after reading** (`untknmty`): the session's JSON `instances`
+  carry `marks`, `[step, members, frames, terms, eigenvariables,
+  constants]` per step that made entries (wire level 7, unreleased, so no
+  new level); a mark's argument lists, metavariables and trail are
+  derived from the table's order on reading. `Quantified::read_marks`
+  refuses a mark out of order or past the table, one that would drop an
+  entry, binding, level or inference member an earlier step names, and
+  (after the review) one that drops a constant or an eigenvariable's
+  term numbered below the eigenvariables it keeps.
+  `a_session_read_back_undoes_as_it_was_written` drives ∀, ∃ (given and
+  open witnesses), undo, undo, ∀ for three rounds, each operation on a
+  session read from the last one's JSON, and compares every document with
+  the live session's; it failed with the marks left out (the read-back
+  table kept the undone ∃ step's entries) and passes with them.
+- **Cut at first order** (`zslszopz`): `Interactive::cut` takes a cut
+  formula of the sequent's symbols in a first-order session; the forest
+  is rebuilt and `Quantified::rebase` moves the table onto it (members
+  past the forest shifted past the cut formula's trees, every
+  inference's sequent and cut member with them, the table's terms
+  renumbered past the larger arena, the arena's terms found again by
+  what they are since the join re-interns them). A cut formula that names
+  eigenvariables by their letters (the supervisor's decision during the
+  session, mid-run) is held closed as `∀a b. (A)` in the sequent's cuts,
+  read again from the one-sided text (`CutFormula::bound`), and the cut is
+  on the member of its body under the frame of those eigenvariables, the
+  checker's cut on an instance; an eigenvariable outside the goal's scope
+  is `StepError::Eigenvariable`, a symbol the sequent has not (or has
+  with another arity or role) the new `StepError::CutSymbol`. `undo`
+  truncates the cut's entries by their mark before `uncut` drops the
+  trees, and `pop_cut` trims the first-order tables to what the formulas
+  and the table still reach (`FirstOrder::trim`), keeping every symbol
+  while binders are left. A propositional session whose cut formula has
+  a quantifier gains its first-order part at the cut and loses it at the
+  undo. The JSON reader takes such cuts (`replay_cut` through `cut_pair`,
+  the frame's terms held to the goal's scope). `interact`'s `cut` needed
+  no change; README and the guide show a session cutting on `p(a)` under
+  `∀R`, refusing `r(a)`, and the proof `proof` checks.
+- **The bindings** (`nupxxnus`, `pmmnvtvq`): a step's JSON `witness`
+  (text, or left out for an open one); `rules` marks `∃R`/`∀L` with
+  `"witness": true` (left out when false, so every propositional answer
+  is as it was); `hint` on a goal of a session with quantifiers closes
+  the goal in a clone of the session (`Interactive::close`) and reads the
+  first steps off the clone's derivation, a quantifier step with the
+  witness the search chose where the session reads it (a constant the
+  search made stays open); the view's `opened` (each closed quantifier
+  step with the term it took, `null` for an open witness) and `forest`
+  (the forest's length), which the page's replay needs; a goal formula's
+  `reading` and an elimination's cut formula write an instance with its
+  terms (both printed the open formula, `p(#0)`); the tab's
+  `limits.terms` a million (`tab::TERMS`, the tab's occurrences, the
+  library's rule), `search.witness_depth` and `search.instances` the
+  library's. A library fix the tests found: the SVG drawing of a
+  first-order session's two-sided derivation placed an instance by its
+  member's number and panicked (`Drawn::positions`); it takes the
+  occurrence, the propositional arm unchanged. `Interactive::opened_term`
+  is new.
+- **Tests**: `core/tests/first_order.rs` gains
+  `a_session_read_back_undoes_as_it_was_written`,
+  `a_first_order_session_cuts`,
+  `a_cut_formula_names_the_goals_eigenvariables` and
+  `undoing_a_cut_keeps_what_the_table_names`, and two forged marks in
+  `a_session_refuses_what_no_step_could_make`;
+  `a_session_refuses_a_quantifier_on_every_path` pinned the refusal this
+  session lifts and was changed to pin the new behaviour (said in its
+  commit). `web/tests/calls.rs` gains five tests: the quantifier rules
+  and the eigenvariable refusal in words, undo through the calls against
+  a live session, following first-order hints to a proof, a first-order
+  cut made and eliminated, the bounds as settings.
+
+### Decisions, and where they depart from the design
+
+- **Marks in the JSON, not rebuilt from the history**: a step can make
+  entries no later entry names (the closed terms of an axiom's literals),
+  so the history does not say where one step's entries end.
+- **A cut formula in a session with quantifiers takes no new symbol**
+  (departs from the design: decision 7 says "typed as written" and does
+  not restrict the symbols). The eigenvariables' letters are the names
+  no symbol takes, so a new symbol could take one's letter, and the join
+  renames a symbol of another role apart silently; the refusal names the
+  symbol.
+- **The cut on an instance** is the supervisor's decision of this
+  session, not the plan's (decision 7 had a cut formula a closed term of
+  the arena); the sequent's cut formulas stay closed.
+- **A first-order hint closes the goal in a copy** rather than reading a
+  proof of the written sequent (whose first steps are the handover's
+  prefix and spine); a witness the session cannot read is left open.
+
+### The closed enums' new variants (for step 45)
+
+None. `StepError::CutSymbol` is a variant of a non-exhaustive enum.
+Additions: `Interactive::opened_term`. Changed behaviour of unreleased
+items: a cut in a first-order session (refused with
+`Error::Quantifiers` before; that variant is now raised nowhere, a
+follow-up for step 45), `Interactive::formula_as_written` is `None` for
+an instance (it indexed past the record), the session JSON's `marks`.
+
+### The reviewer's round (linlog)
+
+One fresh-context reviewer (Opus 5.5 at `high`) read the three commits
+against the requirements, told to report only what breaks correctness or
+a requirement, and ran probes of its own. Four findings, each reproduced
+by its run; all held and are fixed at the cause in `wxvuuktm`, each with a
+committed test:
+
+1. A later cut left an earlier cut on an instance naming a member it had
+   moved (`inference.cut` was not shifted with the sequents), so the
+   finished proof panicked and the JSON was refused by its own reader.
+   Fixed in `cut` and `uncut`; the two nested instance cuts closed,
+   checked, read back and undone to the start.
+2. A session read without its marks (or with a generous one) kept an
+   undone step's witness naming a term a cut had brought, and undoing the
+   cut panicked in `rebase`. Fixed by trimming the arena no lower than the
+   table's reach (`Quantified::arena_reach`).
+3. A sequent read from JSON with a symbol no atom uses, which a witness
+   used, panicked when a cut was undone (the trim dropped the symbol).
+   Fixed by keeping every symbol while binders are left (a cut in such a
+   session adds none).
+4. A forged mark could drop a constant whose eigenvariable it kept. Fixed
+   in `read_marks`.
+
+It found the marks' closure, the cut's scope, the integers, the bindings
+and the propositional paths sound.
+
+### The propositional case (D17)
+
+`bench/targets.sh 42k` and `bench/net-targets.sh 42k` at `nupxxnus`
+(nothing later touches a search or a criterion) against
+`bench/targets/42j.csv` and `bench/targets/net-42j.csv` with `summary
+--against … --counters`: no verdict differs; of the 145 and 64 problems
+both decide on one thread, 0 differ in any counter. The ratchet in every
+gate within its ceilings, none raised: `derivation-chain-64` at 9 894 177
+instructions, +1.99 % against its 2 % ceiling, as 42h left it.
+
+### The page (the client, `../linlog-prover.github.io-42k`)
+
+Based on the client's `main`, `olvxtklw`, as the supervisor named it.
+Three commits: `rlmzrxmz` "flake.lock: Update linlog" (the input
+`linlog` pinned to linlog's pushed `f0449491`; a plain `nix flake update
+linlog` took `main`'s later plan commit `434d0d40`, so the lock was set
+with `nix flake lock --override-input linlog
+github:linlog-prover/linlog/f0449491…`, through jj); `vqlwqmzt` "Add
+first-order logic to the stage"; `xpztmwtk` "Answer the review of the
+page's first-order replay".
+
+- **Input**: a sequent with quantifiers and terms is read as linlog reads
+  it; the reference's table (Learn) gains `∀x. A`/`forall x. A`,
+  `∃x. A`/`exists x. A` and a paragraph on predicates, terms, arity,
+  the quantifiers' reach, eigenvariables, witnesses, `$1` and the
+  eigenvariable condition (help, no lesson).
+- **The quantifier rules**: `rules` marks ∃R/∀L with a witness, and the
+  dock's rule list says "witness" as it says "split"; choosing one opens
+  the witness chooser (the cut chooser's twin: a field in the formulas'
+  font, Apply, Leave open, Cancel; linlog's refusal said in it). ∀R and
+  ∃L apply at once. The refusals are worded in `words.ts`: the
+  eigenvariable condition (naming the eigenvariable and why), a witness
+  that does not read, a rule that takes none, a cut symbol; the hint
+  ladder calls ∃R/∀L "a choice of witness"; a search the witness depth
+  or the instances stopped says which Settings bound.
+- **The drawing** of a first-order derivation is linlog's, with every
+  instance (the SVG fix of linlog's `Drawn::positions` was needed).
+- **Cut at first order** as 41d made it, the formula naming the goal's
+  eigenvariables (`p(a)` under `∀R`).
+- **Settings**: "First-order search", Witness depth (64), Instances
+  (2¹⁶), Terms (a million), stored, sent only where changed.
+- **The replay** (undo per branch, redo, links and saved sessions, grafts
+  replayed by their steps): a step's formulas found by what they are
+  (occurrence and frame, each eigenvariable and open witness named by
+  the path of the step that made it), what it made compared by
+  occurrence, each quantifier step's term compared (the same witness, or
+  open where it was; ∀R/∃L an eigenvariable), a recorded witness or cut
+  formula naming each eigenvariable by its step's path, read as the
+  letter it takes in the session played on. A mismatch is undone and its
+  goal reported, as a propositional one is (the supervisor's
+  instruction, tested with a witness changed between save and replay).
+- **The module's load**: the new module is 6.9 MB (6.1 before); about
+  one fresh Playwright context in twenty, Chromium failed to write it to
+  its HTTP cache (`net::ERR_CACHE_WRITE_FAILURE`), which aborts the
+  streaming compile, and the page never answered (About's version line
+  empty: the sandboxed e2e's one hard failure). The worker loads the
+  module once more past the cache when the first load fails.
+- **Tests**: `tests/first-order.spec.ts` (five Playwright tests: the
+  rules with a witness typed and left open and another formula picked
+  closing the chooser, the eigenvariable condition in words, a cut on
+  `p(a)`, an undo on one branch lettering the other's eigenvariable
+  anew, the bounds in Settings and the search saying which stopped it),
+  a phone target test of the witness chooser and its refusal
+  (`tests/targets.spec.ts`), and five Vitest cases in
+  `src/lib/steps.test.ts` (letters mapped through an undo elsewhere, a
+  changed witness refused, a redo after an undo that lettered anew,
+  formulas found when a replay orders a goal otherwise, an open witness
+  and an instance cut replayed); the last three failed on the reviewed
+  code and pass on the fix.
+
+### The page's reviewer's round
+
+One fresh-context reviewer (Opus 5.5 at `high`), reading only, against
+the brief's flows, told to report only what breaks correctness or a
+requirement. Four findings:
+
+1. **A redo used eigenvariable letters an earlier undo had changed**
+   (held): the letters were mapped within one replay only, and a redo
+   entry outlives several, so a stored witness `b` could name another
+   eigenvariable and close a goal that was not provable. A first fix
+   mapped the redo stack through each replay's letters; its own test
+   showed that a redo entry's own letter can come to be a kept one's.
+   The kept fix names every eigenvariable in a recorded witness or cut
+   formula by the path of the step that made it.
+2. **Positions shift when a replay renumbers shared instances** (held):
+   the core shares an instance's member across branches, so a replay
+   that leaves out the branch that made it orders the other's goal
+   otherwise, and a position could name the other formula. Fixed by
+   finding the formulas by what they are (`memberKeys`).
+3. **A formula picked did not close the witness chooser** (held): fixed,
+   with its Playwright check.
+4. **A worked example's actions are read without its view** (held, no
+   effect today: no first-order example exists): left for 43d, said in
+   the client's rules.
+
+### Screenshots
+
+Under `/home/tux/Projects/own/linlog-step42k-screenshots/`, each at a
+phone's width (Pixel 7) and a desktop's (1280 × 800), light and dark:
+`before/` (the client at `olvxtklw`, linlog at `1276c3b6`: a first-order
+sequent refused as a parse error, a propositional proof), `after/` (at
+`vqlwqmzt`: the first-order input, the witness chooser, an open witness,
+the eigenvariable refusal, a finished first-order derivation, the cut
+chooser on `p(a)`, Settings' bounds). The review's commit changes no
+screen but the chooser's dismissal.
+
+### What is not verified
+
+- The client's Playwright walk "every control is a target of 44 by 44
+  pixels at least" (phone) fails locally on the unchanged base build as
+  on this one (a tour formula button 39 px wide, after Learn's frame is
+  turned off), three times out of three on the base; it passed in the
+  client's sandboxed `nix flake check`. 41d recorded it as
+  timing-dependent; it is not changed here.
+- Under two or three local Playwright workers some tests time out at 30
+  s that pass alone in under a second; on one worker all pass but the
+  walk above. The sandboxed run retries once.
+- The reviewer of the page ran nothing; its findings 1 and 2 were
+  reproduced by tests written here.
+
+### Checklist
+
+- [x] Undo after a save and a read keeps the live session's letters and
+  table, through the JSON (`a_session_read_back_undoes_as_it_was_written`)
+  and the bindings (`undo_through_the_calls_keeps_a_live_session_s_letters`,
+  natively and under Node).
+- [x] Cut in a first-order session in the library and in `interact`,
+  instance cuts included, every finished proof checked.
+- [x] The bindings' first-order calls with their tests, 28 under Node.
+- [x] Both target sets equal to 42j's on every decided row; the ratchet
+  within its ceilings, none raised.
+- [x] linlog's reviewer's four findings fixed with tests; README, the
+  guide (its tests pass) and the changelog true; every code commit
+  gated; `nix flake check` at `f0449491`, exit 0.
+- [x] "linlog ready" sent; the supervisor pushed `f0449491` and named the
+  client's base `olvxtklw`.
+- [x] The page's first-order flows; the lock on `f0449491`; Vitest (534),
+  Biome and `astro check`, Playwright (119 of 120 locally, the walk
+  above), the client's `nix flake check` at `xpztmwtk` (`36cbb564`),
+  exit 0, its e2e 120 passed.
+- [x] Screenshots before and after at both widths in both themes; the
+  page's reviewer's four findings answered, three fixed with tests.
+- [x] `jj st` clean in both workspaces.
+- [x] This section, and the next.
+- [x] The last message to `linlog-orchestrator`.
+
+### What the next sessions must know
+
+- **43d (lessons on cut and the quantifiers)**: the page has the rules,
+  the witness chooser, the refusals and the cut on instances; the rule
+  schemas of Learn's hover (`Rule` in the client's content, each tied to
+  a lesson) have no entry for ∀R/∀L/∃R/∃L/∀/∃, and a first-order worked
+  example needs its view's `opened` and `forest` passed to `actionsOf`
+  (`state.tsx`'s example path), or its witnesses replay open.
+- **A recorded witness names eigenvariables by step paths** (`{1.0}`) in
+  the page's actions; anything that writes or reads actions (a stored
+  proof's redo stack, a lesson's scripted steps) must keep that form.
+- **The view's `opened` and `forest`** are the bindings' contract with
+  the page's replay; a change of how a session numbers members past the
+  forest or eigenvariables does not break the page, but a change of
+  `opened`'s meaning (the term as taken) does.
+- **A cut formula in a session with quantifiers takes no new symbol**
+  (`StepError::CutSymbol`), and one naming eigenvariables is held as
+  `∀…` around it with the cut on its body's instance; `Error::Quantifiers`
+  is raised nowhere now (step 45 may retire it).
+- **The module is 6.9 MB**; the worker's second load past the cache is
+  what keeps a fresh Chromium context from hanging on it.
