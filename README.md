@@ -143,5 +143,6 @@ The problem libraries and the other provers that the benchmarks and the
 comparison use are not part of this repository: the flake fetches each
 at a pinned version when it is needed, under its own licence. The LLTP
 library is GPL-3.0, the ILTP library states no licence, qcover's
-problems are Apache-2.0, and "Beside the other provers" gives the
+problems are Apache-2.0, and the manual's
+["Beside the other provers"](https://linlog-prover.github.io/linlog/manual/benchmarks.html#beside-the-other-provers) gives the
 provers' licences.
