@@ -25,6 +25,48 @@ and their kin), as step 40 may in its typed surface. So the release is
 0.2.0, and it is where the API may break for the better, once, said
 plainly.
 
+## What steps 40 to 44 left you (finished 2026-10-31, at the review of 44b)
+
+- **The planned break, accounted by the reviews** (each in its Status
+  entry of `plan/README.md`), for 45d's tool to confirm and the
+  changelog to list: new variants of closed enums `Term::{Forall,
+  Exists}`, `Kind::{Forall, Exists}`, `Node::{Forall, Exists}`,
+  `Rule::{Forall, Exists}`, `FoTerm::{Eigen, Meta}`, `Fault::{Instance,
+  Eigenvariable, Reintroduced}`, `Refusal::Terms`, `Space::Symbol`, and
+  step 41's cut variants; `Placed::parent` an `Option` (41c);
+  `Error::Quantifiers`, raised nowhere since 42k, to retire or keep with
+  a reason. Every other change since 0.1.0 is said to be an addition;
+  the tool decides.
+- **Rocq**: certificates that 0.1.0 wrote with a record literal (one-sided
+  Mix or affine proofs and their refutations) no longer compile, the
+  library's record having gained `cut` (41a): the changelog says so. The
+  library's first-order development (42g: `Terms.v`,
+  `FirstOrderFormulas.v`, `FirstOrderCalculus.v`,
+  `FirstOrderIntuitionistic.v` join the trusted base) and every kind of
+  certificate 0.2.0 writes compile; its version is still 0.1.0, for 45a
+  and 45d to raise.
+- **The wire forms are at level 7** (quantifiers, witnesses, the
+  session's instances and undo marks), none released before 0.2.0.
+- **The manual** (44b): README a front page, the reference an mdBook
+  manual under `docs/`, built into the Pages site at `/linlog/manual/`
+  by the flake's `doc` package; a release's manual is its tag's `docs/`.
+  45d prepares both for 0.2.0; the benchmark chapter takes 45b's figures
+  and the fourth baseline's beside the old (the author, 2026-10-30).
+- **Benchmarks**: timed runs need no yes from the author, only
+  coordination with the other sessions through the planning session (the
+  author, 2026-10-30); the night baseline still waits for the night the
+  author gives. The latest target sets are `bench/targets/42k.csv` and
+  `net-42k.csv`. LinearOne is in the comparison at first order
+  (`bench/comparison/first-order/`). `chain-fo` above about 400 copies
+  ends at the recursion limit (a follow-up in `later.md`): 45b chooses
+  sizes that decide, or says where a family ends at a limit.
+- **Order of the sessions** (the planning session, 2026-10-31): 45b, the
+  growing families, runs first, since it needs nothing from 45a; 45a's
+  repository is created through `gh`, which asks the author, so 45a's
+  GitHub part waits for the author's presence while the rest of it is
+  prepared; 45c on the night the author gives; 45d after 45a and 45c;
+  45e after the author's tags.
+
 ## How the step runs
 
 Five sessions on Opus 5.5 at `high`, each with its goal in its launch
