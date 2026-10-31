@@ -1622,6 +1622,13 @@ first level offers no choice outside a rule that may ask for another
 answer would win it back. The pool's memory account counts the shared
 ground-term table once per engine, so a bound of a few hundred KiB can
 end a pool's search where one thread decides.
+Found at the review of 42k (2026-10-31): on a phone the goal's dock
+wraps its export button onto a second row (`first-order-cut` and
+`eigenvariable-refusal` screenshots, Pixel 7); the walk "every control
+is a target of 44 by 44" fails locally on one worker (a tour formula
+button of 39 px after Learn is turned off), as on the base since 41d,
+while the flake's e2e passes; `Error::Quantifiers` is raised nowhere
+now, for step 45 to retire.
 
 ## Follow-ups: the exports
 

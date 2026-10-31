@@ -4255,3 +4255,23 @@ client follows it (step 32).
   planning session: a first-order cut formula takes no new symbol, since
   a symbol added mid-session would change the signature under it. The
   client's part follows on `olvxtklw`.
+- 2026-10-31: review of session 42k's client part, first-order logic
+  on the page (Opus 5.5 at high, to 03:20, unattended; step 42 is done):
+  the client's lock on linlog `f0449491`; input with quantifiers and
+  terms and their reference; `∃R` and `∀L` opening a witness chooser (a
+  term, or "Leave open" for `$1`), `∀R` and `∃L` at once; the
+  eigenvariable condition, a bad witness and a cut's unknown symbol
+  refused in words; first-order derivations drawn; cut on `p(a)` under
+  `∀R`; Settings' "First-order search" (witness depth, instances,
+  terms); the replay comparing each quantifier step's term. Its
+  reviewer's findings: redo with stale eigenvariable letters and a
+  replay shifting positions (both held, fixed: steps name an
+  eigenvariable by its maker step's path), the witness chooser left
+  open (fixed); and the module's streaming compile aborted once in
+  twenty loads by a cache write failure (the worker loads it once more).
+  Checks: Vitest 534, the flake's e2e 120, its `nix flake check` exit 0.
+  Checked here: the diff, the lock's pin, the screenshots (the chooser,
+  the refusal on a phone, the proof of `∃y∀x ⊢ ∀x∃y`). Both parts
+  pushed, linlog's first. Follow-ups in `later.md`. Next: 43d, Learn's
+  lessons on cut and the quantifiers; its outline is the planning
+  session's to decide on the author's mandate of 2026-10-30.
