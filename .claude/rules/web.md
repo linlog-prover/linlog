@@ -224,6 +224,18 @@ for `THIRD-PARTY-NOTICES.txt`.
   of the occurrence alone would print an instance's open formula,
   `p(#0)`), and a cut's formula of the elimination calls an instance's
   text (`member_in`, `Proof::formula`).
+- **The view's `opened`** lists every closed quantifier step with the
+  term it took, as taken (`Interactive::opened_term` reads the table,
+  not the shown one: an open witness an axiom filled is still `null`),
+  because the page rebuilds each step from the session and replays: a
+  witness replayed as the term that filled it would make other members
+  than the open one did. Eigenvariables are numbered in the order the
+  `∀` steps are taken, so a replay that leaves one out renumbers the
+  later ones; the page maps a recorded witness's letters by the `∀`
+  inferences' entries here. The view's `forest` (a session with
+  quantifiers alone) lets the page read a member's occurrence off the
+  session's `instances`, since a replay renumbers the members past the
+  forest and only the occurrences stay.
 - **`hint` at first order** closes the goal in a clone of the session
   (`Interactive::close`, which takes a goal of instances through its
   written sequent; `Goal::new` refuses members past the forest) and

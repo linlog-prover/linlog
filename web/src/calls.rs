@@ -226,6 +226,48 @@ struct View {
     /// `null` when the sequent has proof nets, and otherwise the refusal
     /// that says why not, which the page shows at the greyed net view.
     net: Option<serde_json::Value>,
+    /// The session's closed quantifier steps, each its inference and the
+    /// term it opened its formula with as it took it: a `∀` step's
+    /// eigenvariable by its letter, a `∃` step's witness as given, `null`
+    /// for one left open: what a replay takes each step with. Left out
+    /// for a session without quantifiers.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    opened: Vec<OpenedWith>,
+    /// In a session with quantifiers, the forest's length: a member below
+    /// it is an occurrence, one past it the session's `instances.members`
+    /// entry of that offset, `[occurrence, frame]`; a replay renumbers
+    /// those, never an occurrence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    forest: Option<usize>,
+}
+
+/// A quantifier step of a session and the term it took.
+#[derive(Serialize)]
+struct OpenedWith {
+    /// The step's inference.
+    inference: GoalId,
+    /// The term, as text; `null` for a witness left open.
+    term: Option<String>,
+}
+
+/// Returns a session's closed quantifier steps with their terms.
+fn opened_with(state: &Interactive) -> Vec<OpenedWith> {
+    if !state.forest().has_binders() {
+        return Vec::new();
+    }
+    // As many inferences as the derivation has, numbered as a `u32` does.
+    (0..state.derivation_ids().len() as u32)
+        .map(GoalId::new)
+        .filter_map(|goal| {
+            let term = state.opened_term(goal)?;
+            // An open witness is written with a `$`, which no term holds.
+            let term = (!term.starts_with('$')).then_some(term);
+            Some(OpenedWith {
+                inference: goal,
+                term,
+            })
+        })
+        .collect()
 }
 
 impl View {
@@ -273,6 +315,8 @@ impl View {
             net: nets_exist(fragment, state.mode())
                 .err()
                 .and_then(|refusal| serde_json::to_value(Error::from(refusal)).ok()),
+            opened: opened_with(state),
+            forest: state.forest().has_binders().then(|| state.forest().len()),
         }
     }
 }

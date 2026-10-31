@@ -1151,6 +1151,24 @@ fn a_first_order_session_takes_the_quantifier_rules() {
     let answer = calls::apply(&session(&answer), goal, &step(0, "ax", None), "").unwrap();
     let state = session(&answer);
     assert_eq!(value(&answer)["view"]["complete"], true);
+    // Each quantifier step with its term as taken, the open one `null`
+    // though the axiom filled it.
+    let terms: Vec<Value> = value(&answer)["view"]["opened"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| o["term"].clone())
+        .collect();
+    assert_eq!(terms, [json!("a"), json!("b"), Value::Null, json!("a")]);
+    // A member past the forest reads its occurrence off the instances.
+    let (view, doc) = (&value(&answer)["view"], value(&state));
+    let forest = view["forest"].as_u64().unwrap();
+    let leaf = doc["inferences"].as_array().unwrap().last().unwrap()["sequent"][1]
+        .as_u64()
+        .unwrap();
+    assert!(leaf >= forest, "{doc}");
+    let occurrence = &doc["instances"]["members"][(leaf - forest) as usize][0];
+    assert!(occurrence.as_u64().unwrap() < forest, "{doc}");
     assert_eq!(value(&calls::proof(&state, "").unwrap())["version"], 7);
     // No text of the intuitionistic session is one-sided.
     let shown = calls::draw(&state, "").unwrap();

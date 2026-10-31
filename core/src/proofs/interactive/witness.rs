@@ -228,8 +228,10 @@ impl Interactive {
     }
 
     /// Returns the term a closed `∀` or `∃` step on `goal` opened its
-    /// formula with, as the session writes terms: an eigenvariable by its
-    /// letter, an open witness as `$1`, a bound one as what fills it; what
+    /// formula with, as the step took it and the session writes terms: a
+    /// `∀` step's eigenvariable by its letter, a `∃` step's witness given,
+    /// or `$1`, `$2`, … for one left open, whatever an axiom or the search
+    /// filled it with since. A given witness is what
     /// [`witness`](Self::witness) reads back to take the step again.
     /// `None` for a goal that no quantifier step closed.
     pub fn opened_term(&self, goal: GoalId) -> Option<String> {
@@ -241,10 +243,9 @@ impl Interactive {
             return None;
         }
         let q = self.fo.as_ref()?;
-        let (_, frame) = q.shown.instance(self.body(id)?)?;
-        let (_, term) = q.shown.frame_parts(frame);
+        let term = self.opened_with(id)?;
         let framing =
-            crate::occurrences::instances::Framing::new(&self.forest.sequent().fo, &q.shown);
+            crate::occurrences::instances::Framing::new(&self.forest.sequent().fo, &q.table);
         let mut text = String::new();
         framing
             .write_term(&mut text, term, &mut |out: &mut String, name: &str| {

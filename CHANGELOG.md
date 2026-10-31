@@ -539,9 +539,11 @@ second number (0.1.x to 0.2.0), anything else the third.
   a goal of instances closes it in a copy of the session and reads its
   first steps, with the witness the search chose where the session
   reads it; a goal formula's `reading` and an elimination's cut formula
-  write an instance with its terms; the tab's `limits.terms` is a
-  million, as its occurrences. `Interactive::opened_term` returns the
-  term a quantifier step opened its formula with. The SVG drawing of a
+  write an instance with its terms; the view's `opened` lists every
+  closed quantifier step with the term it took (`null` for a witness
+  left open), and `forest`, the forest's length; the tab's `limits.terms` is a million, as its
+  occurrences. `Interactive::opened_term` returns the term a quantifier
+  step opened its formula with, as it took it. The SVG drawing of a
   first-order session's two-sided derivation placed an instance by its
   member's number and panicked; it places it by its occurrence.
 
