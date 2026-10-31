@@ -641,5 +641,12 @@ later runs) and ran both tests. Its findings and the answers:
   0; a first run failed on the spell check, `typos`, for mdBook's own
   variable `--sidebar-non-existant`, now ignored by a pattern, and a
   made-up flag of a test, now a word) and again at the report's commit.
-- [ ] The client's About links the manual (after linlog's push).
+- [x] The client's About links the manual: `xpvoxxmk` (`0e1636ab`) on
+  the client's `main` `ooyvskyv`, after linlog's push; About's sentence
+  names the manual at `/linlog/manual/`, the About test pins the link,
+  and `.claude/rules/web.md` says `/linlog/` holds the manual too (the
+  service worker already leaves `/linlog/` to the network). The
+  client's input of linlog stays where it was, since the page only
+  links. Its `nix flake check` passed (Vitest 557, Playwright 124,
+  `all checks passed!`, exit 0).
 - [x] Nothing pushed by this session.
