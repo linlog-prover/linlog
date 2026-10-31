@@ -612,14 +612,16 @@ impl Interactive {
         inference.principal = None;
         inference.premises.clear();
         inference.cut = None;
-        if cut {
-            self.uncut();
-        }
         // The step's number, under which its bindings were trailed: fewer
         // steps than inferences, which an `InfId` numbers.
         let step = self.history.len() as u32;
         if let Some(q) = self.fo.as_mut() {
             q.undo(step);
+        }
+        // After the members a cut on an instance made are gone, so that no
+        // member left names the cut formula's trees.
+        if cut {
+            self.uncut();
         }
         self.show();
         Some(GoalId::of(goal))

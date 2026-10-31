@@ -202,6 +202,129 @@ impl Quantified {
             .retain(|_, t| t.get() < base || t.get() - base < mark.terms as u32);
     }
 
+    /// Moves the first-order part from `old` onto `new`, the session's
+    /// forest rebuilt with a cut formula added or taken back: `new`'s
+    /// occurrences are `old`'s and then the cut formulas', its arena holds
+    /// `old`'s terms (found again by what they are) and the cut formula's.
+    /// Every member past `old` moves past `new` (`shifted` maps a member
+    /// of the session), every term of the table is renumbered past `new`'s
+    /// arena, and the closed terms `new` adds are found where the table
+    /// has no equal one. The table's lengths stay, and so do the marks.
+    pub(super) fn rebase(&mut self, old: &Forest, new: &Forest) {
+        let (of, nf) = (&old.sequent().fo, &new.sequent().fo);
+        let symbol: HashMap<&str, Symbol> = nf
+            .symbols
+            .iter()
+            .enumerate()
+            // A sequent has fewer symbols than a `u32` numbers.
+            .map(|(i, (name, _))| (name.as_str(), Symbol::new(i as u32)))
+            .collect();
+        let symbol_of = |f: Symbol| symbol[of.symbols[f.index()].0.as_str()];
+        // The new arena's terms by what they are, to find the old ones.
+        let mut found: HashMap<(Option<Symbol>, u32, Vec<FoTermId>), FoTermId> = HashMap::default();
+        for (n, &term) in nf.terms.iter().enumerate() {
+            let key = match term {
+                FoTerm::Bound(i) => (None, i, Vec::new()),
+                FoTerm::App(f, args) => (Some(f), 0, nf.list(args).to_vec()),
+                FoTerm::Eigen(_) | FoTerm::Meta(_) => {
+                    unreachable!("a sequent's arena holds no eigenvariable or metavariable")
+                }
+            };
+            // The arena has fewer terms than a `u32` numbers.
+            found.entry(key).or_insert(FoTermId::new(n as u32));
+        }
+        // Each old term in the new arena, or `None` for one of a cut
+        // formula taken back, which the table no longer names.
+        let mut moved: Vec<Option<FoTermId>> = Vec::with_capacity(of.terms.len());
+        for &term in &of.terms {
+            let key = match term {
+                FoTerm::Bound(i) => Some((None, i, Vec::new())),
+                FoTerm::App(f, args) => {
+                    let args: Option<Vec<FoTermId>> =
+                        of.list(args).iter().map(|a| moved[a.index()]).collect();
+                    symbol
+                        .get(of.symbols[f.index()].0.as_str())
+                        .zip(args)
+                        .map(|(&f, args)| (Some(f), 0, args))
+                }
+                FoTerm::Eigen(_) | FoTerm::Meta(_) => {
+                    unreachable!("a sequent's arena holds no eigenvariable or metavariable")
+                }
+            };
+            moved.push(key.and_then(|key| found.get(&key).copied()));
+        }
+        let (old_base, new_base) = (self.table.base_terms, nf.terms.len() as u32);
+        let kept = |t: FoTermId| {
+            if t.get() < old_base {
+                moved[t.index()]
+            } else {
+                Some(FoTermId::new(t.get() - old_base + new_base))
+            }
+        };
+        let term = |t: FoTermId| kept(t).expect("the table names only terms both arenas hold");
+        let mut table = Instances::new(new);
+        for &t in &self.table.terms {
+            match t {
+                FoTerm::App(f, args) => {
+                    let items: Vec<FoTermId> = self
+                        .terms(old)
+                        .list(args)
+                        .iter()
+                        .map(|&a| term(a))
+                        .collect();
+                    table.apply(symbol_of(f), &items);
+                }
+                FoTerm::Eigen(_) | FoTerm::Meta(_) => {
+                    table.push_term(t);
+                }
+                FoTerm::Bound(_) => unreachable!("a table's term is closed"),
+            }
+        }
+        for &(parent, t) in &self.table.frames {
+            table.frame(parent, term(t));
+        }
+        for &(o, f) in &self.table.members {
+            table.member(o, f);
+        }
+        let (from, to) = (old.len() as u32, new.len() as u32);
+        for m in self.members.values_mut() {
+            *m = Member::new(m.get() - from + to);
+        }
+        self.frames = std::mem::take(&mut self.frames)
+            .into_iter()
+            .map(|((parent, t), f)| ((parent, term(t)), f))
+            .collect();
+        self.terms = std::mem::take(&mut self.terms)
+            .into_iter()
+            .filter_map(|(key, t)| {
+                let key = match key {
+                    Key::App(f, args) => Key::App(
+                        *symbol.get(of.symbols[f.index()].0.as_str())?,
+                        args.iter().map(|&a| kept(a)).collect::<Option<_>>()?,
+                    ),
+                    eigen @ Key::Eigen(_) => eigen,
+                };
+                Some((key, kept(t)?))
+            })
+            .collect();
+        let loose = nf.loose();
+        for (n, t) in nf.terms.iter().enumerate() {
+            if let FoTerm::App(f, args) = *t
+                && loose[n] == 0
+            {
+                self.terms
+                    .entry(Key::App(f, nf.list(args).into()))
+                    .or_insert(FoTermId::new(n as u32));
+            }
+        }
+        for meta in &mut self.metas {
+            meta.term = term(meta.term);
+            meta.bound = meta.bound.map(term);
+        }
+        self.table = table;
+        self.show(new);
+    }
+
     /// Records that the step numbered `step` made entries from `mark` on,
     /// for its undo.
     pub(super) fn made(&mut self, step: u32, mark: Mark) {
@@ -587,7 +710,12 @@ impl Quantified {
                         return Err(bad("a term's argument is not a closed term before it"));
                     }
                     let args: Vec<FoTermId> = args.iter().map(|&a| FoTermId::new(a)).collect();
-                    if q.terms.contains_key(&Key::App(f, args.clone().into())) {
+                    // A term may equal one of the sequent's, which a cut
+                    // brought into the arena after the term was made.
+                    if q.terms
+                        .get(&Key::App(f, args.clone().into()))
+                        .is_some_and(|t| t.get() >= q.table.base_terms)
+                    {
                         return Err(bad("a term repeats another"));
                     }
                     let t = q.table.apply(f, &args);

@@ -173,6 +173,48 @@ impl FirstOrder {
         self.atoms.is_empty() && self.binders.is_empty()
     }
 
+    /// Drops what no atom reaches, once the atoms and the binders are cut
+    /// back to a sequent's kept formulas: the terms, lists and symbols
+    /// past the last that a kept atom reaches (a cut formula joined to a
+    /// sequent brings its own after the sequent's), and every table where
+    /// no binder is left and every atom left is nullary, which the
+    /// tables' invariant asks.
+    #[cfg(feature = "interactive")]
+    pub(crate) fn trim(&mut self) {
+        let nullary = self
+            .atoms
+            .iter()
+            .all(|&(_, args)| self.list(args).is_empty());
+        if nullary && self.binders.is_empty() {
+            *self = Self::new();
+            return;
+        }
+        let (mut terms, mut lists, mut symbols) = (0, 0, 0);
+        for &(p, args) in &self.atoms {
+            symbols = symbols.max(p.index() + 1);
+            lists = lists.max(args.index() + 1);
+            for &t in self.list(args) {
+                terms = terms.max(t.index() + 1);
+            }
+        }
+        // A term's arguments come before it: the terms kept are a prefix.
+        for term in &self.terms[..terms] {
+            if let FoTerm::App(f, args) = *term {
+                symbols = symbols.max(f.index() + 1);
+                lists = lists.max(args.index() + 1);
+            }
+        }
+        self.terms.truncate(terms);
+        self.lists.truncate(lists);
+        let args = self
+            .lists
+            .iter()
+            .map(|&(start, len)| (start + len) as usize);
+        let args = args.max().unwrap_or(0);
+        self.args.truncate(args);
+        self.symbols.truncate(symbols);
+    }
+
     /// Returns the terms of the argument list `args`.
     pub(crate) fn list(&self, args: Args) -> &[FoTermId] {
         let (start, len) = self.lists[args.index()];

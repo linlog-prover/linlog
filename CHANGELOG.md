@@ -150,8 +150,22 @@ second number (0.1.x to 0.2.0), anything else the third.
   the eigenvariables made, the `bindings` in the order made and the
   `marks`, where the table stood before each step that made entries,
   so that `undo` in a session read back drops what its step made as it
-  does in the session written; all replayed and checked when read. A cut in such a session is refused
-  (`Error::Quantifiers`). The command's `interact` takes the witness
+  does in the session written; all replayed and checked when read. A cut
+  in such a session (`Interactive::cut`, the command's `cut`) takes a
+  formula of the sequent's symbols, quantifiers among them, and of the
+  eigenvariables in the goal's scope by their letters: a formula naming
+  eigenvariables is held as `∀`s around it and cut on its body's
+  instance under a frame of those eigenvariables, as the checker's cut
+  on an instance is. The members past the forest move past the cut
+  formula's trees and the table's terms past the larger arena, `undo`
+  moves them back, and a session without quantifiers gains them with
+  its cut formula's; `pop_cut` drops the first-order tables' entries
+  no formula left reaches. An eigenvariable out of the goal's scope is
+  refused with `StepError::Eigenvariable`, a symbol the sequent has not
+  or has with another arity or role with `StepError::CutSymbol` (a
+  symbol of another arity was renamed apart before).
+  `Interactive::formula_as_written` is `None` for an instance.
+  The command's `interact` takes the witness
   after `∃R`/`∀L` (`apply G P RULE [TERM]`) and `close` searches such a
   goal on one thread.
 - The classical two-sided view draws first-order derivations, with the

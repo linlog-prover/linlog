@@ -186,6 +186,14 @@ pub enum StepError {
         /// The eigenvariable, as the session writes it.
         name: String,
     },
+    /// A cut formula names a symbol that the sequent has with another
+    /// arity or role, or, in a session with quantifiers, one the sequent
+    /// has not and that is no eigenvariable's letter used as a term.
+    #[non_exhaustive]
+    CutSymbol {
+        /// The name, as written.
+        name: String,
+    },
 }
 
 impl Display for StepError {
@@ -244,6 +252,12 @@ impl Display for StepError {
                 f,
                 "the eigenvariable {name} cannot stand there: no ∀ step below this goal \
                  introduced it, or it is younger than the open witness it would fill"
+            ),
+            StepError::CutSymbol { name } => write!(
+                f,
+                "the cut formula names {name}, which the sequent has not with this arity and \
+                 role: a cut formula in a session with quantifiers holds the sequent's symbols \
+                 and the goal's eigenvariables only"
             ),
             StepError::Exchange { position } => write!(
                 f,
@@ -659,7 +673,8 @@ impl Interactive {
     pub fn formula_as_written(&self, member: Member) -> Option<impl Display + '_> {
         use crate::occurrences::written;
         let writing = self.writing.as_deref()?;
-        let o = member.occ();
+        // An instance has no record of its own.
+        let o = member.occurrence(&self.forest)?;
         Some(written::Shown {
             forest: &self.forest,
             writing,

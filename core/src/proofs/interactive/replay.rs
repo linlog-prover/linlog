@@ -125,11 +125,6 @@ impl Interactive {
                 });
             }
             if inference.rule.rule == Rule::Cut {
-                if state.fo.is_some() {
-                    return Err(Error::InconsistentSession {
-                        reason: "a session with quantifiers makes no cut",
-                    });
-                }
                 state.replay_cut(InfId::new(id as u32))?;
             } else {
                 state.replay(reading.as_ref(), InfId::new(id as u32))?;
@@ -188,7 +183,7 @@ impl Interactive {
             .chain(&history)
             .filter_map(|id| state.inferences[id.index()].cut);
         if !made
-            .map(Member::occ)
+            .map(|m| state.forest.root(state.occurrence(m)))
             .eq(state.forest.cut_pairs().map(|(a, _)| a))
         {
             return Err(Error::InconsistentSession {

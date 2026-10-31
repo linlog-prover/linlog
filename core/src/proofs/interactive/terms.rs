@@ -179,11 +179,10 @@ impl Terms<'_> {
                     PlusRight => [[Some(b()), None], [None; 2]],
                     With | Tensor => [[Some(a()), None], [Some(b()), None]],
                     Cut => {
-                        let a = inference.cut.expect("a cut names its formula").occ();
-                        [
-                            [Some(Member::from(a)), None],
-                            [f.dual(a).map(Member::from), None],
-                        ]
+                        let (a, dual) = state
+                            .cut_pair(inference.cut.expect("a cut names its formula"))
+                            .expect("a session's cut is on a cut formula or its instance");
+                        [[Some(a), None], [Some(dual), None]]
                     }
                     Open => unreachable!("no goal is open"),
                 };

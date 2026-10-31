@@ -320,6 +320,9 @@ impl Sequent {
         self.atoms.truncate(atoms);
         self.fo.atoms.truncate(atoms.min(self.fo.atoms.len()));
         self.fo.binders.retain(|&(t, _)| t.index() < end);
+        if !self.fo.is_empty() {
+            self.fo.trim();
+        }
     }
 
     /// A sequent of an arena built elsewhere in the crate: every term's

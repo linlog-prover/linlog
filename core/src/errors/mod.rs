@@ -351,7 +351,7 @@ pub enum Error {
     )]
     #[non_exhaustive]
     Quantifiers {
-        /// The entry reached, in words: `a cut in interactive proving`.
+        /// The entry reached, in words: `the checker`.
         what: &'static str,
     },
     /// A sequent searched in an ordered mode lies beyond unit-free MLL,

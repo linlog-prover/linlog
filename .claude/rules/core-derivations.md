@@ -694,9 +694,43 @@ code relies on:
   grafts, not the one-sided `Derivation::new`: the one-sided unfolding
   placed structural steps where the reader's one-succedent check
   refuses them, so a session `close` had grafted did not read back.
-- **A cut is refused in a first-order session** (`Error::Quantifiers`,
-  "a cut in interactive proving"): it rebuilds the forest, which would
-  renumber the members past it.
+- **A cut rebuilds the forest, so `Quantified::rebase` moves the table**
+  (`cut.rs`): the members past the forest move past the cut formula's
+  trees (every inference's sequent with them), the table's terms are
+  numbered past the larger arena (the join re-interns the sequent's
+  terms, so the old ones are found again by what they are, not by id),
+  and the arena's new closed terms are registered where the table has
+  no equal one; `uncut` moves them back, `pop_cut` trimming the
+  first-order tables to what the formulas left reach (`FirstOrder::trim`;
+  a stale symbol would have been renamed apart by the next join). The
+  marks count entries, so they stay. A table term
+  equal to a closed term a later cut brought into the arena is what a
+  live session holds, so the reader takes such a term
+  (`Quantified::from_parts`) and refuses only a table term repeating a
+  table term.
+- **A cut formula takes the sequent's symbols and the goal's
+  eigenvariables** in a session with quantifiers (`cut_symbols`): any
+  other new symbol is `StepError::CutSymbol`, since the eigenvariables'
+  letters are the names no symbol takes and a new symbol could take
+  one's. A nullary function symbol that is an eigenvariable's letter is
+  that eigenvariable, held to the goal's scope (`StepError::Eigenvariable`
+  otherwise, as for a witness). The sequent's cut formulas stay closed:
+  `CutFormula::bound` reads `forall a b. (A)` from the one-sided text
+  (every printer writes text that reads back), the records extended by
+  the binders' entries, and the cut is on the member of the body below
+  the `∀`s under the frame of the eigenvariables (`cut_pair` finds it and
+  its dual's member, the reader and the proof both use it); the
+  checker's cut on an instance brings the frame's eigenvariables into
+  its flow, so the condition holds as for a witness. The cut makes table
+  entries, so it takes a mark, and `undo` truncates them before
+  `uncut` drops the trees they name. Without the feature `parse` no
+  name is taken for an eigenvariable. A symbol of another arity or role
+  is refused in every first-order cut, where the join would rename it
+  apart. A session without quantifiers whose cut formula has one gains
+  its `Quantified` at the cut and loses it at its undo.
+- **The dual of a cut formula is the arena's equal term where it has
+  one** (`push_cuts`), with that term's bound names: a cut on `∀z. p(z)`
+  beside a hypothesis `∀x. p(x)` shows its second premise's `∀x. p(x)`.
 
 ## The invertible rules applied by themselves
 

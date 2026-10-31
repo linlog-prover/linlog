@@ -5,6 +5,7 @@
 //! joins the session's sequent as a cut formula with its dual, and the
 //! goal's two premises open as goals.
 
+use super::quantified::Quantified;
 use super::{GoalId, Interactive, StepError};
 use crate::Error;
 #[cfg(feature = "parse")]
@@ -104,6 +105,51 @@ impl CutFormula {
     pub fn sequent(&self) -> &Sequent {
         &self.formula
     }
+
+    /// Returns the formula with its constants `names` bound by a `∀`
+    /// each around it, the first outermost, its occurrences' records as
+    /// written with the binders' entries before them, which stand where
+    /// the formula does: read again from the one-sided text, which every
+    /// printer writes so that it reads back, a name that an inner binder
+    /// takes written apart.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Refused`] past `limits.occurrences`.
+    #[cfg(feature = "parse")]
+    fn bound(&self, names: &[&str], limits: &Limits) -> Result<Self, Error> {
+        let forest = Forest::within(&self.formula, &Limits::UNBOUNDED)?;
+        let text = format!(
+            "|- forall {}. ({})",
+            names.join(" "),
+            forest.formula(forest.roots()[0])
+        );
+        let formula = Sequent::parse_within(&text, limits)?;
+        // The binders come first, each written where the formula is.
+        let k = names.len();
+        let sides = self.sides.as_ref().map(|sides| {
+            let mut bound = vec![sides[0]; k];
+            bound.extend_from_slice(sides);
+            bound.into_boxed_slice()
+        });
+        let writing = self.writing.as_ref().map(|writing| {
+            let mut bound = vec![Written::new(writing[0].side(), false); k];
+            bound.extend_from_slice(writing);
+            bound.into_boxed_slice()
+        });
+        Ok(Self {
+            formula,
+            sides,
+            writing,
+        })
+    }
+
+    /// Returns the formula as it is: without a reader of text no name is
+    /// taken for an eigenvariable.
+    #[cfg(not(feature = "parse"))]
+    fn bound(&self, _: &[&str], _: &Limits) -> Result<Self, Error> {
+        Ok(self.clone())
+    }
 }
 
 impl From<IllSequent> for CutFormula {
@@ -159,7 +205,11 @@ impl Interactive {
     /// was written, `A` right of `⊢` and `A⊥` left of it, so that the
     /// two-sided views print them as written. [`undo`](Self::undo) takes
     /// the cut back, its formula with it. A cut is refused in an ordered
-    /// mode, whose dual turns a formula round.
+    /// mode, whose dual turns a formula round. In a session with
+    /// quantifiers `A` is a closed formula of the sequent's symbols, which
+    /// may have quantifiers of its own, and the goals' instances keep
+    /// their terms and eigenvariables; a cut formula with a quantifier
+    /// makes a session without one a session with quantifiers.
     ///
     /// # Errors
     ///
@@ -168,7 +218,10 @@ impl Interactive {
     /// for a position past the goal or named twice, and
     /// [`StepError::Succedents`] in intuitionistic mode where a premise
     /// would not have one goal (the formulas going left must all be
-    /// hypotheses); [`Error::CutFormula`] for a formula of another number
+    /// hypotheses), [`StepError::CutSymbol`] for a cut formula naming a
+    /// symbol the sequent has with another arity or role, or in a session
+    /// with quantifiers one it has not (an eigenvariable's letter among
+    /// them); [`Error::CutFormula`] for a formula of another number
     /// of formulas than one; [`Error::NotIntuitionistic`] in
     /// intuitionistic mode for a one-sided formula that cannot be a goal;
     /// [`Error::Refused`] when the sequent with the cut formula has more
@@ -180,14 +233,7 @@ impl Interactive {
         left: &[usize],
         limits: &Limits,
     ) -> Result<[GoalId; 2], Error> {
-        let sequent = self.open(goal)?;
-        // A cut rebuilds the forest, which would number a first-order
-        // session's instances anew.
-        if formula.formula.fragment().has_quantifiers() || self.fo.is_some() {
-            return Err(Error::Quantifiers {
-                what: "a cut in interactive proving",
-            });
-        }
+        let sequent = self.goal(goal)?.to_vec();
         if self.mode.is_ordered() {
             return Err(StepError::Mode {
                 rule: Rule::Cut.into(),
@@ -201,6 +247,22 @@ impl Interactive {
                 return Err(StepError::Split { position: p }.into());
             }
         }
+        let named = if self.forest.sequent().is_first_order() || formula.formula.is_first_order() {
+            self.cut_symbols(goal, &formula.formula)?
+        } else {
+            Vec::new()
+        };
+        // A cut formula naming eigenvariables is held closed, bound by a
+        // `∀` per eigenvariable, and cut on its body's instance.
+        let bound;
+        let formula = if named.is_empty() {
+            formula
+        } else {
+            let names: Vec<&str> = named.iter().map(|(name, _)| name.as_str()).collect();
+            bound = formula.bound(&names, limits)?;
+            &bound
+        };
+        let depth = named.len() as u32;
         let mut extended = self.forest.sequent().clone();
         extended.add_cut(formula.formula.clone())?;
         let forest = Forest::within(&extended, limits)?;
@@ -255,18 +317,98 @@ impl Interactive {
             }),
         };
         debug_assert_eq!(forest.len(), self.forest.len() + 2 * size);
+        // The members past the forest move past the cut formulas' trees.
+        let (from, to) = (self.forest.len() as u32, forest.len() as u32);
+        let shift = |m: Member| {
+            if m.get() < from {
+                m
+            } else {
+                Member::new(m.get() - from + to)
+            }
+        };
         let premises = {
             let positions = reading.as_ref().map(|(p, _)| &**p);
-            cut_premises(positions, &sequent, a, dual, &used)?
+            let shifted: Vec<Member> = sequent.iter().map(|&m| shift(m)).collect();
+            // An occurrence of the new forest, the cut formulas' among
+            // them, or a member moved past it.
+            let occurrence = |m: Member| {
+                if m.get() < to {
+                    m.occ()
+                } else {
+                    self.occurrence(Member::new(m.get() - to + from))
+                }
+            };
+            // The bodies' occurrences stand for their instances here.
+            cut_premises(
+                positions,
+                &shifted,
+                occurrence,
+                Member::new(a.get() + depth),
+                Member::new(dual.get() + depth),
+                &used,
+            )?
         };
+        // The bodies' occurrences and the instances the cut is on.
+        let mut instances: Vec<(Member, Member)> = Vec::new();
+        match self.fo.as_mut() {
+            Some(q) => {
+                let mark = q.mark();
+                q.rebase(&self.forest, &forest);
+                for inference in &mut self.inferences {
+                    for m in &mut inference.sequent {
+                        *m = shift(*m);
+                    }
+                }
+                if !named.is_empty() {
+                    let mut frame = None;
+                    for &(_, e) in &named {
+                        let t = q.eigen_term(e);
+                        frame = Some(q.frame(frame, t));
+                    }
+                    for o in [a, dual] {
+                        let o = OccId::new(o.get() + depth);
+                        instances.push((Member::from(o), q.member(o, frame)));
+                    }
+                    // Fewer steps than inferences, which an `InfId` numbers.
+                    q.made(self.history.len() as u32, mark);
+                }
+            }
+            // A cut formula with a quantifier makes the session one with
+            // quantifiers; it had no member past its forest.
+            None if forest.has_binders() => {
+                let mut q = Quantified::new(&forest);
+                q.limit = limits.terms;
+                self.fo = Some(Box::new(q));
+            }
+            None => {}
+        }
         self.forest = forest;
         self.reading = reading;
         self.writing = writing;
+        let premises = premises.map(|premise| {
+            let mut premise = premise.into_members();
+            if !instances.is_empty() {
+                for m in &mut premise {
+                    if let Some(&(_, instance)) = instances.iter().find(|(o, _)| o == m) {
+                        *m = instance;
+                    }
+                }
+                premise.sort_unstable();
+            }
+            premise
+        });
+        let cut = match instances.first() {
+            Some(&(_, instance)) => {
+                self.show();
+                instance
+            }
+            None => Member::from(a),
+        };
         let base = self.inferences.len() as u32;
         let ids = [InfId::new(base), InfId::new(base + 1)];
         for premise in premises {
             self.inferences.push(Inference {
-                sequent: premise.into_members(),
+                sequent: premise,
                 rule: Rule::Open.into(),
                 principal: None,
                 premises: vec![],
@@ -279,9 +421,90 @@ impl Interactive {
         inference.rule = Rule::Cut.into();
         inference.principal = None;
         inference.premises = ids.to_vec();
-        inference.cut = Some(Member::from(a));
+        inference.cut = Some(cut);
         self.history.push(goal.inf());
         Ok(ids.map(GoalId::of))
+    }
+
+    /// Returns the member a cut names and its dual's: a cut formula's root
+    /// and its dual's, or, for a cut on an instance, the member of the body
+    /// below a cut formula's `∀`s under a frame of as many terms and the
+    /// member of the dual's body under the same frame; `None` for any other
+    /// member.
+    pub(super) fn cut_pair(&self, cut: Member) -> Option<(Member, Member)> {
+        let (o, frame) = match &self.fo {
+            Some(q) => q.instance(cut),
+            None => (cut.occurrence(&self.forest)?, None),
+        };
+        let root = self.forest.root(o);
+        let (_, dual) = self.forest.cut_pairs().find(|&(a, _)| a == root)?;
+        let Some(frame) = frame else {
+            return (o == root).then_some((cut, Member::from(dual)));
+        };
+        let q = self.fo.as_ref()?;
+        // A frame is as long as its occurrence's binders.
+        let depth = q.frame_terms(Some(frame)).len() as u32;
+        let binders = (root.get()..root.get() + depth)
+            .all(|b| self.forest.kind(OccId::new(b)) == crate::sequents::Kind::Forall);
+        (o.get() == root.get() + depth && binders)
+            .then(|| q.find(OccId::new(dual.get() + depth), Some(frame)))
+            .flatten()
+            .map(|d| (cut, d))
+    }
+
+    /// Returns the eigenvariables a cut formula on `goal` names, by the
+    /// letters the session writes them with, each with its name, in the
+    /// order of the formula's symbols. Refuses one the goal is not in the
+    /// scope of, as a witness's; a symbol the sequent has with another
+    /// arity or role, which joining the two would rename apart; and in a
+    /// session with quantifiers any other symbol the sequent has not: the
+    /// eigenvariables take the letters no symbol takes, so a new symbol
+    /// could take one's letter.
+    fn cut_symbols(
+        &self,
+        goal: GoalId,
+        formula: &Sequent,
+    ) -> Result<Vec<(String, crate::sequents::Eigen)>, StepError> {
+        let ours: crate::hash::HashMap<&str, (u32, bool)> =
+            symbol_roles(self.forest.sequent()).into_iter().collect();
+        // An eigenvariable's letter reads as a constant: a nullary symbol
+        // that is no predicate. The text is read without the session, so
+        // only a reader of text has the letters.
+        let letters: crate::hash::HashMap<String, crate::sequents::Eigen> = match &self.fo {
+            Some(q) if cfg!(feature = "parse") => crate::occurrences::instances::eigen_names(
+                &self.forest.sequent().fo,
+                &q.shown.eigenvariables(),
+            )
+            .into_iter()
+            .map(|(e, name)| (name, e))
+            .collect(),
+            _ => crate::hash::HashMap::default(),
+        };
+        let scope = if letters.is_empty() {
+            Vec::new()
+        } else {
+            self.scope(goal.inf())
+        };
+        let mut named = Vec::new();
+        for (name, role) in symbol_roles(formula) {
+            let known = ours.get(name);
+            if known.is_none()
+                && role == (0, false)
+                && let Some(&e) = letters.get(name)
+            {
+                if !scope.contains(&e) {
+                    return Err(StepError::Eigenvariable {
+                        name: name.to_owned(),
+                    });
+                }
+                named.push((name.to_owned(), e));
+            } else if known.is_some_and(|&r| r != role) || (known.is_none() && self.fo.is_some()) {
+                return Err(StepError::CutSymbol {
+                    name: name.to_owned(),
+                });
+            }
+        }
+        Ok(named)
     }
 
     /// Takes back the cut formula of the cut that [`undo`](Self::undo)
@@ -291,7 +514,24 @@ impl Interactive {
         let mut sequent = self.forest.sequent().clone();
         sequent.pop_cut();
         // A forest of fewer occurrences than the one it had.
-        self.forest = Forest::within(&sequent, &Limits::UNBOUNDED).expect("a smaller forest");
+        let forest = Forest::within(&sequent, &Limits::UNBOUNDED).expect("a smaller forest");
+        if !forest.has_binders() {
+            self.fo = None;
+        }
+        if let Some(q) = self.fo.as_mut() {
+            q.rebase(&self.forest, &forest);
+            // The members past the forest move back over the cut formula's
+            // trees, which no inference left names.
+            let (from, to) = (self.forest.len() as u32, forest.len() as u32);
+            for inference in &mut self.inferences {
+                for m in &mut inference.sequent {
+                    if m.get() >= from {
+                        *m = Member::new(m.get() - from + to);
+                    }
+                }
+            }
+        }
+        self.forest = forest;
         let len = self.forest.len();
         if let Some((positions, goal)) = &mut self.reading {
             *positions = positions[..len].into();
@@ -309,25 +549,35 @@ impl Interactive {
     pub(super) fn replay_cut(&self, id: InfId) -> Result<(), Error> {
         let inconsistent = |reason| Error::InconsistentSession { reason };
         let inference = &self.inferences[id.index()];
-        let sequent: Vec<OccId> = inference.sequent.iter().map(|m| m.occ()).collect();
-        let Some(a) = inference.cut.and_then(|a| a.occurrence(&self.forest)) else {
-            return Err(inconsistent("a cut names no occurrence of the sequent"));
+        let sequent = &inference.sequent;
+        let Some((a, dual)) = inference.cut.and_then(|a| self.cut_pair(a)) else {
+            return Err(inconsistent(
+                "a cut names no cut formula, nor the instance of one's body that a session cuts on",
+            ));
         };
-        let Some((a, dual)) = self.forest.cut_pairs().find(|&(root, _)| root == a) else {
-            return Err(inconsistent("a cut names no cut formula"));
-        };
+        // A cut on an instance holds the goal's eigenvariables, as a
+        // given witness does.
+        if let Some(q) = self.fo.as_ref()
+            && let (_, Some(frame)) = q.instance(a)
+        {
+            let scope = self.scope(id);
+            let terms = q.terms(&self.forest);
+            let held = q.frame_terms(Some(frame)).into_iter().all(|t| {
+                matches!(terms.term(t), crate::sequents::FoTerm::Eigen(e) if scope.contains(&e))
+            });
+            if !held {
+                return Err(inconsistent(
+                    "a cut's instance holds a term that is no eigenvariable in its goal's scope",
+                ));
+            }
+        }
         if self.mode.is_ordered() {
             return Err(inconsistent("an ordered mode has no cut"));
         }
         let &[first, _] = inference.premises.as_slice() else {
             return Err(inconsistent("a cut has two premises"));
         };
-        let mut context = Multiset::of(
-            self.inferences[first.index()]
-                .sequent
-                .iter()
-                .map(|m| m.occ()),
-        );
+        let mut context = Multiset::of(self.inferences[first.index()].sequent.iter().copied());
         if !context.remove(a) {
             return Err(inconsistent("a cut's first premise lacks its cut formula"));
         }
@@ -348,12 +598,11 @@ impl Interactive {
             at += 1;
         }
         let positions = self.reading.as_ref().map(|(p, _)| &**p);
-        let expected = cut_premises(positions, &sequent, a, dual, &used)?;
+        let expected = cut_premises(positions, sequent, |m| self.occurrence(m), a, dual, &used)?;
         let same = expected.iter().zip(&inference.premises).all(|(e, p)| {
             e.as_slice()
                 .iter()
                 .copied()
-                .map(Member::from)
                 .eq(self.inferences[p.index()].sequent.iter().copied())
         });
         if same {
@@ -366,16 +615,42 @@ impl Interactive {
     }
 }
 
+/// Returns every symbol of a sequent in the order of its table, with its
+/// arity and whether it is a predicate: of a sequent without first-order
+/// terms, its atoms as nullary predicates.
+fn symbol_roles(sequent: &Sequent) -> Vec<(&str, (u32, bool))> {
+    let fo = &sequent.fo;
+    let mut roles: Vec<(&str, (u32, bool))> = fo
+        .symbols
+        .iter()
+        .map(|(name, arity)| (name.as_str(), (*arity, false)))
+        .collect();
+    for &(p, _) in &fo.atoms {
+        roles[p.index()].1.1 = true;
+    }
+    if fo.atoms.is_empty() {
+        roles.extend(
+            sequent
+                .atom_names()
+                .iter()
+                .map(|name| (name.as_str(), (0, true))),
+        );
+    }
+    roles
+}
+
 /// Returns the premises of a cut on `a`, whose dual is `dual`, of the goal
 /// `sequent`, the formulas marked in `left` going to the first: in
-/// intuitionistic mode, under `positions`, each with one goal.
+/// intuitionistic mode, under `positions` of each member's occurrence,
+/// each with one goal.
 fn cut_premises(
     positions: Option<&[Side]>,
-    sequent: &[OccId],
-    a: OccId,
-    dual: OccId,
+    sequent: &[Member],
+    occurrence: impl Fn(Member) -> OccId,
+    a: Member,
+    dual: Member,
     left: &[bool],
-) -> Result<[Multiset; 2], StepError> {
+) -> Result<[Multiset<Member>; 2], StepError> {
     let (mut first, mut second) = (Multiset::new(), Multiset::new());
     for (&o, &goes_left) in sequent.iter().zip(left) {
         if goes_left {
@@ -391,7 +666,7 @@ fn cut_premises(
             let outputs = premise
                 .as_slice()
                 .iter()
-                .filter(|o| positions[o.index()] == Side::Output)
+                .filter(|&&m| positions[occurrence(m).index()] == Side::Output)
                 .count();
             if outputs != 1 {
                 return Err(StepError::Succedents { count: outputs });

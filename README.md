@@ -1695,6 +1695,35 @@ provable (IMLL1, intuitionistic, two-sided engine)
 ∃y. (∀x. r(x, y)) ⊢ ∀x. (∃y. r(x, y))
 ```
 
+A cut in such a session takes a formula of the sequent's symbols,
+quantifiers among them, and of the eigenvariables of the `∀R` and `∃L`
+steps below the goal, as a witness does: a cut on `p(a)` is the lemma
+about the `a` at hand, held as the instance of `∀a. p(a)`'s body.
+`cut` refuses a name the sequent lacks or has with another arity, and
+an eigenvariable of another branch, by name:
+
+```console
+$ printf 'apply 0 2 forallR\ncut 1 "r(a)" 1\ncut 1 "p(a)" 1\nclose\nproof\n' | linlog interact -i "forall x. (p(x) -o q(x)), forall x. p(x) |- forall y. q(y)"
+opened goal 1: 0: ∀x. (p(x) ⊸ q(x)), 1: ∀x. p(x) ⊢ 2: q(a)
+error: the cut formula names r, which the sequent has not with this arity and role: a cut formula in a session with quantifiers holds the sequent's symbols and the goal's eigenvariables only
+opened goal 2: 0: ∀x. p(x) ⊢ 1: p(a)
+opened goal 3: 0: ∀x. (p(x) ⊸ q(x)), 2: p(a) ⊢ 1: q(a)
+goal 2: provable (IMLL1, intuitionistic, two-sided engine)
+goal 3: provable (IMLL1, intuitionistic, two-sided engine)
+no goal is open: `proof` checks the proof
+valid proof (intuitionistic)
+                      ─────────── ax   ─────────── ax
+                      p(a) ⊢ p(a)      q(a) ⊢ q(a)
+  ─────────── ax      ──────────────────────────── ⊸L
+  p(a) ⊢ p(a)           p(a), p(a) ⊸ q(a) ⊢ q(a)
+─────────────── ∀L   ────────────────────────────── ∀L
+∀x. p(x) ⊢ p(a)      ∀x. (p(x) ⊸ q(x)), p(a) ⊢ q(a)
+─────────────────────────────────────────────────── cut
+        ∀x. (p(x) ⊸ q(x)), ∀x. p(x) ⊢ q(a)
+      ────────────────────────────────────── ∀R
+      ∀x. (p(x) ⊸ q(x)), ∀x. p(x) ⊢ ∀y. q(y)
+```
+
 Without exponentials the search decides every sequent, as MLL1 and
 MALL1 are decidable. The counts carry over: a predicate one of whose
 atoms has a bound variable is counted over all its atoms, since an
@@ -1769,8 +1798,9 @@ takes an eigenvariable made after it, which would stand in the
 conclusion of its own step: the eigenvariable condition, which `apply`
 reports by the eigenvariable's name. `undo` of the step that filled a
 witness leaves it open again, and `save` keeps the witnesses and what
-fills them (the session's JSON at wire level 7, its `instances`). A
-session of a sequent with a quantifier makes no cut:
+fills them (the session's JSON at wire level 7, its `instances`, with
+each step's mark, so that `undo` in a session resumed from its file
+drops what the step made, as in the session saved):
 
 ```console
 $ linlog interact -i "exists y. forall x. r(x, y) |- forall x. exists y. r(x, y)"

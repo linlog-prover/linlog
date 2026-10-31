@@ -547,7 +547,14 @@ unification, or `close` by the search. An open witness never takes an
 eigenvariable made after it (`error: the eigenvariable b cannot stand
 there: …`, the eigenvariable condition); `undo` of the step that filled
 it opens it again; `save` keeps it (the session's `instances`, wire
-level 7). Such a session takes no `cut`.
+level 7, with each step's mark, so `undo` after `--state` drops what
+the step made). Such a session's `cut` takes a formula of the
+sequent's symbols, quantifiers among them, and of the eigenvariables of
+the `∀R`/`∃L` steps below the goal (`cut 1 "p(a)" 1` after `∀R` made
+`a`: the instance of `∀a. p(a)`'s body); it refuses a name the sequent
+lacks or has with another arity (`error: the cut formula names r, …`)
+and an eigenvariable of another branch (`error: the eigenvariable a
+cannot stand there: …`).
 
 ```console
 $ printf 'apply 0 0 forallL\napply 1 1 ax\nproof\n' | linlog interact -i "forall x. p(x) |- p(f(a))"
