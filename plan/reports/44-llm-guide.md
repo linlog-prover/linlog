@@ -419,7 +419,7 @@ cut, brings cut into the guide under this rule.
 
 ### Outcome
 
-README is a front page of 149 lines (what linlog is, install, a first
+README is a front page of 148 lines (what linlog is, install, a first
 proof and a refutation, where to go next: the manual, the web page, the
 guide for AI models, the API documentation and the changelog; citing;
 licence), and the reference is an mdBook manual under `docs/`, built by
@@ -620,7 +620,7 @@ later runs) and ran both tests. Its findings and the answers:
 
 ### Checklist
 
-- [x] README a front page of about 150 lines (149).
+- [x] README a front page of about 150 lines (148).
 - [x] The manual under `docs/` (mdBook 0.5.4 through `new-tool`), a
   chapter per area, README's sections moved whole, the page's violet
   and logo in both schemes.
