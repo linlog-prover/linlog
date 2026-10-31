@@ -4288,3 +4288,25 @@ client follows it (step 32).
   eigenvariable condition refuses. Added: the cut lesson's practice
   asks for the cut and shows both inference counts; every hinge option's
   verdict checked in the mode the page shows.
+- 2026-10-31: review of session 43d, Learn's lessons on cut and the
+  quantifiers (Opus 5.5 at high, 02:55 to 04:40, unattended; step 43
+  is done): lesson 9, cut and its elimination (`!(A ⊸ B), !(B ⊸ C), !A
+  ⊢ C ⊗ C`, 16 inferences with the cut on `!C`, 20 cut-free; "Eliminate
+  the cut" stepped on the derivation and on the net, each case's reason
+  under its step; the practice asking for the cut and counting both
+  proofs); lesson 10, the quantifiers (`∃y. ∀x. r(x, y) ⊢ ∀x. ∃y. r(x,
+  y)` worked, the converse's refused axiom as the erroneous example with
+  a prediction before it); ordinary logic renumbered 11; eight rule
+  schemas from the Handbook's tables 1.4 and 1.5 on Learn's hover; the
+  store at 452 problems (16 new, a category Quantifiers in Practice),
+  every one decided by the command, the provable ones with a session
+  `proof` accepts. Its reviewer: the faded cut proof never asked for the
+  cut (fixed). The store's checks compare a session with cuts by its
+  conclusion, the cut formulas left out (a planted wrong session still
+  fails): judged here not a loosening, since a cut adds formulas to the
+  session's sequent. Checked here: the diff's size, two screenshots (the
+  refused axiom with its reason; the elimination's contraction step on
+  the derivation), the client's flake check (Vitest 557, Playwright
+  124) by its message. Pushed, linlog's report first. Departure, decided
+  on the author's mandate: D60's numbering (two lessons inserted).
+  Next: 44b, the manual.
